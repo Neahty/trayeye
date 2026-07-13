@@ -1,0 +1,23 @@
+name: Deploy to Ubuntu
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}   # можно запускать вручную из вкладки Actions
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false   # деплои не наезжают друг на друга
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: bash /opt/bytwise/deploy/deploy.sh

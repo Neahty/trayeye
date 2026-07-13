@@ -1,0 +1,4 @@
+# Скрипты для сервера всегда с Unix-переносами строк (LF),
+# иначе bash на Ubuntu ругается на \r.
+*.sh   text eol=lf
+deploy/deploy.sh text eol=lf

@@ -1,0 +1,21 @@
+[Unit]
+Description=Bytwise — бот техподдержки
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=bytwise
+Group=bytwise
+WorkingDirectory=/opt/bytwise/support
+# .env этот бот подгружает из support/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=5
+# Логи смотреть: journalctl -u bytwise-support -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
