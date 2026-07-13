@@ -1,0 +1,19 @@
+shekspireteam.ru {
+    handle /api/* {
+        reverse_proxy localhost:4000
+    }
+    # Загруженные фото (аватары, блюда) раздаёт API
+    handle /uploads/* {
+        reverse_proxy localhost:4000
+    }
+    handle_path /admin/* {
+        root * C:\Users\Admin\Desktop\Bytwise\admin\dist
+        file_server
+        try_files {path} /index.html
+    }
+    handle {
+        root * C:\Users\Admin\Desktop\Bytwise\client\dist
+        file_server
+        try_files {path} /index.html
+    }
+}

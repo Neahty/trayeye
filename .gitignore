@@ -1,0 +1,19 @@
+node_modules
+dist
+build
+coverage
+.cache/
+.env
+.env.local
+.env.*.local
+.pgsuper
+uploads/
+*.log
+.DS_Store
+.vscode
+.idea
+.vercel
+
+# Claude
+.claude/
+claude/
