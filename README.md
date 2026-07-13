@@ -532,3 +532,9 @@ Windows, домен `shekspireteam.ru`. Каталог проекта: `C:\Users
 ---
 
 📜 Полная история правок — в **[CHANGELOG.md](CHANGELOG.md)**.
+
+---
+
+## Деплой
+
+Проект развёрнут на Ubuntu-сервере с авто-деплоем. Любой `git push` в `master` автоматически обновляет сервер. Подробности — в [deploy/README.md](deploy/README.md).
