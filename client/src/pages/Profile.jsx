@@ -110,6 +110,11 @@ export default function ProfilePage() {
   const [links, setLinks] = useState(null);
   useEffect(() => { Settings.public().then((d) => setLinks(d.support_links)).catch(() => {}); }, []);
 
+  // Экран редактирования профиля (имя, фото, «Мои данные», «Норма КБЖУ») — отдельный
+  // подэкран, открывается кнопкой «Изм.». Основной экран остаётся чистым.
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
+
   const u = profile?.user || {};
   const sub = profile?.subscription;
   const trial = profile?.trial;
@@ -143,8 +148,6 @@ export default function ProfilePage() {
     if (msg) ui.toast(msg, "check");
   };
 
-  const editName = () => ui.sheet({ type: "text", title: "Имя", value: u.name || "", placeholder: "Ваше имя",
-    onSave: (v) => v.trim() && update({ name: v.trim() }, "Имя обновлено") });
   const editGender = () => ui.sheet({ type: "options", title: "Пол", value: u.gender, options: GENDERS,
     onPick: (v) => update({ gender: v }, "Сохранено") });
   const editAge = () => ui.sheet({ type: "stepper", title: "Возраст", value: u.age || 25, min: 10, max: 99, unit: "лет",
@@ -213,24 +216,88 @@ export default function ProfilePage() {
     : myTrainer ? "Доступ от тренера"
     : "Бесплатный доступ";
 
+  // --- переходы между основным экраном и редактированием ---
+  const openEdit = () => { setDraftName(u.name || ""); setEditing(true); };
+  const cancelEdit = () => setEditing(false);
+  const doneEdit = async () => {
+    const nm = draftName.trim();
+    if (nm && nm !== (u.name || "")) {
+      try { await update({ name: nm }, "Профиль обновлён"); }
+      catch { ui.toast("Не удалось сохранить имя"); }
+    }
+    setEditing(false);
+  };
+
+  // ===================== ЭКРАН РЕДАКТИРОВАНИЯ =====================
+  if (editing) {
+    return (
+      <div className="screen fade-in">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <button className="tap" onClick={cancelEdit} style={{ color: "var(--text-2)", fontWeight: 700, fontSize: 16.5, padding: "8px 4px" }}>Отмена</button>
+          <button className="tap" onClick={doneEdit} style={{ color: "var(--primary)", fontWeight: 800, fontSize: 16.5, padding: "8px 4px" }}>Готово</button>
+        </div>
+
+        {/* аватар + выбор фото */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 6 }}>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onAvatar(f); }} />
+          <div className="photo-slot" style={{ width: 96, height: 96, borderRadius: "50%" }}>
+            {avatarSrc ? <img src={avatarSrc} alt="" /> : <Ic name="user" size={42} sw={1.6} style={{ color: "var(--text-3)" }} />}
+          </div>
+          <button className="tap" onClick={() => fileRef.current?.click()}
+            style={{ color: "var(--primary)", fontWeight: 700, fontSize: 15.5, marginTop: 12 }}>Выбрать фотографию</button>
+        </div>
+
+        {/* имя */}
+        <input className="sheet-input" value={draftName} placeholder="Ваше имя"
+          onChange={(e) => setDraftName(e.target.value)} style={{ marginTop: 18 }} />
+
+        {/* мои данные */}
+        <SectionCard title="Мои данные">
+          <ListRow icon="user" label="Пол" value={u.gender ? (u.gender === "male" ? "Мужской" : "Женский") : "—"} onClick={editGender} />
+          <ListRow icon="calendar" label="Возраст" value={u.age ? u.age + " лет" : "—"} onClick={editAge} />
+          <ListRow icon="ruler" label="Рост" value={u.height ? u.height + " " + uH : "—"} onClick={editHeight} />
+          <ListRow icon="weight" label="Вес" value={u.weight ? Math.round(Number(u.weight)) + " " + uW : "—"} onClick={editWeight} />
+          <ListRow icon="target" label="Целевой вес" value={u.target_weight ? Math.round(Number(u.target_weight)) + " " + uW : "—"} onClick={editTarget} />
+          <ListRow icon="target" label="Активность"
+            value={`${Number(u.workouts_per_week) || 0} трен/нед · ${ACTIVITY_LABEL[u.activity] || "—"}`} onClick={editWorkouts} />
+          <ListRow icon="flame" label="Цель" value={GOAL_LABEL[u.goal] || "—"} last />
+        </SectionCard>
+        <div style={{ color: "var(--text-2)", fontSize: 12.5, margin: "8px 6px 0", lineHeight: 1.4 }}>
+          Цель (похудение/поддержание/набор) определяется автоматически по целевому весу.
+        </div>
+
+        {/* норма КБЖУ */}
+        <SectionCard title="Норма КБЖУ">
+          <ListRow icon="flame" label="Дневная норма"
+            value={u.daily_calories ? `${u.daily_calories} ккал${u.goals_set_manually ? " · вручную" : ""}` : "—"}
+            onClick={editGoals} last />
+        </SectionCard>
+        <div style={{ color: "var(--text-2)", fontSize: 13, margin: "10px 6px 0", lineHeight: 1.45 }}>
+          Норма пересчитывается автоматически при изменении веса, активности и цели — либо задаётся вручную.
+        </div>
+      </div>
+    );
+  }
+
+  // ===================== ОСНОВНОЙ ЭКРАН =====================
   return (
     <div className="screen fade-in">
       <h1 className="h-title" style={{ marginBottom: 16 }}>Профиль</h1>
 
       {/* user card */}
-      <div className="card" style={{ width: "100%", padding: 16, display: "flex", alignItems: "center", gap: 16 }}>
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onAvatar(f); }} />
-        <button className="tap" onClick={() => fileRef.current?.click()} style={{ flex: "0 0 72px" }}>
-          <div className="photo-slot" style={{ width: 72, height: 72, borderRadius: "50%" }}>
-            {avatarSrc ? <img src={avatarSrc} alt="" /> : <Ic name="user" size={34} sw={1.6} style={{ color: "var(--text-3)" }} />}
-          </div>
-        </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <button className="tap" onClick={editName} style={{ fontSize: 21, fontWeight: 800, textAlign: "left" }}>{u.name || "Без имени"}</button>
-          <div style={{ color: "var(--text-2)", fontSize: 15.5, marginTop: 2, textAlign: "left" }}>{tgUsername ? `@${tgUsername}` : "—"}</div>
+      <div className="card" style={{ width: "100%", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
+        <div className="photo-slot" style={{ width: 72, height: 72, borderRadius: "50%", flex: "0 0 72px" }}>
+          {avatarSrc ? <img src={avatarSrc} alt="" /> : <Ic name="user" size={34} sw={1.6} style={{ color: "var(--text-3)" }} />}
         </div>
-        {isPro && <span className="pill-pro" style={{ fontSize: 12.5, padding: "4px 11px" }}>{subBadge(sub?.type)}</span>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 21, fontWeight: 800, letterSpacing: "-.3px" }}>{u.name || "Без имени"}</span>
+            {isPro && <span className="pill-pro" style={{ fontSize: 11.5, padding: "3px 9px" }}>{subBadge(sub?.type)}</span>}
+          </div>
+          <div style={{ color: "var(--text-2)", fontSize: 15.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tgUsername ? `@${tgUsername}` : "—"}</div>
+        </div>
+        <button className="tap" onClick={openEdit} style={{ padding: "9px 16px", borderRadius: 12, background: "var(--tint)", color: "var(--primary)", fontWeight: 800, fontSize: 14.5, flex: "0 0 auto" }}>Изм.</button>
       </div>
 
       {/* subscription */}
@@ -250,26 +317,7 @@ export default function ProfilePage() {
         </button>
       </SectionCard>
 
-      {/* my data */}
-      <SectionCard title="Мои данные">
-        <ListRow icon="user" label="Пол" value={u.gender ? (u.gender === "male" ? "Мужской" : "Женский") : "—"} onClick={editGender} />
-        <ListRow icon="user" label="Возраст" value={u.age ? u.age + " лет" : "—"} onClick={editAge} />
-        <ListRow icon="ruler" label="Рост" value={u.height ? u.height + " " + uH : "—"} onClick={editHeight} />
-        <ListRow icon="weight" label="Вес" value={u.weight ? Math.round(Number(u.weight)) + " " + uW : "—"} onClick={editWeight} />
-        <ListRow icon="target" label="Целевой вес" value={u.target_weight ? Math.round(Number(u.target_weight)) + " " + uW : "—"} onClick={editTarget} />
-        <ListRow icon="target" label="Активность"
-          value={`${Number(u.workouts_per_week) || 0} трен/нед · ${ACTIVITY_LABEL[u.activity] || "—"}`} onClick={editWorkouts} />
-        <ListRow icon="flame" label="Цель" value={GOAL_LABEL[u.goal] || "—"} last />
-      </SectionCard>
-
-      {/* норма КБЖУ */}
-      <SectionCard title="Норма КБЖУ">
-        <ListRow icon="flame" label="Дневная норма"
-          value={u.daily_calories ? `${u.daily_calories} ккал${u.goals_set_manually ? " · вручную" : ""}` : "—"}
-          onClick={editGoals} last />
-      </SectionCard>
-
-      {/* тренер: кабинет / стать тренером — под «Мои данные» */}
+      {/* тренер: кабинет / стать тренером */}
       {isTrainer ? (
         <SectionCard title="Тренер">
           <ListRow icon="weight" label="Кабинет тренера" onClick={() => navigate("/trainer")} last />
