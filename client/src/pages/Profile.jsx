@@ -92,6 +92,22 @@ function SectionCard({ title, children }) {
   );
 }
 
+// Аватар с цепочкой запасных вариантов: загруженное фото → фото из Telegram → плейсхолдер.
+// Если файл загруженного аватара недоступен (напр. не перенесён при миграции), onError
+// переключает на следующий кандидат, а не показывает «битую» картинку.
+function Avatar({ uploaded, tg, size, iconSize }) {
+  const candidates = [uploaded, tg].filter(Boolean);
+  const [idx, setIdx] = useState(0);
+  const src = candidates[idx];
+  return (
+    <div className="photo-slot" style={{ width: size, height: size, borderRadius: "50%", flex: `0 0 ${size}px` }}>
+      {src
+        ? <img src={src} alt="" onError={() => setIdx((i) => i + 1)} />
+        : <Ic name="user" size={iconSize} sw={1.6} style={{ color: "var(--text-3)" }} />}
+    </div>
+  );
+}
+
 function Toggle({ on, onClick }) {
   return (
     <button onClick={onClick} className={"tgl" + (on ? " on" : "")}
@@ -210,7 +226,7 @@ export default function ProfilePage() {
 
   const tgUsername = u.username || WebApp.initDataUnsafe?.user?.username || null;
   const tgPhoto = WebApp.initDataUnsafe?.user?.photo_url || null;
-  const avatarSrc = assetUrl(u.avatar_path) || tgPhoto;
+  const uploadedAvatar = assetUrl(u.avatar_path);
   const subLabel = sub ? `Списание: ${new Date(sub.expires_at).toLocaleDateString("ru-RU")}`
     : trial?.active ? `Пробный период до ${new Date(trial.ends_at).toLocaleDateString("ru-RU")}`
     : myTrainer ? "Доступ от тренера"
@@ -241,9 +257,7 @@ export default function ProfilePage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 6 }}>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onAvatar(f); }} />
-          <div className="photo-slot" style={{ width: 96, height: 96, borderRadius: "50%" }}>
-            {avatarSrc ? <img src={avatarSrc} alt="" /> : <Ic name="user" size={42} sw={1.6} style={{ color: "var(--text-3)" }} />}
-          </div>
+          <Avatar key={(uploadedAvatar || tgPhoto || "none") + "-96"} uploaded={uploadedAvatar} tg={tgPhoto} size={96} iconSize={42} />
           <button className="tap" onClick={() => fileRef.current?.click()}
             style={{ color: "var(--primary)", fontWeight: 700, fontSize: 15.5, marginTop: 12 }}>Выбрать фотографию</button>
         </div>
@@ -287,9 +301,7 @@ export default function ProfilePage() {
 
       {/* user card */}
       <div className="card" style={{ width: "100%", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
-        <div className="photo-slot" style={{ width: 72, height: 72, borderRadius: "50%", flex: "0 0 72px" }}>
-          {avatarSrc ? <img src={avatarSrc} alt="" /> : <Ic name="user" size={34} sw={1.6} style={{ color: "var(--text-3)" }} />}
-        </div>
+        <Avatar key={(uploadedAvatar || tgPhoto || "none") + "-72"} uploaded={uploadedAvatar} tg={tgPhoto} size={72} iconSize={34} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 21, fontWeight: 800, letterSpacing: "-.3px" }}>{u.name || "Без имени"}</span>
