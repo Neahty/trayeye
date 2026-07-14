@@ -3,9 +3,15 @@ import { Profile } from "../api";
 import { Ic } from "../components/icons";
 import { TIMEZONES, tzLabel, detectTz } from "../lib/timezones";
 import Stepper from "../components/NumberPicker";
+import { weightUnit, heightUnit, weightToDisplay, weightFromDisplay, heightToDisplay, heightFromDisplay } from "../lib/units";
 
 export default function Onboarding({ user, onDone }) {
   const detectedTz = useMemo(() => detectTz(), []);
+  // Единицы берём из профиля (по умолчанию метрика). В d.* всегда храним метрику — конверсия только на границе степперов.
+  const units = user?.units || "metric";
+  const uW = weightUnit(units);
+  const uH = heightUnit(units);
+  const rnd = (x) => Math.round(x);
 
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -57,24 +63,25 @@ export default function Onboarding({ user, onDone }) {
       valid: () => d.height >= 120 && d.weight >= 35,
       body: () => (
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          <div><div style={{ textAlign: "center", color: "var(--text-2)", fontWeight: 600, marginBottom: 6 }}>Рост, см</div>
-            <Stepper value={d.height} min={120} max={220} unit="см" onChange={(v) => set({ height: v })} /></div>
-          <div><div style={{ textAlign: "center", color: "var(--text-2)", fontWeight: 600, marginBottom: 6 }}>Вес, кг</div>
-            <Stepper value={d.weight} min={35} max={200} unit="кг" onChange={(v) => set({ weight: v })} /></div>
+          <div><div style={{ textAlign: "center", color: "var(--text-2)", fontWeight: 600, marginBottom: 6 }}>Рост, {uH}</div>
+            <Stepper value={rnd(heightToDisplay(d.height, units))} min={rnd(heightToDisplay(120, units))} max={rnd(heightToDisplay(220, units))} unit={uH} onChange={(v) => set({ height: rnd(heightFromDisplay(v, units)) })} /></div>
+          <div><div style={{ textAlign: "center", color: "var(--text-2)", fontWeight: 600, marginBottom: 6 }}>Вес, {uW}</div>
+            <Stepper value={rnd(weightToDisplay(d.weight, units))} min={rnd(weightToDisplay(35, units))} max={rnd(weightToDisplay(200, units))} unit={uW} onChange={(v) => set({ weight: rnd(weightFromDisplay(v, units)) })} /></div>
         </div>
       )
     },
     {
       title: "Желаемый вес", sub: "К какому весу стремитесь",
       valid: () => d.target_weight >= 35,
-      body: () => <Stepper value={d.target_weight} min={35} max={200} unit="кг" onChange={(v) => set({ target_weight: v })} />
+      body: () => <Stepper value={rnd(weightToDisplay(d.target_weight, units))} min={rnd(weightToDisplay(35, units))} max={rnd(weightToDisplay(200, units))} unit={uW} onChange={(v) => set({ target_weight: rnd(weightFromDisplay(v, units)) })} />
     },
     {
       title: "Темп достижения цели", sub: "Влияет на дефицит/профицит калорий",
       valid: () => !!d.pace,
       body: () => {
-        const delta = Math.round((d.weight - d.target_weight) * 10) / 10;
-        const dir = delta > 0 ? `похудеть на ${delta} кг` : delta < 0 ? `набрать ${-delta} кг` : null;
+        const deltaKg = Math.round((d.weight - d.target_weight) * 10) / 10;
+        const deltaDisp = Math.round(weightToDisplay(Math.abs(deltaKg), units) * 10) / 10;
+        const dir = deltaKg > 0 ? `похудеть на ${deltaDisp} ${uW}` : deltaKg < 0 ? `набрать ${deltaDisp} ${uW}` : null;
         const PACES = [
           { key: "fast", title: "Быстрый темп", sub: "Заметный дефицит калорий" },
           { key: "mid", title: "Оптимально", sub: "Сбалансированно", badge: "рекомендуем" },

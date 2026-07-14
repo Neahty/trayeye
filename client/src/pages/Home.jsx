@@ -157,8 +157,8 @@ export default function Home() {
       </div>
 
       {/* Задать вопрос нутрициологу (ссылка из админки) */}
-      {links.nutritionist_url && (
-        <button className="card card-press" onClick={() => openExternal(links.nutritionist_url)}
+      {(
+        <button className="card card-press" onClick={() => links.nutritionist_url ? openExternal(links.nutritionist_url) : ui.toast("Ссылка скоро будет добавлена", "info")}
           style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", gap: 13, padding: "15px 16px", textAlign: "left" }}>
           <span style={{ width: 44, height: 44, borderRadius: 13, flex: "0 0 44px", background: "var(--tint)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Ic name="help" size={22} sw={1.8} />
@@ -203,8 +203,8 @@ export default function Home() {
       </button>
 
       {/* Авторский план тренировок (промо-ссылка из админки) */}
-      {links.plan_url && (
-        <button className="card card-press" onClick={() => openExternal(links.plan_url)}
+      {(
+        <button className="card card-press" onClick={() => links.plan_url ? openExternal(links.plan_url) : ui.toast("Ссылка скоро будет добавлена", "info")}
           style={{ width: "100%", marginTop: 14, display: "flex", alignItems: "center", gap: 14, padding: "18px 20px", textAlign: "left", background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 16%, var(--surface)), color-mix(in srgb, var(--primary) 7%, var(--surface)))" }}>
           <span style={{ width: 52, height: 52, borderRadius: 15, flex: "0 0 52px", background: "var(--surface)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--shadow-sm)" }}>
             <Ic name="weight" size={26} sw={1.9} />
