@@ -15,10 +15,12 @@ const subscriptionRouter = require("./routes/subscription");
 const trainerRouter = require("./routes/trainer");
 const myTrainerRouter = require("./routes/myTrainer");
 const achievementsRouter = require("./routes/achievements");
+const questsRouter = require("./routes/quests");
 const settingsPublicRouter = require("./routes/settingsPublic");
 const trackRouter = require("./routes/track");
 const adminAuthRouter = require("./routes/adminAuth");
 const adminEmployeesRouter = require("./routes/adminEmployees");
+const adminQuestsRouter = require("./routes/adminQuests");
 const adminRouter = require("./routes/admin");
 const channelLog = require("./services/channelLog");
 
@@ -88,11 +90,13 @@ function createApp() {
   app.use("/api/trainer", trainerRouter);
   app.use("/api/my-trainer", myTrainerRouter);
   app.use("/api/achievements", achievementsRouter);
+  app.use("/api/quests", questsRouter);
   app.use("/api/settings", settingsPublicRouter);
   app.use("/api/track", trackRouter);
   app.use("/api/admin/auth", adminAuthRouter);
-  // Раздел «Работники» — до общего adminRouter, чтобы путь не перехватился им.
+  // Разделы «Работники» и «Квесты» — до общего adminRouter, чтобы путь не перехватился им.
   app.use("/api/admin/employees", adminEmployeesRouter);
+  app.use("/api/admin/quests", adminQuestsRouter);
   app.use("/api/admin", adminRouter);
 
   app.get("/", (req, res) => {

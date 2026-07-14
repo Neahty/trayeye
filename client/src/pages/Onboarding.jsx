@@ -17,6 +17,7 @@ export default function Onboarding({ user, onDone }) {
     weight: user?.weight ? Math.round(Number(user.weight)) : 70,
     target_weight: user?.target_weight ? Math.round(Number(user.target_weight)) : (user?.weight ? Math.round(Number(user.weight)) : 70),
     workouts_per_week: user?.workouts_per_week ?? 3,
+    pace: user?.pace || "mid",
     timezone: user?.timezone || detectedTz
   });
   const set = (patch) => setD((p) => ({ ...p, ...patch }));
@@ -69,6 +70,41 @@ export default function Onboarding({ user, onDone }) {
       body: () => <Stepper value={d.target_weight} min={35} max={200} unit="кг" onChange={(v) => set({ target_weight: v })} />
     },
     {
+      title: "Темп достижения цели", sub: "Влияет на дефицит/профицит калорий",
+      valid: () => !!d.pace,
+      body: () => {
+        const delta = Math.round((d.weight - d.target_weight) * 10) / 10;
+        const dir = delta > 0 ? `похудеть на ${delta} кг` : delta < 0 ? `набрать ${-delta} кг` : null;
+        const PACES = [
+          { key: "fast", title: "Быстрый темп", sub: "Заметный дефицит калорий" },
+          { key: "mid", title: "Оптимально", sub: "Сбалансированно", badge: "рекомендуем" },
+          { key: "slow", title: "Спокойный темп", sub: "Мягкий дефицит" }
+        ];
+        return (
+          <div>
+            <p className="muted" style={{ textAlign: "center", fontSize: 13.5, margin: "0 6px 14px", lineHeight: 1.45 }}>
+              {dir ? `Чтобы ${dir}, выберите комфортный темп — Bytwise подстроит норму калорий.` : "Выберите желаемый темп — при поддержании веса он не меняет норму."}
+            </p>
+            {PACES.map((p) => (
+              <button key={p.key} className="tap" onClick={() => set({ pace: p.key })}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", borderRadius: 16, marginBottom: 10, textAlign: "left",
+                  background: d.pace === p.key ? "var(--tint)" : "var(--surface-2)",
+                  border: "2px solid " + (d.pace === p.key ? "var(--primary)" : "transparent"), color: "var(--text)" }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 800, fontSize: 16.5 }}>{p.title}</span>
+                    {p.badge && <span className="pill-pro">{p.badge}</span>}
+                  </span>
+                  <span style={{ display: "block", color: "var(--text-2)", fontSize: 13.5, marginTop: 3 }}>{p.sub}</span>
+                </span>
+                {d.pace === p.key && <Ic name="check" size={22} sw={2.6} style={{ color: "var(--primary)", flex: "0 0 auto" }} />}
+              </button>
+            ))}
+          </div>
+        );
+      }
+    },
+    {
       title: "Как часто ходите в зал?", sub: "Тренировок в неделю",
       valid: () => d.workouts_per_week >= 0,
       body: () => <Stepper value={d.workouts_per_week} min={0} max={14} unit="трен/нед" onChange={(v) => set({ workouts_per_week: v })} />
@@ -96,7 +132,7 @@ export default function Onboarding({ user, onDone }) {
     try {
       await Profile.update({
         name: d.name.trim(), age: d.age, gender: d.gender, height: d.height, weight: d.weight,
-        target_weight: d.target_weight, workouts_per_week: d.workouts_per_week,
+        target_weight: d.target_weight, workouts_per_week: d.workouts_per_week, pace: d.pace,
         timezone: d.timezone, onboarded: true
       });
       await onDone();

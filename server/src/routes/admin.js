@@ -680,7 +680,9 @@ router.put("/settings", async (req, res, next) => {
       "sub_price_basic", "sub_price_trainer", "tariffs", "free_scan_daily_limit",
       "trial_days", "trainer_max_clients", "welcome_text", "paywall_text", "support_links",
       "reminders", "meal_reminders",
-      "tg_log_enabled", "tg_log_channel_id", "tg_log_events", "admin_live_refresh_sec"
+      "tg_log_enabled", "tg_log_channel_id", "tg_log_events", "admin_live_refresh_sec",
+      // Вкладка «Ссылки»: глобальные ссылки для Главной.
+      "nutritionist_url", "plan_url", "support_url"
     ];
     for (const key of Object.keys(updates)) {
       if (!allowed.includes(key)) continue;

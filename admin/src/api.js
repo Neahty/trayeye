@@ -99,6 +99,15 @@ export const Employees = {
   cancelPayout: (id, payoutId) => api.post(`/admin/employees/${id}/payouts/${payoutId}/cancel`).then((r) => r.data)
 };
 
+// Раздел «Квесты»: квесты с наградами (ссылка + текст в ЛС при получении).
+export const Quests = {
+  list: () => api.get("/admin/quests").then((r) => r.data),
+  meta: () => api.get("/admin/quests/meta").then((r) => r.data),
+  create: (body) => api.post("/admin/quests", body).then((r) => r.data),
+  update: (id, body) => api.patch(`/admin/quests/${id}`, body).then((r) => r.data),
+  remove: (id) => api.delete(`/admin/quests/${id}`).then((r) => r.data)
+};
+
 // Раздел «Поддержка»: тикеты создаёт отдельный бот (папка support/), здесь — просмотр и ответы.
 export const Support = {
   tickets: (params) => api.get("/admin/support/tickets", { params }).then((r) => r.data),

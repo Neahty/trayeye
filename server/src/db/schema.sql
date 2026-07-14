@@ -126,6 +126,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS device TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS target_weight NUMERIC;
+-- Темп достижения цели (влияет на дефицит/профицит калорий): slow | mid | fast. mid = базовый ±300.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pace TEXT DEFAULT 'mid';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN DEFAULT FALSE;
 -- Пользователь задал норму КБЖУ вручную — авто-пересчёт по формуле тогда не трогает значения.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS goals_set_manually BOOLEAN DEFAULT FALSE;
@@ -230,6 +232,37 @@ CREATE TABLE IF NOT EXISTS user_achievements (
   PRIMARY KEY (user_id, achievement_code)
 );
 
+-- ============================================================
+--  Квесты с наградами (заменяют достижения на экране Статистика).
+--  Каталог полностью управляется из админки (раздел «Квесты»); стартует пустым.
+--  criteria — та же форма, что у achievements: {"type":"streak","value":7} и т.п.
+--  (проверка через services/achievements.isUnlocked). Награда = ссылка + текст,
+--  которую бот присылает пользователю в ЛС при нажатии «Забрать награду».
+-- ============================================================
+CREATE TABLE IF NOT EXISTS quests (
+  id SERIAL PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  emoji TEXT,
+  criteria JSONB NOT NULL,            -- {type, value} как у достижений
+  reward_title TEXT,                  -- «что даётся» (название награды)
+  reward_link TEXT,                   -- URL-награда, уходит пользователю в ЛС
+  reward_message TEXT,                -- необяз. свой текст-шаблон (иначе дефолтный)
+  active BOOLEAN DEFAULT TRUE,
+  sort INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Факт получения награды пользователем (один раз на юзера — PK не даёт забрать дважды).
+CREATE TABLE IF NOT EXISTS user_quests (
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quest_code TEXT NOT NULL REFERENCES quests(code) ON DELETE CASCADE,
+  claimed_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, quest_code)
+);
+
 -- Массовые рассылки (раздел «Уведомления»)
 CREATE TABLE IF NOT EXISTS broadcasts (
   id SERIAL PRIMARY KEY,
@@ -288,7 +321,12 @@ INSERT INTO app_settings (key, value) VALUES
   ('trainer_max_clients', '20'::jsonb),
   ('welcome_text',        '"Привет! Я Bytwise — считаю калории и БЖУ по фото и описанию блюда. Сфотографируй еду или просто опиши её текстом."'::jsonb),
   ('paywall_text',        '"Оформите Bytwise PRO: безлимит фото-сканов, AI-добавление текстом и полная статистика."'::jsonb),
-  ('support_links',       '{"help":"https://t.me/bytwise_support","privacy":"https://bytwise.app/privacy","terms":"https://bytwise.app/terms"}'::jsonb)
+  ('support_links',       '{"help":"https://t.me/bytwise_support","privacy":"https://bytwise.app/privacy","terms":"https://bytwise.app/terms"}'::jsonb),
+  -- Глобальные ссылки, редактируемые в админке (вкладка «Ссылки»). Пустые по умолчанию —
+  -- карточки на Главной прячутся, пока ссылка не задана.
+  ('nutritionist_url',    '""'::jsonb),
+  ('plan_url',            '""'::jsonb),
+  ('support_url',         '""'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
 -- Обновить цены для уже существующих БД (одноразово к новым значениям прайса)

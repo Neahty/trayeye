@@ -27,6 +27,8 @@ const NAV = [
   { to: "/scans", label: "Распознавание еды" },
   { to: "/notifications", label: "Рассылки" },
   { to: "/support", label: "Поддержка" },
+  { to: "/quests", label: "Квесты" },
+  { to: "/links", label: "Ссылки" },
   { to: "/funnel", label: "Путь клиента" },
   { to: "/logs", label: "История действий" },
   { to: "/settings", label: "Настройки" }

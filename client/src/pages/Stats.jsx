@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Stats, Achievements } from "../api";
+import { Stats, Quests } from "../api";
 import { useApp } from "../AppContext";
 import { useUI } from "../ui/UIProvider";
 import { Ic } from "../components/icons";
@@ -133,7 +133,7 @@ export default function StatsPage() {
   const [tab, setTab] = useState("week");
   const [metric, setMetric] = useState("calories");
   const [data, setData] = useState(null);
-  const [ach, setAch] = useState(null);
+  const [qData, setQData] = useState(null);
 
   useEffect(() => {
     // Игнорируем ответ устаревшего запроса: при быстром переключении табов
@@ -142,8 +142,9 @@ export default function StatsPage() {
     Stats.get(tab).then((d) => { if (alive) setData(d); });
     return () => { alive = false; };
   }, [tab, dataVersion]);
+  const loadQuests = () => Quests.get().then(setQData).catch(() => setQData({ quests: [] }));
   useEffect(() => {
-    Achievements.get().then(setAch).catch(() => setAch({ achievements: [] }));
+    loadQuests();
   }, [dataVersion]);
 
   const total = useCountUp(data?.totals?.[metric] || 0, 1000, [data?.totals?.[metric], tab, metric]);
@@ -184,69 +185,113 @@ export default function StatsPage() {
   });
   const statInfo = (title, body) => () => ui.sheet({ type: "info", title, body, actionLabel: "Понятно" });
 
-  const achDetail = (a) => ui.sheet({
-    type: "custom", render: (close) => (
-      <div>
-        <div className="grip" />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, padding: "6px 0 22px" }}>
-          <div style={{ width: 86, height: 86, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: a.done ? "var(--grad)" : "var(--surface-2)", boxShadow: a.done ? "0 12px 28px -8px var(--primary)" : "none", opacity: a.done ? 1 : 0.6 }}>
-            {a.emoji ? <span style={{ fontSize: 42, filter: a.done ? "none" : "grayscale(1)" }}>{a.emoji}</span>
-              : <Ic name={a.icon} size={42} sw={1.7} style={{ color: a.done ? "#fff" : "var(--text-3)" }} />}
+  // Забрать награду: сервер проверяет выполнение и шлёт ссылку в ЛС. При недоступном боте — тост.
+  const claimReward = async (q, close) => {
+    try {
+      await Quests.claim(q.code);
+      if (close) close();
+      ui.toast("Награда отправлена в личные сообщения бота 🎁", "check");
+      loadQuests();
+    } catch (e) {
+      const code = e?.response?.data?.error;
+      const msg =
+        code === "dm_unavailable" ? "Откройте бота и нажмите «Start», чтобы получить награду" :
+        code === "already_claimed" ? "Награда уже получена" :
+        code === "not_completed" ? "Квест ещё не выполнен" :
+        "Не удалось получить награду. Попробуйте позже";
+      ui.toast(msg);
+    }
+  };
+
+  // Подписи/цвета статуса квеста.
+  const questStatus = (q) => q.claimed ? "Получено" : q.complete ? "Доступно к получению" : "В процессе";
+  const questBtnLabel = (q) => q.claimed ? "Награда получена" : q.complete ? "Забрать награду" : "В процессе";
+
+  const questDetail = (q) => ui.sheet({
+    type: "custom", render: (close) => {
+      const ready = q.complete && !q.claimed;
+      return (
+        <div>
+          <div className="grip" />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, padding: "6px 0 22px" }}>
+            <div style={{ width: 86, height: 86, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, background: q.complete ? "var(--grad)" : "var(--surface-2)", boxShadow: q.complete ? "0 12px 28px -8px var(--primary)" : "none", opacity: q.complete ? 1 : 0.6 }}>
+              {q.emoji || "🎯"}
+            </div>
+            <h3 className="sheet-h">{q.title}</h3>
+            <span style={{ fontSize: 13, fontWeight: 700, color: q.claimed ? "var(--green-ink)" : q.complete ? "var(--primary)" : "var(--text-3)", background: q.claimed ? "color-mix(in srgb, var(--green) 16%, transparent)" : q.complete ? "var(--tint-2)" : "var(--surface-2)", padding: "4px 12px", borderRadius: 9 }}>
+              {questStatus(q)}
+            </span>
+            {q.reward_title && (
+              <div style={{ fontSize: 15, color: "var(--text-2)" }}>Награда: <span style={{ color: "var(--text)", fontWeight: 700 }}>{q.reward_title}</span></div>
+            )}
+            {q.description && <p style={{ fontSize: 15, lineHeight: 1.5, color: "var(--text-2)", margin: 0 }}>{q.description}</p>}
+            <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
+              <div style={{ flex: 1, height: 9, borderRadius: 5, background: "var(--track)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: q.pct + "%", background: "var(--grad)", borderRadius: 5 }} />
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-2)", whiteSpace: "nowrap" }}>{q.claimed ? "Получено" : `${q.current}/${q.goal}`}</span>
+            </div>
           </div>
-          <h3 className="sheet-h">{a.title}</h3>
-          <span style={{ fontSize: 13, fontWeight: 700, color: a.done ? "var(--green-ink)" : "var(--text-3)", background: a.done ? "color-mix(in srgb, var(--green) 16%, transparent)" : "var(--surface-2)", padding: "4px 12px", borderRadius: 9 }}>
-            {a.done ? "Получено" : "Не получено"}
-          </span>
-          <p style={{ fontSize: 15.5, lineHeight: 1.5, color: "var(--text-2)", margin: 0 }}>{a.description}</p>
+          <button className="sheet-btn" disabled={!ready} style={{ opacity: ready ? 1 : 0.55 }}
+            onClick={() => { if (ready) claimReward(q, close); }}>
+            {questBtnLabel(q)}
+          </button>
+          <button className="tap" onClick={close} style={{ width: "100%", height: 52, borderRadius: 16, marginTop: 10, fontWeight: 800, fontSize: 16, border: "1.5px solid var(--border-2)", background: "var(--surface-2)", color: "var(--text)" }}>Закрыть</button>
         </div>
-        <button className="sheet-btn" onClick={close}>Закрыть</button>
-      </div>
-    )
+      );
+    }
   });
 
-  const allAch = () => {
-    const list = ach?.achievements || [];
-    const cats = [];
-    const byCat = {};
-    for (const a of list) {
-      const c = a.category || "Достижения";
-      if (!byCat[c]) { byCat[c] = []; cats.push(c); }
-      byCat[c].push(a);
-    }
-    const doneCount = list.filter((a) => a.done).length;
+  const allQuests = () => {
+    const list = qData?.quests || [];
     ui.sheet({
       type: "custom", render: (close) => (
         <div>
           <div className="grip" />
-          <div className="row-between" style={{ marginBottom: 16 }}>
-            <h3 className="sheet-h" style={{ margin: 0 }}>Все достижения</h3>
-            <span className="pill-pro">{doneCount}/{list.length}</span>
+          <div className="row-between" style={{ marginBottom: 6 }}>
+            <h3 className="sheet-h" style={{ margin: 0 }}>Квесты с наградами</h3>
+            <span className="pill-pro">{list.filter((q) => q.claimed).length}/{list.length}</span>
           </div>
-          {cats.map((c) => (
-            <div key={c} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".4px", margin: "0 4px 8px" }}>{c}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {byCat[c].map((a) => (
-                  <button key={a.code} className="opt" style={{ marginBottom: 0, opacity: a.done ? 1 : 0.7 }} onClick={() => { close(); setTimeout(() => achDetail(a), 300); }}>
-                    <span className="opt-ic" style={{ background: a.done ? "var(--tint)" : "var(--surface)" }}>
-                      {a.emoji ? <span style={{ fontSize: 20, filter: a.done ? "none" : "grayscale(1)" }}>{a.emoji}</span> : <Ic name={a.icon} size={21} sw={1.9} />}
-                    </span>
-                    <span style={{ flex: 1, textAlign: "left" }}>
-                      <div>{a.title}</div>
-                      <div style={{ fontSize: 13, color: "var(--text-3)", fontWeight: 600, marginTop: 2 }}>{a.subtitle}</div>
-                    </span>
-                    {a.done && <span className="check"><Ic name="check" size={20} sw={2.6} /></span>}
+          <p style={{ color: "var(--text-2)", fontSize: 15, margin: "0 0 18px" }}>Выполняйте задания и забирайте бонусы от Bytwise</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {list.map((q) => {
+              const ready = q.complete && !q.claimed;
+              return (
+                <div key={q.code} style={{ border: "1.5px solid " + (ready ? "var(--primary)" : "var(--border)"), background: ready ? "var(--tint)" : "var(--surface-2)", borderRadius: 18, padding: "15px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 13 }}>
+                    <span style={{ width: 44, height: 44, borderRadius: 13, flex: "0 0 44px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, background: q.complete ? "var(--grad)" : "var(--surface)", opacity: q.complete ? 1 : 0.55 }}>{q.emoji || "🎯"}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15.5, lineHeight: 1.3 }}>{q.title}</div>
+                      {q.reward_title && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, color: "var(--text-2)", fontSize: 13 }}>
+                          🎁 <span style={{ color: "var(--text)", fontWeight: 600 }}>{q.reward_title}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 13 }}>
+                    <div style={{ flex: 1, height: 8, borderRadius: 5, background: "var(--track)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: q.pct + "%", background: "var(--grad)", borderRadius: 5 }} />
+                    </div>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-2)", whiteSpace: "nowrap" }}>{q.claimed ? "Получено" : `${q.current}/${q.goal}`}</span>
+                  </div>
+                  <button className="tap" disabled={!ready}
+                    onClick={() => { if (ready) claimReward(q, close); }}
+                    style={{ width: "100%", height: 44, borderRadius: 13, marginTop: 12, fontWeight: 800, fontSize: 14.5, border: "none", fontFamily: "inherit", background: ready ? "var(--grad)" : "var(--surface)", color: ready ? "#fff" : "var(--text-2)", opacity: ready ? 1 : 0.6 }}>
+                    {questBtnLabel(q)}
                   </button>
-                ))}
-              </div>
-            </div>
-          ))}
+                </div>
+              );
+            })}
+            {!list.length && <div style={{ textAlign: "center", color: "var(--text-2)", padding: "20px 0" }}>Квестов пока нет — заглядывайте позже.</div>}
+          </div>
         </div>
       )
     });
   };
 
-  const achList = ach?.achievements || [];
+  const qList = qData?.quests || [];
+  const questsDone = qList.filter((q) => q.claimed).length;
   const hasData = chart.some((c) => c.calories > 0);
 
   return (
@@ -314,27 +359,37 @@ export default function StatsPage() {
           onClick={statInfo("Фото блюд", `За период вы добавили ${data?.photos_count || 0} блюд с помощью камеры.`)} />
       </div>
 
-      {/* achievements */}
-      <div className="card" style={{ padding: 18, marginTop: 14 }}>
-        <div className="row-between" style={{ marginBottom: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 800 }}>Достижения</span>
-          <button className="tap" onClick={allAch} style={{ color: "var(--primary)", fontWeight: 700, fontSize: 14.5, display: "flex", alignItems: "center", gap: 3 }}>
-            Все <Ic name="chevronRight" size={16} sw={2.2} />
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {achList.slice(0, 5).map((a) => (
-            <button key={a.code} className="tap" onClick={() => achDetail(a)}
-              style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center", background: "none" }}>
-              <div style={{ width: 54, height: 54, borderRadius: "50%", background: a.done ? "var(--surface-2)" : "var(--surface)", opacity: a.done ? 1 : 0.45, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {a.emoji ? <span style={{ fontSize: 26, filter: a.done ? "none" : "grayscale(1)" }}>{a.emoji}</span> : <Ic name={a.icon} size={26} sw={1.9} style={{ color: a.color }} />}
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.15 }}>{a.title}</div>
-              <div style={{ fontSize: 10.5, color: "var(--text-3)", lineHeight: 1.15 }}>{a.subtitle}</div>
+      {/* квесты с наградами (заменяют достижения) */}
+      {qList.length > 0 && (
+        <div className="card" style={{ padding: 18, marginTop: 14 }}>
+          <div className="row-between" style={{ marginBottom: 16 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <span style={{ fontSize: 18, fontWeight: 800 }}>Квесты с наградами</span>
+              <span className="pill-pro">{questsDone}/{qList.length}</span>
+            </span>
+            <button className="tap" onClick={allQuests} style={{ color: "var(--primary)", fontWeight: 700, fontSize: 14.5, display: "flex", alignItems: "center", gap: 3 }}>
+              Все <Ic name="chevronRight" size={16} sw={2.2} />
             </button>
-          ))}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {qList.slice(0, 5).map((q) => (
+              <button key={q.code} className="tap" onClick={() => questDetail(q)}
+                style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center", background: "none" }}>
+                <span style={{ position: "relative", width: 54, height: 54, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, background: q.complete ? "var(--grad)" : "var(--surface-2)", opacity: q.complete ? 1 : 0.55, boxShadow: (q.complete && !q.claimed) ? "0 10px 22px -8px var(--primary)" : "none" }}>
+                  {q.emoji || "🎯"}
+                  {q.claimed && (
+                    <span style={{ position: "absolute", right: -2, bottom: -2, width: 20, height: 20, borderRadius: "50%", background: "var(--green)", border: "2px solid var(--surface)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                      <Ic name="check" size={12} sw={3.2} />
+                    </span>
+                  )}
+                </span>
+                <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.15 }}>{q.title}</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-3)", lineHeight: 1.15, fontWeight: 600 }}>{q.claimed ? "Получено" : `${q.current}/${q.goal}`}</div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Ic } from "../components/icons";
 import { applyTheme, ACCENTS, DEFAULT_ACCENT } from "../lib/theme";
 import { TIMEZONES, tzLabel, DEFAULT_TZ } from "../lib/timezones";
 import { subBadge, subName } from "../lib/sub";
+import { weightUnit, heightUnit, weightToDisplay, weightFromDisplay, heightToDisplay, heightFromDisplay, fmtWeight, fmtHeight } from "../lib/units";
 
 // Уровень активности (5-уровневая шкала) — производный от числа тренировок, только для отображения.
 const ACTIVITY_LABEL = {
@@ -21,6 +22,13 @@ const ACTIVITY_LABEL = {
 };
 const GOAL_LABEL = { loss: "Похудение", maintain: "Поддержание", gain: "Набор массы" };
 const GENDERS = [{ value: "male", label: "Мужской" }, { value: "female", label: "Женский" }];
+// Темп достижения цели — влияет на дефицит/профицит калорий (см. server/utils/calories.js).
+const PACE_LABEL = { slow: "Спокойный", mid: "Оптимальный", fast: "Быстрый" };
+const PACE_OPTIONS = [
+  { value: "fast", label: "Быстрый темп" },
+  { value: "mid", label: "Оптимальный (рекомендуем)" },
+  { value: "slow", label: "Спокойный темп" }
+];
 
 // Редактор ручной нормы КБЖУ (показывается в custom-шите). Поля заранее заполнены текущими
 // (авто-)значениями; «Вернуть автоматический расчёт» доступен, если норма задана вручную.
@@ -148,8 +156,8 @@ export default function ProfilePage() {
   const sub = profile?.subscription;
   const trial = profile?.trial;
   const units = u.units || "metric";
-  const uW = units === "metric" ? "кг" : "lb";
-  const uH = units === "metric" ? "см" : "in";
+  const uW = weightUnit(units);   // "кг" | "фунт"
+  const uH = heightUnit(units);   // "см" | "in"
   const theme = u.theme || "light";
   const tz = u.timezone || DEFAULT_TZ;
   const accent = Array.isArray(u.accent) ? u.accent : DEFAULT_ACCENT;
@@ -181,14 +189,17 @@ export default function ProfilePage() {
     onPick: (v) => update({ gender: v }, "Сохранено") });
   const editAge = () => ui.sheet({ type: "stepper", title: "Возраст", value: u.age || 25, min: 10, max: 99, unit: "лет",
     onSave: (v) => update({ age: v }, "Сохранено") });
-  const editHeight = () => ui.sheet({ type: "stepper", title: "Рост", value: u.height || 175, min: 120, max: 220, unit: uH,
-    onSave: (v) => update({ height: v }, "Сохранено") });
-  const editWeight = () => ui.sheet({ type: "stepper", title: "Вес", value: Math.round(Number(u.weight) || 70), min: 35, max: 200, unit: uW,
-    onSave: (v) => update({ weight: v }, "Сохранено") });
-  const editTarget = () => ui.sheet({ type: "stepper", title: "Целевой вес", sub: "Для отслеживания прогресса", value: Math.round(Number(u.target_weight) || Number(u.weight) || 70), min: 35, max: 200, unit: uW,
-    onSave: (v) => update({ target_weight: v }, "Цель по весу сохранена") });
+  // Рост/вес редактируются в единицах пользователя (imperial — дюймы/фунты), в БД сохраняется метрика.
+  const editHeight = () => ui.sheet({ type: "stepper", title: "Рост", value: heightToDisplay(u.height || 175, units), min: heightToDisplay(120, units), max: heightToDisplay(220, units), unit: uH,
+    onSave: (v) => update({ height: heightFromDisplay(v, units) }, "Сохранено") });
+  const editWeight = () => ui.sheet({ type: "stepper", title: "Вес", value: weightToDisplay(Number(u.weight) || 70, units), min: weightToDisplay(35, units), max: weightToDisplay(200, units), unit: uW,
+    onSave: (v) => update({ weight: weightFromDisplay(v, units) }, "Сохранено") });
+  const editTarget = () => ui.sheet({ type: "stepper", title: "Целевой вес", sub: "Для отслеживания прогресса", value: weightToDisplay(Number(u.target_weight) || Number(u.weight) || 70, units), min: weightToDisplay(35, units), max: weightToDisplay(200, units), unit: uW,
+    onSave: (v) => update({ target_weight: weightFromDisplay(v, units) }, "Цель по весу сохранена") });
   const editWorkouts = () => ui.sheet({ type: "stepper", title: "Тренировок в неделю", sub: "Из этого считается уровень активности и норма", value: Number(u.workouts_per_week) || 0, min: 0, max: 14, unit: "трен/нед",
     onSave: (v) => update({ workouts_per_week: v }, "Сохранено") });
+  const editPace = () => ui.sheet({ type: "options", title: "Темп достижения цели", sub: "Влияет на дефицит/профицит калорий", value: u.pace || "mid", options: PACE_OPTIONS,
+    onPick: (v) => update({ pace: v }, "Темп обновлён") });
 
   const editGoals = () => {
     if (myTrainer) {
@@ -286,11 +297,12 @@ export default function ProfilePage() {
         <SectionCard title="Мои данные">
           <ListRow icon="user" label="Пол" value={u.gender ? (u.gender === "male" ? "Мужской" : "Женский") : "—"} onClick={editGender} />
           <ListRow icon="calendar" label="Возраст" value={u.age ? u.age + " лет" : "—"} onClick={editAge} />
-          <ListRow icon="ruler" label="Рост" value={u.height ? u.height + " " + uH : "—"} onClick={editHeight} />
-          <ListRow icon="weight" label="Вес" value={u.weight ? Math.round(Number(u.weight)) + " " + uW : "—"} onClick={editWeight} />
-          <ListRow icon="target" label="Целевой вес" value={u.target_weight ? Math.round(Number(u.target_weight)) + " " + uW : "—"} onClick={editTarget} />
+          <ListRow icon="ruler" label="Рост" value={u.height ? fmtHeight(u.height, units) : "—"} onClick={editHeight} />
+          <ListRow icon="weight" label="Вес" value={u.weight ? fmtWeight(u.weight, units) : "—"} onClick={editWeight} />
+          <ListRow icon="target" label="Целевой вес" value={u.target_weight ? fmtWeight(u.target_weight, units) : "—"} onClick={editTarget} />
           <ListRow icon="target" label="Активность"
             value={`${Number(u.workouts_per_week) || 0} трен/нед · ${ACTIVITY_LABEL[u.activity] || "—"}`} onClick={editWorkouts} />
+          <ListRow icon="flame" label="Темп" value={PACE_LABEL[u.pace || "mid"]} onClick={editPace} />
           <ListRow icon="flame" label="Цель" value={GOAL_LABEL[u.goal] || "—"} last />
         </SectionCard>
         <div style={{ color: "var(--text-2)", fontSize: 12.5, margin: "8px 6px 0", lineHeight: 1.4 }}>

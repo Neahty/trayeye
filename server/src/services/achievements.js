@@ -189,6 +189,28 @@ function isUnlocked(criteria, m, unlockedCount) {
   }
 }
 
+// Текущий прогресс по критерию (для прогресс-бара квестов). Возвращает { current, goal }.
+// Числовые критерии → фактическое значение метрики против criteria.value.
+// Булевы критерии (без value) → 0/1 против цели 1.
+function metricValue(criteria, m) {
+  const goal = criteria.value != null ? Number(criteria.value) : 1;
+  const numeric = {
+    total_scans: m.total_scans,
+    manual_scans: m.manual_scans,
+    streak: m.streak,
+    weight_loss_kg: m.weight_loss_kg,
+    days_in_norm: m.days_in_norm,
+    payments_count: m.payments_count,
+    pro_days: m.pro_days
+  };
+  if (criteria.type in numeric) {
+    return { current: Number(numeric[criteria.type]) || 0, goal };
+  }
+  // Остальные — булевы: выполнено ⇒ current = goal, иначе 0.
+  const done = isUnlocked(criteria, m, 0);
+  return { current: done ? goal : 0, goal };
+}
+
 async function getForUser(userId, user) {
   const { rows: catalog } = await db.query("SELECT * FROM achievements ORDER BY sort ASC");
   const { rows: unlockedRows } = await db.query(
@@ -233,4 +255,4 @@ async function getForUser(userId, user) {
   return { achievements: result, metrics, unlocked: unlockedTotal, total: result.length };
 }
 
-module.exports = { getForUser, computeStreak, gatherMetrics };
+module.exports = { getForUser, computeStreak, gatherMetrics, isUnlocked, metricValue };

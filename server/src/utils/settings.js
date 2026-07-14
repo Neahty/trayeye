@@ -28,6 +28,10 @@ const DEFAULTS = {
     privacy: "https://docs.google.com/document/d/15UlEfRYqYLtvNtGVXJ_ZhnHLTmLJe_z7g9oukD648Bg/edit?usp=sharing",
     terms: "https://docs.google.com/document/d/1FbrKM_SqWh1lTQ3Rq8kkO3DNu2p5M4ARoPeICQq8fAw/edit?usp=sharing"
   },
+  // Глобальные ссылки для Главной (вкладка «Ссылки» в админке). Пустая строка → карточка скрыта.
+  nutritionist_url: "",   // кнопка «Задать вопрос нутрициологу»
+  plan_url: "",           // промо-карточка «Авторский план тренировок»
+  support_url: "",        // доп. служебная ссылка (канал/поддержка)
   // Дублирование событий в Telegram-канал (services/channelLog.js). Основной бот должен быть
   // админом канала. Всё редактируется в админке («Настройки → Логи в Telegram»).
   tg_log_enabled: true,

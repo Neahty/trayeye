@@ -8,7 +8,8 @@ router.get("/public", async (req, res, next) => {
   try {
     const s = await settings.getMany([
       "welcome_text", "paywall_text", "tariffs",
-      "sub_price_basic", "sub_price_trainer", "support_links", "free_scan_daily_limit", "trial_days"
+      "sub_price_basic", "sub_price_trainer", "support_links", "free_scan_daily_limit", "trial_days",
+      "nutritionist_url", "plan_url", "support_url"
     ]);
     // Приложению отдаём только включённые тарифы.
     const tariffs = Array.isArray(s.tariffs) ? s.tariffs.filter((t) => t && t.enabled !== false) : [];
@@ -20,7 +21,10 @@ router.get("/public", async (req, res, next) => {
       price_trainer: s.sub_price_trainer,
       support_links: s.support_links,
       free_scan_daily_limit: s.free_scan_daily_limit,
-      trial_days: s.trial_days
+      trial_days: s.trial_days,
+      nutritionist_url: s.nutritionist_url || "",
+      plan_url: s.plan_url || "",
+      support_url: s.support_url || ""
     });
   } catch (err) {
     next(err);

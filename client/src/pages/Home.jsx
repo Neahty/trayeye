@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { History, Stats } from "../api";
+import { History, Stats, Settings } from "../api";
 import { useApp } from "../AppContext";
 import { useUI } from "../ui/UIProvider";
 import { Ic, MealIcon, MEAL_LABELS } from "../components/icons";
@@ -50,6 +50,20 @@ export default function Home() {
   const ui = useUI();
   const [today, setToday] = useState(null);
   const [stats, setStats] = useState(null);
+  const [links, setLinks] = useState({});
+
+  useEffect(() => {
+    Settings.public().then((s) => setLinks(s || {})).catch(() => {});
+  }, []);
+
+  // Открытие внешней ссылки корректно из Telegram-webview.
+  const openExternal = (url) => {
+    if (!url) return;
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openTelegramLink && /t\.me\//.test(url)) tg.openTelegramLink(url);
+    else if (tg?.openLink) tg.openLink(url);
+    else window.open(url, "_blank", "noopener");
+  };
 
   const user = profile?.user || {};
   const tz = user.timezone || "Europe/Moscow";
@@ -142,6 +156,21 @@ export default function Home() {
         ))}
       </div>
 
+      {/* Задать вопрос нутрициологу (ссылка из админки) */}
+      {links.nutritionist_url && (
+        <button className="card card-press" onClick={() => openExternal(links.nutritionist_url)}
+          style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", gap: 13, padding: "15px 16px", textAlign: "left" }}>
+          <span style={{ width: 44, height: 44, borderRadius: 13, flex: "0 0 44px", background: "var(--tint)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Ic name="help" size={22} sw={1.8} />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: "block", fontWeight: 800, fontSize: 16 }}>Задать вопрос нутрициологу</span>
+            <span style={{ display: "block", color: "var(--text-2)", fontSize: 13.5, marginTop: 2 }}>Персональный ответ в Telegram</span>
+          </span>
+          <Ic name="chevronRight" size={18} sw={2.2} style={{ color: "var(--text-3)", flex: "0 0 auto" }} />
+        </button>
+      )}
+
       {/* Серия дней */}
       <h2 className="sec-title" style={{ margin: "26px 0 14px" }}>Серия дней</h2>
       <div className="card" style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 18, background: "var(--tint)" }}>
@@ -172,6 +201,22 @@ export default function Home() {
           <Ic name="plus" size={22} sw={2.4} />
         </span>
       </button>
+
+      {/* Авторский план тренировок (промо-ссылка из админки) */}
+      {links.plan_url && (
+        <button className="card card-press" onClick={() => openExternal(links.plan_url)}
+          style={{ width: "100%", marginTop: 14, display: "flex", alignItems: "center", gap: 14, padding: "18px 20px", textAlign: "left", background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 16%, var(--surface)), color-mix(in srgb, var(--primary) 7%, var(--surface)))" }}>
+          <span style={{ width: 52, height: 52, borderRadius: 15, flex: "0 0 52px", background: "var(--surface)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--shadow-sm)" }}>
+            <Ic name="weight" size={26} sw={1.9} />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: "block", fontWeight: 800, fontSize: 16.5, lineHeight: 1.3 }}>Похудеть без жёстких диет — реально</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--primary)", fontWeight: 800, fontSize: 14.5, marginTop: 6 }}>
+              Авторский план тренировок <Ic name="chevronRight" size={16} sw={2.4} />
+            </span>
+          </span>
+        </button>
+      )}
 
       {/* История */}
       <div className="row-between" style={{ margin: "26px 0 12px" }}>

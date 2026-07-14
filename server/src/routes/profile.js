@@ -90,6 +90,7 @@ router.patch("/", auth, async (req, res, next) => {
       units: b.units ?? u.units,
       timezone: b.timezone ?? u.timezone,
       target_weight: b.target_weight ?? u.target_weight,
+      pace: b.pace ?? u.pace,
       onboarded: b.onboarded ?? u.onboarded,
       notifications_enabled: b.notifications_enabled ?? u.notifications_enabled
     };
@@ -106,16 +107,16 @@ router.patch("/", auth, async (req, res, next) => {
          gender=$2, age=$3, height=$4, weight=$5, activity=$6, goal=$7,
          workouts_per_week=$8, name=$9, notifications_enabled=$10,
          email=$11, theme=$12, accent=$13, units=$14,
-         timezone=$15, target_weight=$16, onboarded=$17,
-         daily_calories = COALESCE($18, daily_calories),
-         daily_protein  = COALESCE($19, daily_protein),
-         daily_fat      = COALESCE($20, daily_fat),
-         daily_carbs    = COALESCE($21, daily_carbs)
+         timezone=$15, target_weight=$16, onboarded=$17, pace=$18,
+         daily_calories = COALESCE($19, daily_calories),
+         daily_protein  = COALESCE($20, daily_protein),
+         daily_fat      = COALESCE($21, daily_fat),
+         daily_carbs    = COALESCE($22, daily_carbs)
        WHERE id=$1 RETURNING *`,
       [u.id, merged.gender, merged.age, merged.height, merged.weight, merged.activity,
        merged.goal, merged.workouts_per_week, merged.name, merged.notifications_enabled,
        merged.email, merged.theme, merged.accent != null ? JSON.stringify(merged.accent) : null, merged.units,
-       merged.timezone, merged.target_weight, merged.onboarded,
+       merged.timezone, merged.target_weight, merged.onboarded, merged.pace,
        norms?.daily_calories ?? null, norms?.daily_protein ?? null,
        norms?.daily_fat ?? null, norms?.daily_carbs ?? null]
     );

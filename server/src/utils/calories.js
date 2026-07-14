@@ -15,6 +15,13 @@ const ACTIVITY_FACTORS = {
 
 const GOAL_DELTAS = { loss: -300, maintain: 0, gain: 300 };
 
+// Темп достижения цели масштабирует дефицит/профицит калорий. mid = базовое значение (±300),
+// поэтому старые профили без темпа и существующие тесты не меняются.
+const PACE_FACTORS = { slow: 0.6, mid: 1.0, fast: 1.5 };
+function paceFactor(pace) {
+  return PACE_FACTORS[pace] != null ? PACE_FACTORS[pace] : PACE_FACTORS.mid;
+}
+
 // Уровень активности из числа тренировок в неделю — единый источник правды.
 function activityLevelFromWorkouts(n) {
   const w = Number(n);
@@ -45,7 +52,7 @@ function deriveGoal(weight, targetWeight) {
 }
 
 // Возвращает { daily_calories, daily_protein, daily_fat, daily_carbs } или null если данных не хватает
-function calcDailyNorms({ gender, age, height, weight, target_weight, workouts_per_week, activity }) {
+function calcDailyNorms({ gender, age, height, weight, target_weight, workouts_per_week, activity, pace }) {
   if (!gender || !age || !height || !weight) return null;
 
   // BMR считаем от целевого веса (fallback на текущий — для совместимости со старыми профилями).
@@ -58,7 +65,9 @@ function calcDailyNorms({ gender, age, height, weight, target_weight, workouts_p
 
   const factor = activityFactorFromWorkouts(workouts_per_week, activity);
   const goal = deriveGoal(weight, target_weight);
-  const delta = GOAL_DELTAS[goal] != null ? GOAL_DELTAS[goal] : 0;
+  // Дефицит/профицит масштабируется темпом (slow/mid/fast). mid не меняет базовое значение.
+  const baseDelta = GOAL_DELTAS[goal] != null ? GOAL_DELTAS[goal] : 0;
+  const delta = Math.round(baseDelta * paceFactor(pace));
 
   // Защитный минимум: метод целевого веса при большом разрыве не должен уводить норму
   // ниже безопасного порога.
@@ -82,6 +91,7 @@ module.exports = {
   calcDailyNorms,
   ACTIVITY_FACTORS,
   GOAL_DELTAS,
+  PACE_FACTORS,
   activityLevelFromWorkouts,
   activityFactorFromWorkouts,
   deriveGoal

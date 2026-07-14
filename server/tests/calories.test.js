@@ -43,6 +43,34 @@ describe("calcDailyNorms (Mifflin-St Jeor, метод целевого веса)
   });
 });
 
+describe("темп (pace) масштабирует дефицит/профицит; mid = базовое поведение", () => {
+  const gainBase = { gender: "male", age: 30, height: 180, weight: 80, target_weight: 90, activity: "high" };
+  // BMR(90)=1880, *1.725=3243. gain: +300*factor.
+  test("gain, mid (по умолчанию) = базовое +300", () => {
+    expect(calcDailyNorms({ ...gainBase, pace: "mid" }).daily_calories).toBe(3543);
+    expect(calcDailyNorms(gainBase).daily_calories).toBe(3543); // без pace === mid
+  });
+  test("gain, fast = +300*1.5 = +450", () => {
+    expect(calcDailyNorms({ ...gainBase, pace: "fast" }).daily_calories).toBe(3693);
+  });
+  test("gain, slow = +300*0.6 = +180", () => {
+    expect(calcDailyNorms({ ...gainBase, pace: "slow" }).daily_calories).toBe(3423);
+  });
+
+  const lossBase = { gender: "male", age: 30, height: 180, weight: 90, target_weight: 80, activity: "moderate" };
+  // BMR(80)=1780, *1.55=2759. loss: -300*factor.
+  test("loss, mid = базовое -300", () => {
+    expect(calcDailyNorms({ ...lossBase, pace: "mid" }).daily_calories).toBe(2459);
+  });
+  test("loss, fast = -450, slow = -180", () => {
+    expect(calcDailyNorms({ ...lossBase, pace: "fast" }).daily_calories).toBe(2309);
+    expect(calcDailyNorms({ ...lossBase, pace: "slow" }).daily_calories).toBe(2579);
+  });
+  test("неизвестный/пустой темп → как mid", () => {
+    expect(calcDailyNorms({ ...gainBase, pace: "bogus" }).daily_calories).toBe(3543);
+  });
+});
+
 describe("deriveGoal (направление цели из веса, допуск ~1 кг)", () => {
   test("цель заметно ниже веса → loss", () => expect(deriveGoal(80, 75)).toBe("loss"));
   test("цель заметно выше веса → gain", () => expect(deriveGoal(80, 85)).toBe("gain"));

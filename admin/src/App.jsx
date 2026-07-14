@@ -17,6 +17,8 @@ import Funnel from "./pages/Funnel.jsx";
 import Logs from "./pages/Logs.jsx";
 import Support from "./pages/Support.jsx";
 import SupportTicket from "./pages/SupportTicket.jsx";
+import QuestsPage from "./pages/Quests.jsx";
+import LinksPage from "./pages/Links.jsx";
 import SettingsPage from "./pages/Settings.jsx";
 
 const AuthCtx = createContext(null);
@@ -65,6 +67,8 @@ export default function App() {
                     <Route path="/funnel" element={<Funnel />} />
                     <Route path="/support" element={<Support />} />
                     <Route path="/support/:id" element={<SupportTicket />} />
+                    <Route path="/quests" element={<QuestsPage />} />
+                    <Route path="/links" element={<LinksPage />} />
                     <Route path="/logs" element={<Logs />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />

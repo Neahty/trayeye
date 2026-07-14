@@ -74,6 +74,12 @@ export const Achievements = {
   get: () => api.get("/achievements").then((r) => r.data)
 };
 
+// Квесты с наградами (заменяют достижения на экране Статистика).
+export const Quests = {
+  get: () => api.get("/quests").then((r) => r.data),
+  claim: (code) => api.post(`/quests/${code}/claim`).then((r) => r.data)
+};
+
 export const Membership = {
   status: (force) => api.get("/membership", { params: force ? { force: 1 } : {} }).then((r) => r.data)
 };
