@@ -5,6 +5,7 @@ const db = require("../db");
 const { userTz } = require("../utils/tz");
 const { gatherMetrics, isUnlocked, metricValue } = require("./achievements");
 const telegram = require("./telegram");
+const channelLog = require("./channelLog");
 
 // Экранирование для parse_mode=HTML (значения из БД могут содержать <, >, &).
 function esc(s) {
@@ -110,6 +111,17 @@ async function claim(userId, user, code) {
     [userId, code]
   );
   await db.logAction(userId, "quest_claim", { code, reward: quest.reward_title || null });
+
+  // Дублируем в лог-канал (канал и тумблер события — в админке «Логи в Telegram»).
+  const who = user.name ? esc(user.name) : "Пользователь";
+  channelLog.post(
+    "quest_claim",
+    `🎁 <b>Награда за квест получена</b>\n\n` +
+    `Пользователь: <b>${who}</b> (id ${userId})\n` +
+    `Квест: «${esc(quest.title)}»\n` +
+    `Награда: ${esc(quest.reward_title || quest.title)}`
+  ).catch(() => {});
+
   return { ok: true };
 }
 
