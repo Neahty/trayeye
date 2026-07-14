@@ -5,7 +5,11 @@ on:
     branches: ["claude/**"]
 
 concurrency:
-  group: deploy-production   # тот же, что в deploy.yml — деплои не наезжают
+  # ВАЖНО: группа ДОЛЖНА отличаться от deploy-production в deploy.yml. У переиспользуемого
+  # workflow_call не может быть той же concurrency-группы, что у вызывающего workflow —
+  # иначе вложенный деплой падает (job вообще не создаётся). Реальную сериализацию выката
+  # обеспечивает сам deploy.yml (группа deploy-production).
+  group: auto-merge-claude
   cancel-in-progress: false
 
 jobs:
