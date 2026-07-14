@@ -32,6 +32,7 @@ async function gatherMetrics(userId, user, tz) {
   const m = {
     total_scans: 0,
     manual_scans: 0,
+    text_scans: 0,
     profile_filled: !!(u.gender && u.age && u.height && u.weight),
     goal_set: !!u.goal,
     streak: 0,
@@ -39,6 +40,7 @@ async function gatherMetrics(userId, user, tz) {
     weight_loss_kg: 0,
     goal_weight_reached: false,
     days_in_norm: 0,
+    fat_norm_streak: 0,
     first_payment: false,
     payments_count: 0,
     pro_days: 0,
@@ -54,12 +56,14 @@ async function gatherMetrics(userId, user, tz) {
   // Счётчики сканов
   const counts = await db.query(
     `SELECT COUNT(*)::int AS total,
-            COUNT(*) FILTER (WHERE source IN ('manual','text'))::int AS manual
+            COUNT(*) FILTER (WHERE source IN ('manual','text'))::int AS manual,
+            COUNT(*) FILTER (WHERE source = 'text')::int AS text
      FROM scans WHERE user_id = $1`,
     [userId]
   );
   m.total_scans = counts.rows[0].total;
   m.manual_scans = counts.rows[0].manual;
+  m.text_scans = counts.rows[0].text;   // добавления через AI-описание (текст)
 
   m.streak = await computeStreak(userId, tz);
 
@@ -87,6 +91,20 @@ async function gatherMetrics(userId, user, tz) {
       const okF = Math.abs(Number(d.f) - nF) <= nF * NORM_TOLERANCE;
       const okC = Math.abs(Number(d.c) - nC) <= nC * NORM_TOLERANCE;
       if (okP && okF && okC) { m.ideal_macros_day = true; break; }
+    }
+  }
+  // Самая длинная серия ПОДРЯД ИДУЩИХ дней, когда жиры не превысили норму (нужен норматив жиров).
+  if (nF > 0) {
+    let run = 0, prev = null;
+    for (const d of days) {
+      const consecutive = prev && (Date.parse(d.day + "T00:00:00Z") - Date.parse(prev + "T00:00:00Z")) === 86400000;
+      if (Number(d.f) <= nF) {
+        run = consecutive ? run + 1 : 1;
+        if (run > m.fat_norm_streak) m.fat_norm_streak = run;
+      } else {
+        run = 0;
+      }
+      prev = d.day;
     }
   }
 
@@ -167,6 +185,8 @@ function isUnlocked(criteria, m, unlockedCount) {
   switch (criteria.type) {
     case "total_scans": return m.total_scans >= v;
     case "manual_scans": return m.manual_scans >= v;
+    case "text_scans": return m.text_scans >= v;
+    case "fat_norm_streak": return m.fat_norm_streak >= v;
     case "profile_filled": return m.profile_filled;
     case "goal_set": return m.goal_set;
     case "streak": return m.streak >= v;
@@ -197,7 +217,9 @@ function metricValue(criteria, m) {
   const numeric = {
     total_scans: m.total_scans,
     manual_scans: m.manual_scans,
+    text_scans: m.text_scans,
     streak: m.streak,
+    fat_norm_streak: m.fat_norm_streak,
     weight_loss_kg: m.weight_loss_kg,
     days_in_norm: m.days_in_norm,
     payments_count: m.payments_count,

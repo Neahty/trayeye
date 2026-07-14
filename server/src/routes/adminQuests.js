@@ -14,7 +14,9 @@ router.use(adminAuth);
 const CRITERIA = {
   total_scans:          { label: "Сканов еды (всего)",              value: true },
   manual_scans:         { label: "Добавлений вручную/текстом",       value: true },
+  text_scans:           { label: "Блюд через AI-описание (текст)",   value: true },
   streak:               { label: "Серия дней подряд",                value: true },
+  fat_norm_streak:      { label: "Дней подряд жиры в норме",         value: true },
   days_in_norm:         { label: "Дней в норме калорий",             value: true },
   weight_loss_kg:       { label: "Сброшено кг",                      value: true },
   payments_count:       { label: "Оплат подписки",                   value: true },

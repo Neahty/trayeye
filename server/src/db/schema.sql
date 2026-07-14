@@ -263,6 +263,16 @@ CREATE TABLE IF NOT EXISTS user_quests (
   PRIMARY KEY (user_id, quest_code)
 );
 
+-- Стартовые квесты с наградами (ссылки-подарки). Заводятся один раз (DO NOTHING),
+-- дальше полностью редактируются из админки (раздел «Квесты»).
+INSERT INTO quests (code, title, description, emoji, criteria, reward_title, reward_link, sort) VALUES
+  ('q_scan20', 'Сделай 20 сканов еды',                       'Отсканируй 20 приёмов пищи — по фото или тексту.',        '📸', '{"type":"total_scans","value":20}'::jsonb,      'Рецепт ПП-блинчиков',                    'https://telegra.ph/Recept-pp-blinchikov-07-14', 1),
+  ('q_fat3',   'Не превышай норму по жирам 3 дня подряд',     'Три дня подряд удержи жиры в пределах дневной нормы.',    '🥑', '{"type":"fat_norm_streak","value":3}'::jsonb,   'Гайд «Как всегда оставаться в форме»',   'https://telegra.ph/Gajd-kak-vsegda-ostavatsya-v-forme-07-14', 2),
+  ('q_pro',    'Оформи подписку PRO',                         'Оформи любую подписку Bytwise.',                          '👑', '{"type":"first_payment"}'::jsonb,               'Программа тренировок на 4 недели',        'https://telegra.ph/Programma-trenirovok-na-4-nedeli-07-14', 3),
+  ('q_lose5',  'Сбрось 5 кг',                                 'Похудей на 5 кг по данным взвешиваний.',                  '📉', '{"type":"weight_loss_kg","value":5}'::jsonb,    'Гайд на плоский животик',                 'https://telegra.ph/Gajd-na-ploskij-zhivotik-07-14', 4),
+  ('q_ai10',   'Добавь 10 блюд через AI-описание',            'Добавь 10 блюд текстом — AI посчитает КБЖУ.',             '✨', '{"type":"text_scans","value":10}'::jsonb,       'Рецепт ПП',                              'https://telegra.ph/Recept-pp-07-14', 5)
+ON CONFLICT (code) DO NOTHING;
+
 -- Массовые рассылки (раздел «Уведомления»)
 CREATE TABLE IF NOT EXISTS broadcasts (
   id SERIAL PRIMARY KEY,
