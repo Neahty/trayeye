@@ -4,6 +4,7 @@ on:
   push:
     branches: [master]
   workflow_dispatch: {}   # можно запускать вручную из вкладки Actions
+  workflow_call: {}       # вызывается из auto-deploy-claude.yml после мёрджа в master
 
 concurrency:
   group: deploy-production

@@ -1,0 +1,37 @@
+name: Auto-merge claude branches & deploy
+
+on:
+  push:
+    branches: ["claude/**"]
+
+concurrency:
+  group: deploy-production   # тот же, что в deploy.yml — деплои не наезжают
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    # деплоим только по явной команде пользователя ([deploy] в сообщении коммита)
+    if: contains(github.event.head_commit.message, '[deploy]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Merge pushed claude branch into master
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git merge --ff-only "origin/${GITHUB_REF_NAME}" \
+            || git merge --no-edit "origin/${GITHUB_REF_NAME}"
+          git push origin master
+      - name: Delete merged branch
+        continue-on-error: true
+        run: git push origin --delete "${GITHUB_REF_NAME}"
+
+  deploy:
+    needs: merge
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
