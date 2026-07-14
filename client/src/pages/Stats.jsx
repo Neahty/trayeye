@@ -349,16 +349,6 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* mini stats */}
-      <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
-        <MiniStat icon="🔥" isEmoji value={avg} unit="ккал" label="В среднем в день"
-          onClick={statInfo("Средние калории", `В среднем вы потребляете ${avg} ккал в день` + (goal ? ` при норме ${goal} ккал.` : "."))} />
-        <MiniStat icon="utensils" color="var(--primary)" value={data?.meals_per_day || 0} label="Приёмов пищи в день"
-          onClick={statInfo("Приёмы пищи", `В среднем ${data?.meals_per_day || 0} приёмов пищи в день за выбранный период.`)} />
-        <MiniStat icon="camera" color="var(--green)" value={data?.photos_count || 0} label="Фото за период"
-          onClick={statInfo("Фото блюд", `За период вы добавили ${data?.photos_count || 0} блюд с помощью камеры.`)} />
-      </div>
-
       {/* квесты с наградами (заменяют достижения) */}
       {qList.length > 0 && (
         <div className="card" style={{ padding: 18, marginTop: 14 }}>
@@ -390,6 +380,16 @@ export default function StatsPage() {
           </div>
         </div>
       )}
+
+      {/* mini stats */}
+      <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
+        <MiniStat icon="🔥" isEmoji value={avg} unit="ккал" label="В среднем в день"
+          onClick={statInfo("Средние калории", `В среднем вы потребляете ${avg} ккал в день` + (goal ? ` при норме ${goal} ккал.` : "."))} />
+        <MiniStat icon="utensils" color="var(--primary)" value={data?.meals_per_day || 0} label="Приёмов пищи в день"
+          onClick={statInfo("Приёмы пищи", `В среднем ${data?.meals_per_day || 0} приёмов пищи в день за выбранный период.`)} />
+        <MiniStat icon="camera" color="var(--green)" value={data?.photos_count || 0} label="Фото за период"
+          onClick={statInfo("Фото блюд", `За период вы добавили ${data?.photos_count || 0} блюд с помощью камеры.`)} />
+      </div>
     </div>
   );
 }
