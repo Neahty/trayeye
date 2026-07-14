@@ -92,18 +92,31 @@ function SectionCard({ title, children }) {
   );
 }
 
-// Аватар с цепочкой запасных вариантов: загруженное фото → фото из Telegram → плейсхолдер.
-// Если файл загруженного аватара недоступен (напр. не перенесён при миграции), onError
-// переключает на следующий кандидат, а не показывает «битую» картинку.
-function Avatar({ uploaded, tg, size, iconSize }) {
-  const candidates = [uploaded, tg].filter(Boolean);
+// Инициалы из имени (для запасного аватара, когда фото недоступно вовсе).
+function initialsOf(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  const s = (parts[0][0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "");
+  return s.toUpperCase();
+}
+
+// Аватар с цепочкой запасных вариантов:
+//   загруженное фото → кэш фото Telegram (с нашего сервера) → «живой» photo_url Telegram → инициалы.
+// Если очередной источник не открылся (напр. файл не перенесён при миграции БД или ссылка
+// Telegram истекла), onError переключает на следующий кандидат — «битой» картинки не будет,
+// а в самом конце всегда показываются инициалы, поэтому аватар есть всегда.
+function Avatar({ sources = [], name, size, iconSize }) {
+  const candidates = sources.filter(Boolean);
   const [idx, setIdx] = useState(0);
   const src = candidates[idx];
+  const initials = initialsOf(name);
   return (
     <div className="photo-slot" style={{ width: size, height: size, borderRadius: "50%", flex: `0 0 ${size}px` }}>
       {src
         ? <img src={src} alt="" onError={() => setIdx((i) => i + 1)} />
-        : <Ic name="user" size={iconSize} sw={1.6} style={{ color: "var(--text-3)" }} />}
+        : initials
+          ? <span style={{ fontWeight: 800, fontSize: size * 0.4, color: "var(--text-2)", lineHeight: 1 }}>{initials}</span>
+          : <Ic name="user" size={iconSize} sw={1.6} style={{ color: "var(--text-3)" }} />}
     </div>
   );
 }
@@ -227,6 +240,9 @@ export default function ProfilePage() {
   const tgUsername = u.username || WebApp.initDataUnsafe?.user?.username || null;
   const tgPhoto = WebApp.initDataUnsafe?.user?.photo_url || null;
   const uploadedAvatar = assetUrl(u.avatar_path);
+  const cachedTgAvatar = assetUrl(u.tg_photo_path);
+  // Порядок приоритета источников аватара (см. компонент Avatar).
+  const avatarSources = [uploadedAvatar, cachedTgAvatar, tgPhoto];
   const subLabel = sub ? `Списание: ${new Date(sub.expires_at).toLocaleDateString("ru-RU")}`
     : trial?.active ? `Пробный период до ${new Date(trial.ends_at).toLocaleDateString("ru-RU")}`
     : myTrainer ? "Доступ от тренера"
@@ -257,7 +273,7 @@ export default function ProfilePage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 6 }}>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onAvatar(f); }} />
-          <Avatar key={(uploadedAvatar || tgPhoto || "none") + "-96"} uploaded={uploadedAvatar} tg={tgPhoto} size={96} iconSize={42} />
+          <Avatar key={avatarSources.join("|") + "-96"} sources={avatarSources} name={u.name} size={96} iconSize={42} />
           <button className="tap" onClick={() => fileRef.current?.click()}
             style={{ color: "var(--primary)", fontWeight: 700, fontSize: 15.5, marginTop: 12 }}>Выбрать фотографию</button>
         </div>
@@ -301,7 +317,7 @@ export default function ProfilePage() {
 
       {/* user card */}
       <div className="card" style={{ width: "100%", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
-        <Avatar key={(uploadedAvatar || tgPhoto || "none") + "-72"} uploaded={uploadedAvatar} tg={tgPhoto} size={72} iconSize={34} />
+        <Avatar key={avatarSources.join("|") + "-72"} sources={avatarSources} name={u.name} size={72} iconSize={34} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 21, fontWeight: 800, letterSpacing: "-.3px" }}>{u.name || "Без имени"}</span>

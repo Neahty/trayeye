@@ -5,6 +5,7 @@ const { validateInitData } = require("../services/telegram");
 const notify = require("../services/notify");
 const channelMembership = require("../services/channelMembership");
 const channelLog = require("../services/channelLog");
+const avatarSync = require("../services/avatarSync");
 const { uniqueRefCode } = require("../utils/refcode");
 
 // Порог «возвращения после паузы» (дней) для лога reactivation.
@@ -108,6 +109,13 @@ router.post("/telegram", async (req, res, next) => {
     if (user.is_blocked) {
       return res.status(403).json({ error: "blocked" });
     }
+
+    // Подтягиваем/обновляем аватарку из Telegram и кэшируем у себя — чтобы фото было
+    // всегда, даже если загруженный файл потерялся при миграции БД. Fire-and-forget:
+    // вход не должен ждать/падать из-за Bot API.
+    avatarSync.syncTelegramAvatar(user).catch((e) =>
+      console.error("[auth] syncTelegramAvatar:", e.message)
+    );
 
     const token = jwtUtil.sign({ uid: user.id, telegram_id: user.telegram_id });
     res.json({ token, user: { id: user.id, telegram_id: user.telegram_id, name: user.name, is_admin: user.is_admin } });

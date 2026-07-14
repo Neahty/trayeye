@@ -113,6 +113,10 @@ CREATE INDEX IF NOT EXISTS idx_logs_action ON system_logs (action, created_at);
 
 -- Профиль: оформление, аватар, активность для админки
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path TEXT;
+-- Кэш аватарки из Telegram: скачиваем через Bot API и храним у себя, чтобы фото
+-- было всегда (даже если загруженный файл не пережил миграцию БД или профиль закрыт).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_photo_path TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_photo_synced_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'light';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS accent JSONB;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS units TEXT DEFAULT 'metric';

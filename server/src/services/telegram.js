@@ -86,6 +86,58 @@ async function sendPhoto(chatId, photo, caption = "", extra = {}) {
   }
 }
 
+// Возвращает file_id самой свежей аватарки пользователя из Telegram (или null).
+// Берём последнее по времени фото (index 0) в наибольшем доступном размере.
+async function getUserProfilePhotoFileId(userId) {
+  if (!BOT_TOKEN || !userId) return null;
+  try {
+    const { data } = await axios.post(
+      `https://api.telegram.org/bot${BOT_TOKEN}/getUserProfilePhotos`,
+      { user_id: userId, limit: 1 },
+      { timeout: 10000 }
+    );
+    const photos = data?.result?.photos;
+    if (!Array.isArray(photos) || !photos.length || !photos[0].length) return null;
+    // Каждый элемент — массив размеров одного фото; берём самый крупный (последний).
+    const sizes = photos[0];
+    return sizes[sizes.length - 1].file_id || null;
+  } catch (err) {
+    console.error("[telegram] getUserProfilePhotos failed:", err.response?.data || err.message);
+    return null;
+  }
+}
+
+// По file_id получает путь к файлу на серверах Telegram (result.file_path).
+async function getFilePath(fileId) {
+  if (!BOT_TOKEN || !fileId) return null;
+  try {
+    const { data } = await axios.post(
+      `https://api.telegram.org/bot${BOT_TOKEN}/getFile`,
+      { file_id: fileId },
+      { timeout: 10000 }
+    );
+    return data?.result?.file_path || null;
+  } catch (err) {
+    console.error("[telegram] getFile failed:", err.response?.data || err.message);
+    return null;
+  }
+}
+
+// Скачивает файл Telegram по file_path, возвращает Buffer (или null).
+async function downloadFile(filePath) {
+  if (!BOT_TOKEN || !filePath) return null;
+  try {
+    const { data } = await axios.get(
+      `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`,
+      { responseType: "arraybuffer", timeout: 15000 }
+    );
+    return Buffer.from(data);
+  } catch (err) {
+    console.error("[telegram] downloadFile failed:", err.response?.status || err.message);
+    return null;
+  }
+}
+
 // Проверка статуса участника чата/канала. Возвращает строку status или null при ошибке.
 async function getChatMember(chatId, userId) {
   if (!BOT_TOKEN) return null;
@@ -123,4 +175,7 @@ async function isChannelMember(userId, { force = false } = {}) {
   return member;
 }
 
-module.exports = { validateInitData, sendMessage, sendPhoto, getChatMember, isChannelMember, BOT_TOKEN };
+module.exports = {
+  validateInitData, sendMessage, sendPhoto, getChatMember, isChannelMember,
+  getUserProfilePhotoFileId, getFilePath, downloadFile, BOT_TOKEN
+};
