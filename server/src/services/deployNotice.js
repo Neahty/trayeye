@@ -21,18 +21,37 @@ const SHA_KEY = "last_deploy_sha";
 const HASH_KEY = "last_changelog_hash";
 const TG_TEXT_LIMIT = 4096;
 
-// Текущий коммит и его заголовок. Локально/в тестах git может быть недоступен — тогда null,
-// и анонс просто не уходит (в проде /opt/bytwise всегда git-репозиторий, см. deploy.sh).
-function gitHead() {
+// safe.directory обязателен: на проде репозиторий принадлежит пользователю deploy,
+// а сервис работает от bytwise — без этого git отказывается читать «чужой» репозиторий
+// («detected dubious ownership») и анонс молча не уходит.
+function git(...args) {
+  return execFileSync("git", ["-c", `safe.directory=${REPO_ROOT}`, "-C", REPO_ROOT, ...args],
+    { encoding: "utf8", timeout: 5000 }).trim();
+}
+
+// Развёрнутый сейчас коммит. Если git по любой причине недоступен — читаем .git напрямую:
+// от бинарника git зависеть не хотим, без коммита анонса не будет вовсе.
+function headSha() {
+  try { return git("rev-parse", "HEAD"); } catch { /* пробуем прочитать .git сами */ }
   try {
-    const g = (...args) => execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8", timeout: 5000 }).trim();
-    // «[deploy]» — служебная метка для GitHub Actions, в канале она ничего не значит.
-    const subject = g("log", "-1", "--pretty=%s").replace(/^\s*\[deploy\]\s*/i, "");
-    return { sha: g("rev-parse", "HEAD"), subject };
+    const head = fs.readFileSync(path.join(REPO_ROOT, ".git", "HEAD"), "utf8").trim();
+    const ref = /^ref:\s*(.+)$/.exec(head);
+    if (!ref) return head; // detached HEAD — там сразу sha
+    const direct = path.join(REPO_ROOT, ".git", ref[1]);
+    if (fs.existsSync(direct)) return fs.readFileSync(direct, "utf8").trim();
+    const packed = fs.readFileSync(path.join(REPO_ROOT, ".git", "packed-refs"), "utf8");
+    return packed.split("\n").find((l) => l.endsWith(` ${ref[1]}`))?.split(" ")[0] || null;
   } catch (err) {
-    console.error("[deployNotice] git недоступен:", err.message);
+    console.error("[deployNotice] не удалось определить коммит:", err.message);
     return null;
   }
+}
+
+// Заголовок коммита — необязателен: не прочитался, значит просто не пишем «Что нового».
+// «[deploy]» — служебная метка для GitHub Actions, в канале она ничего не значит.
+function headSubject() {
+  try { return git("log", "-1", "--pretty=%s").replace(/^\s*\[deploy\]\s*/i, ""); }
+  catch (err) { console.error("[deployNotice] заголовок коммита не прочитан:", err.message); return null; }
 }
 
 // Свежий блок анонса: файл поделён строками-разделителями «---», сегмент 0 — шапка
@@ -60,11 +79,11 @@ function readChangelogBlock() {
 }
 
 async function announceDeploy() {
-  const head = gitHead();
-  if (!head) return;
+  const sha = headSha();
+  if (!sha) return; // без коммита не отличить выкат от перезапуска — молчим, чтобы не спамить
 
   const prevSha = await settings.get(SHA_KEY);
-  if (prevSha === head.sha) return; // тот же коммит — это перезапуск, а не выкат
+  if (prevSha === sha) return; // тот же коммит — это перезапуск, а не выкат
 
   // Есть ли в CHANGELOG.md новый пользовательский анонс (не тот, что публиковали в прошлый раз).
   const block = readChangelogBlock();
@@ -72,10 +91,11 @@ async function announceDeploy() {
   const prevHash = await settings.get(HASH_KEY);
   const isNewAnnounce = Boolean(block) && blockHash !== prevHash;
 
+  const subject = isNewAnnounce ? null : headSubject();
   let text = isNewAnnounce
     ? `🚀 <b>Обнова выкачена на сервер</b>\n\n${toHtml(block)}\n\nВремя: ${notify.fmtWhen()}`
     : `🚀 <b>Обнова выкачена на сервер</b>\n\n` +
-      `Что нового: ${channelLog.esc(head.subject)}\n` +
+      (subject ? `Что нового: ${channelLog.esc(subject)}\n` : "") +
       `<i>Правки внутренние — отдельного анонса для пользователей нет.</i>\n` +
       `Время: ${notify.fmtWhen()}`;
   if (text.length > TG_TEXT_LIMIT) text = text.slice(0, TG_TEXT_LIMIT - 1) + "…";
@@ -87,9 +107,9 @@ async function announceDeploy() {
     console.error("[deployNotice] анонс не отправлен, отметки не сохраняю");
     return;
   }
-  await settings.set(SHA_KEY, head.sha);
+  await settings.set(SHA_KEY, sha);
   if (isNewAnnounce) await settings.set(HASH_KEY, blockHash);
-  console.log(`[deployNotice] анонс выката отправлен (${head.sha.slice(0, 7)}, анонс из CHANGELOG: ${isNewAnnounce})`);
+  console.log(`[deployNotice] анонс выката отправлен (${sha.slice(0, 7)}, анонс из CHANGELOG: ${isNewAnnounce})`);
 }
 
 module.exports = { announceDeploy, latestBlock, toHtml };
