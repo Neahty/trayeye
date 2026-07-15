@@ -2,6 +2,7 @@ const { Telegraf } = require("telegraf");
 const { isChannelMember } = require("./telegram");
 const db = require("../db");
 const notify = require("./notify");
+const channelLog = require("./channelLog");
 const channelMembership = require("./channelMembership");
 const employeeReferrals = require("./employeeReferrals");
 const { uniqueRefCode } = require("../utils/refcode");
@@ -12,6 +13,33 @@ const REQUIRED_CHANNEL_ID = process.env.REQUIRED_CHANNEL_ID || "";
 async function userIdByTg(telegramId) {
   const { rows } = await db.query("SELECT id FROM users WHERE telegram_id = $1", [String(telegramId)]);
   return rows[0]?.id || null;
+}
+
+// Пометка типа для нетекстовых сообщений — сам файл уходит в канал копией следом.
+const MEDIA_LABELS = {
+  photo: "[фото]", voice: "[голосовое]", video: "[видео]", video_note: "[кружок]",
+  audio: "[аудио]", document: "[файл]", sticker: "[стикер]", animation: "[гифка]",
+  location: "[геолокация]", contact: "[контакт]", poll: "[опрос]", dice: "[кубик]"
+};
+// Лимит сообщения Telegram — 4096 символов; оставляем запас на шапку лога.
+const LOG_TEXT_LIMIT = 3500;
+
+// Что человек прислал: текст как есть либо пометка типа + подпись к вложению.
+function describeMessage(msg) {
+  const media = !msg.text;
+  const body = media
+    ? [MEDIA_LABELS[Object.keys(MEDIA_LABELS).find((k) => msg[k])] || "[вложение]", msg.caption]
+        .filter(Boolean).join("\n")
+    : msg.text;
+  const text = body.length > LOG_TEXT_LIMIT ? body.slice(0, LOG_TEXT_LIMIT) + "…" : body;
+  return { text, media };
+}
+
+// Подпись для того, кто пишет боту, но в базе его нет (не нажимал /start).
+function labelFromTg(from) {
+  if (from?.username) return `@${channelLog.esc(from.username)}`;
+  const nm = channelLog.esc([from?.first_name, from?.last_name].filter(Boolean).join(" ") || "Пользователь");
+  return `<a href="tg://user?id=${from?.id}">${nm}</a>`;
 }
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
@@ -185,6 +213,31 @@ function getBot() {
       );
     } catch (e) {
       console.error("[bot] /stat:", e.message);
+    }
+  });
+
+  // Всё, что люди пишут боту, дублируем в канал логов. Хендлер идёт ПОСЛЕДНИМ:
+  // команды выше по цепочке забирают свои апдейты (Telegraf не вызывает next()),
+  // поэтому /start, /help, /ref и /stat сюда не доходят и канал не засоряют.
+  // Пользователю бот по-прежнему не отвечает — общение идёт через мини-апп и поддержку.
+  bot.on("message", async (ctx) => {
+    try {
+      // Только личка: сообщения из каналов/групп, где бот админ, логировать не нужно.
+      if (ctx.chat?.type !== "private") return;
+      const uid = await userIdByTg(ctx.from.id).catch(() => null);
+      const who = uid ? await notify.userLabel(uid) : labelFromTg(ctx.from);
+      const { text, media } = describeMessage(ctx.message);
+      await channelLog.post(
+        "user_messages",
+        `💬 <b>Сообщение боту</b>\n\n` +
+        `Клиент ${who} написал боту сообщение:\n` +
+        `${channelLog.esc(text)}\n` +
+        `Время: ${notify.fmtWhen()}`
+      );
+      // Фото/голосовое/кружок и прочее — копией следом, чтобы в логах был сам файл.
+      if (media) await channelLog.copyTo("user_messages", ctx.chat.id, ctx.message.message_id);
+    } catch (e) {
+      console.error("[bot] user message log:", e.message);
     }
   });
 

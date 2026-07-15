@@ -155,6 +155,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS channel_left_at TIMESTAMPTZ;
 UPDATE users SET channel_member = TRUE, channel_joined_at = COALESCE(channel_joined_at, created_at)
  WHERE app_opened = TRUE AND channel_joined_at IS NULL;
 
+-- Ссылка на сообщение «Новый пользователь» в канале логов: { chat_id, message_id, kind }.
+-- Нужна, чтобы после онбординга дописать в то же сообщение анкету (пол/рост/вес).
+-- kind = 'photo' | 'text' — Telegram правит подпись и текст РАЗНЫМИ методами и не даёт
+-- превратить одно в другое, поэтому способ отправки надо помнить (см. services/notify.js).
+-- chat_id храним, потому что канал меняется из админки и мог смениться после отправки.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_log_new_user_msg JSONB;
+
 -- Способ оплаты в платежах/подписках (для финансов админки)
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS method TEXT;        -- card/yukassa/referral/manual
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS sub_type TEXT;      -- basic/trainer

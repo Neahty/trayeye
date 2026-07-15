@@ -1,5 +1,5 @@
 const db = require("../db");
-const { sendMessage } = require("./telegram");
+const { sendMessage, getUserProfilePhotoFileId } = require("./telegram");
 const settings = require("../utils/settings");
 const channelLog = require("./channelLog");
 
@@ -63,20 +63,81 @@ async function notifyAdmins(text) {
   }
 }
 
-// Новый пользователь появился в боте/приложении — уведомляем админов.
-// source: "channel" (подписался на обязательный канал — основной триггер «нового пользователя»)
-//       | "app" (впервые открыл приложение) | "start" (нажал /start).
-async function notifyNewUser(userId, source = "channel") {
-  const who = await userLabel(userId);
-  const action = source === "app" ? "впервые открыл приложение"
-    : source === "start" ? "нажал /start в боте"
-    : "подписался на канал и открыл бота";
-  const text =
+// --- Лог «Новый пользователь» ---
+
+const GENDER_LABELS = { male: "Мужской", female: "Женский" };
+const NEW_USER_FIELDS = "telegram_id, name, username, gender, height, weight, channel_joined_at";
+
+// Подпись «кто» по уже загруженной строке пользователя — без лишнего запроса в БД.
+function whoOf(u) {
+  if (u.username) return `@${esc(u.username)}`;
+  return `<a href="tg://user?id=${u.telegram_id}">${esc(u.name || "Пользователь")}</a>`;
+}
+
+// NUMERIC из БД приходит строкой («75.00») — показываем по-человечески: 75, 75.5.
+function num(v) {
+  return v == null || Number.isNaN(Number(v)) ? null : String(Number(v));
+}
+
+// Текст лога. Пока онбординг не пройден — короткий вариант, после — с анкетой.
+// Время всегда исходное (момент подписки), даже когда правим сообщение позже.
+function newUserText(u, source, withProfile) {
+  const action = source === "app" ? "впервые открыл приложение" : "подписался на канал и открыл бота";
+  const profile = withProfile
+    ? `Пол: ${GENDER_LABELS[u.gender] || "—"}\n` +
+      `Рост: ${u.height ? `${u.height} см` : "—"}\n` +
+      `Вес: ${num(u.weight) ? `${num(u.weight)} кг` : "—"}\n`
+    : "";
+  return (
     `👤 <b>Новый пользователь</b>\n\n` +
-    `${who} ${action}.\n` +
-    `Время: ${fmtWhen()}`;
+    `${whoOf(u)} ${action}.\n` +
+    profile +
+    `Время: ${fmtWhen(u.channel_joined_at)}`
+  );
+}
+
+// Новый пользователь появился в боте/приложении.
+// Админам в личку — короткая строка; в канал — то же самое, но с аватаркой человека
+// (той, что служит ему фото в Bytwise) и с дозаписью анкеты после онбординга
+// (см. refreshNewUserLog). Ссылку на сообщение в канале сохраняем в users.
+// source: "channel" (подписался на обязательный канал — основной триггер)
+//       | "app" (впервые открыл приложение).
+async function notifyNewUser(userId, source = "channel") {
+  const { rows } = await db.query(`SELECT ${NEW_USER_FIELDS} FROM users WHERE id = $1`, [userId]);
+  const u = rows[0];
+  if (!u) return;
+  const text = newUserText(u, source, false);
   await notifyAdmins(text);
-  channelLog.post("users", text).catch(() => {});
+
+  // Аватарка берётся живым запросом: в момент подписки кэш tg_photo_path ещё не заполнен
+  // (avatarSync отрабатывает только на входе в приложение).
+  const photo = await getUserProfilePhotoFileId(u.telegram_id).catch(() => null);
+  const res = photo
+    ? await channelLog.postPhoto("users", photo, text)
+    : await channelLog.post("users", text);
+
+  // Лог мог не уйти (канал выключен в админке / бот не админ канала) — тогда и править нечего.
+  const msg = res?.result;
+  if (!msg?.message_id) return;
+  await db.query("UPDATE users SET tg_log_new_user_msg = $2 WHERE id = $1", [
+    userId,
+    JSON.stringify({ chat_id: msg.chat?.id, message_id: msg.message_id, kind: photo ? "photo" : "text", source })
+  ]);
+}
+
+// Онбординг пройден — дописываем анкету в то же сообщение канала (нового не шлём).
+async function refreshNewUserLog(userId) {
+  const { rows } = await db.query(
+    `SELECT ${NEW_USER_FIELDS}, tg_log_new_user_msg FROM users WHERE id = $1`,
+    [userId]
+  );
+  const u = rows[0];
+  const ref = u?.tg_log_new_user_msg;
+  if (!ref?.chat_id || !ref?.message_id) return;
+  const text = newUserText(u, ref.source, true);
+  // Фото и текст правятся разными методами Bot API — какой отправляли, таким и правим.
+  if (ref.kind === "photo") await channelLog.editCaption("users", ref.chat_id, ref.message_id, text);
+  else await channelLog.editText("users", ref.chat_id, ref.message_id, text);
 }
 
 // Экранирование для parse_mode: HTML, чтобы спецсимволы в имени не ломали сообщение.
@@ -206,6 +267,7 @@ module.exports = {
   notifyClientOfComment,
   notifyAdmins,
   notifyNewUser,
+  refreshNewUserLog,
   notifyPurchase,
   notifyPaymentFailed,
   notifyRefund,

@@ -8,6 +8,7 @@ const { calcDailyNorms, activityLevelFromWorkouts, deriveGoal } = require("../ut
 const { getActiveSubscription, isTrainer, getActiveTrainer } = require("../utils/subscription");
 const { userTz } = require("../utils/tz");
 const settings = require("../utils/settings");
+const notify = require("../services/notify");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -18,7 +19,7 @@ const UPLOADS_ROOT = path.resolve(__dirname, "../../../uploads");
 function publicUser(u) {
   const {
     ref_code, login_count, device, last_login_at, free_scans_used,
-    referred_by, trial_started_at, tg_unreachable, app_opened,
+    referred_by, trial_started_at, tg_unreachable, app_opened, tg_log_new_user_msg,
     ...safe
   } = u;
   return safe;
@@ -123,6 +124,14 @@ router.patch("/", auth, async (req, res, next) => {
 
     if (weightChanged) {
       await db.query("INSERT INTO weight_history (user_id, weight) VALUES ($1, $2)", [u.id, Number(b.weight)]);
+    }
+
+    // Онбординг только что пройден — дописываем анкету в лог «Новый пользователь» в канале.
+    // Ловим именно переход FALSE→TRUE, иначе правка летела бы на каждое сохранение профиля.
+    if (!u.onboarded && merged.onboarded) {
+      notify.refreshNewUserLog(u.id).catch((e) =>
+        console.error("[profile] refreshNewUserLog:", e.message)
+      );
     }
 
     await db.logAction(u.id, "profile_update", { weightChanged });

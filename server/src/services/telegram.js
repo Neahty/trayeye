@@ -86,6 +86,69 @@ async function sendPhoto(chatId, photo, caption = "", extra = {}) {
   }
 }
 
+// Правка текста уже отправленного сообщения (для текстовых сообщений).
+async function editMessageText(chatId, messageId, text, extra = {}) {
+  if (!BOT_TOKEN) {
+    console.log(`[telegram:mock] edit text ${chatId}/${messageId}: ${text}`);
+    return { ok: false, mock: true };
+  }
+  try {
+    const { data } = await axios.post(
+      `https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`,
+      { chat_id: chatId, message_id: messageId, text, parse_mode: "HTML", ...extra },
+      { timeout: 10000 }
+    );
+    return data;
+  } catch (err) {
+    const tg = err.response?.data;
+    console.error("[telegram] editMessageText failed:", tg || err.message);
+    return { ok: false, error: tg?.description || err.message };
+  }
+}
+
+// Правка подписи уже отправленного медиа-сообщения (для фото).
+// Текстовое сообщение так править НЕЛЬЗЯ — и наоборот: Telegram не разрешает
+// превращать текст в медиа (и обратно) правкой, только пересылкой заново.
+async function editMessageCaption(chatId, messageId, caption, extra = {}) {
+  if (!BOT_TOKEN) {
+    console.log(`[telegram:mock] edit caption ${chatId}/${messageId}: ${caption}`);
+    return { ok: false, mock: true };
+  }
+  try {
+    const { data } = await axios.post(
+      `https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption`,
+      { chat_id: chatId, message_id: messageId, caption, parse_mode: "HTML", ...extra },
+      { timeout: 10000 }
+    );
+    return data;
+  } catch (err) {
+    const tg = err.response?.data;
+    console.error("[telegram] editMessageCaption failed:", tg || err.message);
+    return { ok: false, error: tg?.description || err.message };
+  }
+}
+
+// Копия любого сообщения в другой чат — без пометки «переслано» и без привязки
+// к типу контента (фото, голосовое, кружок, стикер и т.д. — всё одним методом).
+async function copyMessage(chatId, fromChatId, messageId, extra = {}) {
+  if (!BOT_TOKEN) {
+    console.log(`[telegram:mock] copy ${fromChatId}/${messageId} -> ${chatId}`);
+    return { ok: false, mock: true };
+  }
+  try {
+    const { data } = await axios.post(
+      `https://api.telegram.org/bot${BOT_TOKEN}/copyMessage`,
+      { chat_id: chatId, from_chat_id: fromChatId, message_id: messageId, ...extra },
+      { timeout: 15000 }
+    );
+    return data;
+  } catch (err) {
+    const tg = err.response?.data;
+    console.error("[telegram] copyMessage failed:", tg || err.message);
+    return { ok: false, error: tg?.description || err.message };
+  }
+}
+
 // Возвращает file_id самой свежей аватарки пользователя из Telegram (или null).
 // Берём последнее по времени фото (index 0) в наибольшем доступном размере.
 async function getUserProfilePhotoFileId(userId) {
@@ -177,5 +240,6 @@ async function isChannelMember(userId, { force = false } = {}) {
 
 module.exports = {
   validateInitData, sendMessage, sendPhoto, getChatMember, isChannelMember,
+  editMessageText, editMessageCaption, copyMessage,
   getUserProfilePhotoFileId, getFilePath, downloadFile, BOT_TOKEN
 };

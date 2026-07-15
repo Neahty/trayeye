@@ -24,6 +24,12 @@ const PORT = process.env.PORT || 4000;
   launchBot();
   notifications.start();
 
+  // Анонс обновления в канал логов: деплой перезапускает сервис, так что старт = выкат.
+  // Шлём, только если в CHANGELOG.md появился новый блок (проверка по хэшу внутри).
+  require("./services/deployNotice").announceDeploy().catch((e) =>
+    console.error("[startup] announceDeploy:", e.message)
+  );
+
   // Прогрев кэшей внешних API (курс ЦБ + расходы OpenAI), чтобы первое открытие
   // раздела «Расходы на ИИ» в админке не висело на сетевом запросе.
   require("./services/fx").getUsdRub().catch(() => {});

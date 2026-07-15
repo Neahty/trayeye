@@ -39,6 +39,8 @@ const DEFAULTS = {
   tg_log_channel_id: "-1004283676399",
   tg_log_events: {
     users: true,                 // новые пользователи (подписались на канал)
+    user_messages: true,         // всё, что люди пишут боту (текст + медиа копией)
+    deploy: true,                // анонс обновления из CHANGELOG.md при выкате
     channel_left: true,          // вышли из обязательного канала
     blocked_bot: true,           // заблокировали бота / не начинали диалог (403)
     reactivation: true,          // вернулись после долгой паузы
