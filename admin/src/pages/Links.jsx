@@ -7,7 +7,8 @@ import { Loader } from "../lib.jsx";
 const FIELDS = [
   { key: "nutritionist_url", label: "Задать вопрос нутрициологу", hint: "Ссылка на аккаунт нутрициолога в Telegram — кнопка на Главной ведёт сюда." },
   { key: "plan_url", label: "Авторский план тренировок", hint: "Промо-карточка «Авторский план» на Главной." },
-  { key: "support_url", label: "Поддержка / канал", hint: "Доп. служебная ссылка (необязательно)." }
+  { key: "support_url", label: "Поддержка / канал", hint: "Доп. служебная ссылка (необязательно)." },
+  { key: "reviews_url", label: "Канал с отзывами", hint: "Карточка «Счастливые пользователи Pro» в Профиле, под подпиской, ведёт сюда." }
 ];
 
 export default function LinksPage() {
@@ -22,7 +23,8 @@ export default function LinksPage() {
         setForm({
           nutritionist_url: s.nutritionist_url || "",
           plan_url: s.plan_url || "",
-          support_url: s.support_url || ""
+          support_url: s.support_url || "",
+          reviews_url: s.reviews_url || ""
         });
       })
       .catch((e) => setMsg("Ошибка загрузки: " + (e?.response?.data?.error || e.message)));

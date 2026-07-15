@@ -682,7 +682,7 @@ router.put("/settings", async (req, res, next) => {
       "reminders", "meal_reminders",
       "tg_log_enabled", "tg_log_channel_id", "tg_log_events", "admin_live_refresh_sec",
       // Вкладка «Ссылки»: глобальные ссылки для Главной.
-      "nutritionist_url", "plan_url", "support_url"
+      "nutritionist_url", "plan_url", "support_url", "reviews_url"
     ];
     for (const key of Object.keys(updates)) {
       if (!allowed.includes(key)) continue;

@@ -144,8 +144,10 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const fileRef = useRef();
 
-  const [links, setLinks] = useState(null);
-  useEffect(() => { Settings.public().then((d) => setLinks(d.support_links)).catch(() => {}); }, []);
+  const [pub, setPub] = useState(null);
+  useEffect(() => { Settings.public().then((d) => setPub(d || {})).catch(() => {}); }, []);
+  const links = pub?.support_links;
+  const reviewsUrl = pub?.reviews_url || "";
 
   // Экран редактирования профиля (имя, фото, «Мои данные», «Норма КБЖУ») — отдельный
   // подэкран, открывается кнопкой «Изм.». Основной экран остаётся чистым.
@@ -248,6 +250,15 @@ export default function ProfilePage() {
     else ui.sheet({ type: "info", title, body: "Свяжитесь с поддержкой через Telegram-бота.", actionLabel: "Понятно" });
   };
 
+  // Открытие внешней ссылки корректно из Telegram-webview (как на Главной).
+  const openExternal = (url) => {
+    if (!url) return;
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openTelegramLink && /t\.me\//.test(url)) tg.openTelegramLink(url);
+    else if (tg?.openLink) tg.openLink(url);
+    else window.open(url, "_blank", "noopener");
+  };
+
   const tgUsername = u.username || WebApp.initDataUnsafe?.user?.username || null;
   const tgPhoto = WebApp.initDataUnsafe?.user?.photo_url || null;
   const uploadedAvatar = assetUrl(u.avatar_path);
@@ -342,7 +353,7 @@ export default function ProfilePage() {
 
       {/* subscription */}
       <SectionCard title="Моя подписка">
-        <button className="list-row last" onClick={openSubscription} style={{ alignItems: "center" }}>
+        <button className={reviewsUrl ? "list-row" : "list-row last"} onClick={openSubscription} style={{ alignItems: "center" }}>
           <span style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--grad)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 56px", boxShadow: "0 8px 18px -6px var(--primary)" }}>
             <Ic name="crown" size={28} sw={1.7} style={{ color: "#fff" }} />
           </span>
@@ -355,6 +366,20 @@ export default function ProfilePage() {
           </div>
           <Ic name="chevronRight" size={19} sw={2.2} style={{ color: "var(--text-3)" }} />
         </button>
+
+        {/* канал с отзывами (ссылка из админки, вкладка «Ссылки») */}
+        {reviewsUrl && (
+          <button className="list-row last" onClick={() => openExternal(reviewsUrl)} style={{ alignItems: "center" }}>
+            <span style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--tint)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 56px" }}>
+              <Ic name="sparkles" size={26} sw={1.8} />
+            </span>
+            <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 16.5, letterSpacing: "-.2px" }}>Счастливые пользователи Pro</div>
+              <div style={{ color: "var(--text-2)", fontSize: 13.5, marginTop: 6 }}>Отзывы о Bytwise</div>
+            </div>
+            <Ic name="chevronRight" size={19} sw={2.2} style={{ color: "var(--text-3)" }} />
+          </button>
+        )}
       </SectionCard>
 
       {/* тренер: кабинет / стать тренером */}

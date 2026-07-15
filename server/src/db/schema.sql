@@ -336,7 +336,8 @@ INSERT INTO app_settings (key, value) VALUES
   -- карточки на Главной прячутся, пока ссылка не задана.
   ('nutritionist_url',    '""'::jsonb),
   ('plan_url',            '""'::jsonb),
-  ('support_url',         '""'::jsonb)
+  ('support_url',         '""'::jsonb),
+  ('reviews_url',         '""'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
 -- Обновить цены для уже существующих БД (одноразово к новым значениям прайса)
