@@ -17,7 +17,7 @@ function MacroPill({ color, label, val }) {
   );
 }
 
-function AddByTextBody({ close, ui, onAdded, tz }) {
+function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
   const [stage, setStage] = useState("input");
   const [text, setText] = useState("");
   const [meal, setMeal] = useState(defaultMeal(tz));
@@ -60,8 +60,9 @@ function AddByTextBody({ close, ui, onAdded, tz }) {
     } catch (e) {
       const d = e?.response?.data;
       if (e?.response?.status === 403 && d?.error === "limit") {
+        // Как при фото-скане: открываем полный экран оплаты, а не мелкий тост.
         close();
-        ui.toast("Лимит исчерпан — оформите подписку");
+        onLimit && onLimit();
         return;
       }
       if (e?.response?.status === 422) {
@@ -174,6 +175,6 @@ function AddByTextBody({ close, ui, onAdded, tz }) {
   );
 }
 
-export function openAddByText(ui, onAdded, tz) {
-  ui.sheet({ type: "custom", render: (close) => <AddByTextBody close={close} ui={ui} onAdded={onAdded} tz={tz} /> });
+export function openAddByText(ui, onAdded, tz, onLimit) {
+  ui.sheet({ type: "custom", render: (close) => <AddByTextBody close={close} ui={ui} onAdded={onAdded} tz={tz} onLimit={onLimit} /> });
 }

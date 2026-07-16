@@ -22,7 +22,10 @@ const DEFAULTS = {
   trial_days: Number(process.env.TRIAL_DAYS || 3),
   trainer_max_clients: Number(process.env.TRAINER_MAX_CLIENTS || 20),
   welcome_text: "Привет! Я Bytwise — считаю калории и БЖУ по фото и описанию блюда.",
-  paywall_text: "Оформите Bytwise PRO: безлимит фото-сканов, AI-добавление текстом и полная статистика.",
+  // {limit} подставляется на клиенте из free_scan_daily_limit.
+  paywall_text: "В бесплатной подписке доступно до {limit} сканов в день. Оформите Bytwise PRO и получите больше:",
+  // Буллеты оффера на пейволле (редактируются в админке). Пустой список → блок скрыт.
+  paywall_features: ["Безлимитное число сканов в день", "Личный чат с нутрициологом", "База рецептов ПП-блюд"],
   support_links: {
     help: "https://t.me/Yadmitriyda",
     privacy: "https://docs.google.com/document/d/15UlEfRYqYLtvNtGVXJ_ZhnHLTmLJe_z7g9oukD648Bg/edit?usp=sharing",
@@ -33,6 +36,13 @@ const DEFAULTS = {
   plan_url: "",           // промо-карточка «Авторский план тренировок»
   support_url: "",        // доп. служебная ссылка (канал/поддержка)
   reviews_url: "",        // канал с отзывами — карточка «Счастливые пользователи Pro» в Профиле
+  // Апселл-пуш, когда у пробного юзера закончились дневные сканы (middleware/checkLimit.js).
+  // Шлётся не чаще 1 раза в сутки. {limit} — дневной лимит бесплатных сканов.
+  limit_push: {
+    enabled: true,
+    button_text: "Оформить Pro",
+    text: "🚀 На сегодня бесплатные сканы закончились ({limit}/день).\nС Bytwise PRO — безлимит сканов, личный чат с нутрициологом и база рецептов ПП. Оформи и продолжай без пауз 👇"
+  },
   // Дублирование событий в Telegram-канал (services/channelLog.js). Основной бот должен быть
   // админом канала. Всё редактируется в админке («Настройки → Логи в Telegram»).
   tg_log_enabled: true,

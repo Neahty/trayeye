@@ -61,11 +61,18 @@ export default function Paywall() {
   //  — была платная подписка и закончилась → «Подписка закончилась»;
   //  — платной не было, но пробный истёк → «Пробный период закончился»;
   //  — пробный ещё идёт → нейтральное предложение (текст из настроек).
+  // {limit} в текстах оффера → дневной лимит бесплатных сканов из настроек.
+  const freeLimit = cfg?.free_scan_daily_limit;
+  const fillLimit = (s) => String(s || "").replace(/\{limit\}/g, freeLimit != null ? freeLimit : "");
+
   const subtitle = profile?.last_subscription
     ? "Подписка закончилась. Продлите Bytwise PRO, чтобы вернуть безлимит и статистику."
     : !profile?.trial?.active
     ? "Пробный период закончился. Оформите Bytwise PRO, чтобы продолжать считать калории без ограничений."
-    : (cfg?.paywall_text || "Безлимитное сканирование, AI-добавление текстом и полная статистика.");
+    : fillLimit(cfg?.paywall_text || "Безлимитное сканирование, AI-добавление текстом и полная статистика.");
+
+  // Заметный оффер-блок: буллеты преимуществ Pro (редактируются в админке).
+  const offerFeatures = Array.isArray(cfg?.paywall_features) ? cfg.paywall_features.filter(Boolean) : [];
 
   if (hasAccess) return null; // пока выполняется редирект — пейволл не показываем
 
@@ -80,6 +87,21 @@ export default function Paywall() {
           {subtitle}
         </p>
       </div>
+
+      {offerFeatures.length > 0 && (
+        <div style={{ background: "var(--grad)", borderRadius: 18, padding: "18px 20px", marginBottom: 18, color: "#fff", boxShadow: "0 16px 34px -12px var(--primary)" }}>
+          <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 12 }}>С Bytwise PRO вам доступно:</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {offerFeatures.map((f) => (
+              <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15.5, fontWeight: 600 }}>
+                <span style={{ display: "inline-flex", width: 22, height: 22, flex: "0 0 22px", borderRadius: "50%", background: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" }}>
+                  <Ic name="check" size={15} sw={2.6} style={{ color: "#fff" }} />
+                </span> {fillLimit(f)}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {tariffs.map((t, i) => (

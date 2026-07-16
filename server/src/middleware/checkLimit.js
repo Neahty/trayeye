@@ -2,6 +2,30 @@ const db = require("../db");
 const { hasEffectiveAccess } = require("../utils/subscription");
 const settings = require("../utils/settings");
 const { userTz } = require("../utils/tz");
+const { sendMessage } = require("../services/telegram");
+
+const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "Bytwise_bot";
+
+// Апселл-пуш при исчерпании дневного лимита сканов у пробного юзера.
+// Дедуп 1/сутки — атомарно через UPDATE ... RETURNING: право на пуш «занимает»
+// только тот запрос, что реально обновил дату (гонок одновременных сканов нет).
+async function maybeSendLimitPush(user, dailyLimit, tz) {
+  const cfg = await settings.get("limit_push");
+  if (!cfg || cfg.enabled === false || !cfg.text) return;
+  const { rowCount } = await db.query(
+    `UPDATE users SET limit_push_at = NOW()
+     WHERE id = $1 AND (limit_push_at IS NULL OR (limit_push_at AT TIME ZONE $2)::date < (NOW() AT TIME ZONE $2)::date)`,
+    [user.id, tz]
+  );
+  if (!rowCount) return; // сегодня уже слали
+  const text = String(cfg.text).replace(/\{limit\}/g, dailyLimit);
+  const button = { text: cfg.button_text || "Оформить Pro", url: `https://t.me/${BOT_USERNAME}?startapp=paywall` };
+  const res = await sendMessage(user.telegram_id, text, { reply_markup: { inline_keyboard: [[button]] } });
+  // Заблокировал бота / не начинал диалог — помечаем, чтобы не слать впустую (как в broadcast.js).
+  if (res && res.error_code === 403) {
+    await db.query("UPDATE users SET tg_unreachable = TRUE WHERE id = $1", [user.id]);
+  }
+}
 
 // Модель лимита:
 //  - активная подписка ИЛИ доступ от активного тренера -> безлимит
@@ -36,6 +60,8 @@ module.exports = async function checkLimit(req, res, next) {
     );
     const todayCount = rows[0]?.cnt || 0;
     if (todayCount >= dailyLimit) {
+      // Апселл-пуш шлём в фоне, не задерживая ответ; ошибки/недоступность гасим внутри.
+      maybeSendLimitPush(user, dailyLimit, tz).catch((e) => console.error("[limitPush]", e.message));
       return res.status(403).json({ error: "limit", reason: "daily_cap", limit: dailyLimit });
     }
 

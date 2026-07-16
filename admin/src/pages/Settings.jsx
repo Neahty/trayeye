@@ -606,6 +606,12 @@ export default function SettingsPage() {
         trainer_max_clients: Number(form.trainer_max_clients),
         welcome_text: form.welcome_text,
         paywall_text: form.paywall_text,
+        paywall_features: (Array.isArray(form.paywall_features) ? form.paywall_features : []).map((f) => String(f).trim()).filter(Boolean),
+        limit_push: {
+          enabled: (form.limit_push?.enabled) !== false,
+          button_text: (form.limit_push?.button_text || "").trim() || "Оформить Pro",
+          text: (form.limit_push?.text || "").trim()
+        },
         tariffs: cleanTariffs,
         support_links: typeof form.support_links === "string" ? JSON.parse(form.support_links) : form.support_links,
         reminders: cleanReminders,
@@ -647,6 +653,12 @@ export default function SettingsPage() {
     <div className="field"><label>{label}</label>
       <input className="input" value={links[k] ?? ""} onChange={(e) => setLink(k, e.target.value)} placeholder="https://…" /></div>
   );
+  // paywall_features — список буллетов оффера на экране оплаты.
+  const features = Array.isArray(form.paywall_features) ? form.paywall_features : [];
+  const setFeatures = (list) => setVal("paywall_features", list);
+  // limit_push — апселл-пуш от бота при исчерпании дневного лимита сканов.
+  const limitPush = (form.limit_push && typeof form.limit_push === "object") ? form.limit_push : {};
+  const setLimitPush = (k, v) => setVal("limit_push", { ...limitPush, [k]: v });
 
   const saveBtn = (
     <button className="btn" disabled={busy} onClick={save} style={{ marginBottom: 8 }}>
@@ -706,10 +718,45 @@ export default function SettingsPage() {
           <div className="card" style={{ marginBottom: 16 }}>
             {textField("welcome_text", "Приветственное сообщение")}
             {textField("paywall_text", "Текст на экране оплаты")}
+            <p className="muted" style={{ margin: "-6px 0 12px", fontSize: 12.5 }}>Плейсхолдер <code>{"{limit}"}</code> подставит бесплатный лимит сканов в день.</p>
+
+            <div className="field">
+              <label>Преимущества Pro (буллеты на экране оплаты)</label>
+              {features.map((f, i) => (
+                <div className="row" key={i} style={{ marginBottom: 8, gap: 8 }}>
+                  <input className="input" value={f} placeholder="Например: Безлимитное число сканов"
+                    onChange={(e) => setFeatures(features.map((x, idx) => (idx === i ? e.target.value : x)))} />
+                  <button type="button" className="btn ghost sm" onClick={() => setFeatures(features.filter((_, idx) => idx !== i))}>✕</button>
+                </div>
+              ))}
+              <button type="button" className="btn ghost sm" onClick={() => setFeatures([...features, ""])}>+ Пункт</button>
+            </div>
+
             <div className="grid cols-3" style={{ marginTop: 4 }}>
               {linkField("help", "Ссылка на поддержку")}
               {linkField("privacy", "Политика конфиденциальности")}
               {linkField("terms", "Условия использования")}
+            </div>
+          </div>
+
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="kv" style={{ marginBottom: 10 }}>
+              <span style={{ fontWeight: 800 }}>Пуш при исчерпании дневного лимита</span>
+              <label className="row" style={{ gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" checked={limitPush.enabled !== false} onChange={(e) => setLimitPush("enabled", e.target.checked)} />
+                <span>{limitPush.enabled !== false ? "включён" : "выключен"}</span>
+              </label>
+            </div>
+            <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
+              Когда у пробного пользователя закончились сканы за день — бот один раз в сутки шлёт апселл Pro с кнопкой на экран оплаты. Плейсхолдер <code>{"{limit}"}</code> — дневной лимит.
+            </p>
+            <div className="field">
+              <label>Текст сообщения</label>
+              <textarea className="input" rows={3} value={limitPush.text ?? ""} onChange={(e) => setLimitPush("text", e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Текст кнопки</label>
+              <input className="input" value={limitPush.button_text ?? ""} placeholder="Оформить Pro" onChange={(e) => setLimitPush("button_text", e.target.value)} />
             </div>
           </div>
           {saveBtn}

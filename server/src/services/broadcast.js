@@ -4,21 +4,49 @@ const { sendMessage, sendPhoto } = require("./telegram");
 
 const SERVER_URL = process.env.SERVER_URL || "";
 
+// Активная подписка — единый признак «подписчика» во всём проекте.
+const ACTIVE_SUB = `SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW()`;
+
 function audienceSql(audience) {
   switch (audience) {
     case "subscribed":
-      return `u.id IN (SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW())`;
+      return `u.id IN (${ACTIVE_SUB})`;
     case "unsubscribed":
-      return `u.id NOT IN (SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW())`;
+      return `u.id NOT IN (${ACTIVE_SUB})`;
     case "new":
       return `u.created_at >= NOW() - interval '7 days'`;
+    // Подписка ещё активна, но истекает в ближайшие 3 дня — напомнить продлить.
+    case "expiring":
+      return `u.id IN (SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW() AND expires_at <= NOW() + interval '3 days')`;
+    // Была подписка, сейчас активной нет (истекла/отменена) — win-back.
+    case "churned":
+      return `u.id IN (SELECT user_id FROM subscriptions) AND u.id NOT IN (${ACTIVE_SUB})`;
+    case "sub_basic":
+      return `u.id IN (SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW() AND type='basic')`;
+    case "sub_trainer":
+      return `u.id IN (SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW() AND type='trainer')`;
+    // Не активированные: не открыли приложение или не вступили в обязательный канал.
+    case "inactive":
+      return `(u.app_opened = FALSE OR u.channel_member = FALSE)`;
     case "all":
     default:
       return `TRUE`;
   }
 }
 
-async function recipients(audience) {
+async function recipients(audience, targetUserIds) {
+  // Точечная рассылка конкретным людям: админ выбрал их осознанно, поэтому
+  // notifications_enabled не учитываем; исключаем только заблокированных/недоступных.
+  if (audience === "user") {
+    const ids = Array.isArray(targetUserIds) ? targetUserIds : [];
+    if (!ids.length) return [];
+    const { rows } = await db.query(
+      `SELECT u.id, u.telegram_id FROM users u
+       WHERE u.is_blocked = FALSE AND u.tg_unreachable = FALSE AND u.id = ANY($1::int[])`,
+      [ids]
+    );
+    return rows;
+  }
   const { rows } = await db.query(
     `SELECT u.id, u.telegram_id FROM users u
      WHERE u.is_blocked = FALSE AND u.tg_unreachable = FALSE AND u.notifications_enabled = TRUE AND ${audienceSql(audience)}`
@@ -49,11 +77,12 @@ const SEND_GAP_MS = 40;
 // Создаёт запись рассылки (status='pending') и СРАЗУ её возвращает — без отправки.
 // Реальная отправка выполняется отдельно в runBroadcast(), чтобы HTTP-запрос админа
 // не висел минуты на большой аудитории (раньше из-за этого был таймаут и дубли при повторе).
-async function createBroadcast({ adminId, audience, kind, text, photoPath, buttons }) {
+async function createBroadcast({ adminId, audience, kind, text, photoPath, buttons, targetUserIds }) {
   const ins = await db.query(
-    `INSERT INTO broadcasts (admin_id, audience, kind, text, photo_path, buttons, status)
-     VALUES ($1,$2,$3,$4,$5,$6,'pending') RETURNING *`,
-    [adminId, audience, kind, text || null, photoPath || null, buttons ? JSON.stringify(buttons) : null]
+    `INSERT INTO broadcasts (admin_id, audience, kind, text, photo_path, buttons, status, target_user_ids)
+     VALUES ($1,$2,$3,$4,$5,$6,'pending',$7) RETURNING *`,
+    [adminId, audience, kind, text || null, photoPath || null, buttons ? JSON.stringify(buttons) : null,
+     Array.isArray(targetUserIds) && targetUserIds.length ? targetUserIds : null]
   );
   return ins.rows[0];
 }
@@ -72,7 +101,7 @@ async function runBroadcast(broadcastId) {
 
   await db.query("UPDATE broadcasts SET status='sending' WHERE id=$1", [broadcastId]);
 
-  const users = await recipients(broadcast.audience);
+  const users = await recipients(broadcast.audience, broadcast.target_user_ids);
   let delivered = 0;
 
   for (const u of users) {

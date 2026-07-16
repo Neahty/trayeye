@@ -161,6 +161,8 @@ UPDATE users SET channel_member = TRUE, channel_joined_at = COALESCE(channel_joi
 -- превратить одно в другое, поэтому способ отправки надо помнить (см. services/notify.js).
 -- chat_id храним, потому что канал меняется из админки и мог смениться после отправки.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_log_new_user_msg JSONB;
+-- Когда боту в последний раз ушёл апселл-пуш по исчерпанию дневного лимита (дедуп 1/сутки).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS limit_push_at TIMESTAMPTZ;
 
 -- Способ оплаты в платежах/подписках (для финансов админки)
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS method TEXT;        -- card/yukassa/referral/manual
@@ -284,7 +286,7 @@ ON CONFLICT (code) DO NOTHING;
 CREATE TABLE IF NOT EXISTS broadcasts (
   id SERIAL PRIMARY KEY,
   admin_id INT REFERENCES users(id),
-  audience TEXT,                       -- all/subscribed/unsubscribed/new
+  audience TEXT,                       -- all/subscribed/unsubscribed/new/expiring/churned/sub_basic/sub_trainer/inactive/user
   kind TEXT,                           -- text/photo/buttons
   text TEXT,
   photo_path TEXT,
@@ -296,6 +298,8 @@ CREATE TABLE IF NOT EXISTS broadcasts (
 );
 -- Статус фоновой отправки: pending → sending → done (рассылка идёт в фоне, не в HTTP-запросе).
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'done';
+-- Список конкретных получателей для точечной рассылки (audience='user'). NULL для сегментов.
+ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS target_user_ids INTEGER[];
 
 CREATE TABLE IF NOT EXISTS broadcast_clicks (
   id SERIAL PRIMARY KEY,

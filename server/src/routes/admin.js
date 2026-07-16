@@ -577,7 +577,8 @@ router.get("/broadcasts", async (req, res, next) => {
 
 router.post("/broadcasts", upload.single("photo"), async (req, res, next) => {
   try {
-    const audience = ["all", "subscribed", "unsubscribed", "new"].includes(req.body.audience) ? req.body.audience : "all";
+    const AUDIENCES = ["all", "subscribed", "unsubscribed", "new", "expiring", "churned", "sub_basic", "sub_trainer", "inactive", "user"];
+    const audience = AUDIENCES.includes(req.body.audience) ? req.body.audience : "all";
     const kind = ["text", "photo", "buttons"].includes(req.body.kind) ? req.body.kind : "text";
     const text = req.body.text || "";
     let buttons = null;
@@ -585,6 +586,16 @@ router.post("/broadcasts", upload.single("photo"), async (req, res, next) => {
       // Кривой JSON — явная ошибка, а не молчаливая рассылка без кнопок.
       try { buttons = JSON.parse(req.body.buttons); }
       catch { return res.status(400).json({ error: "bad_buttons_json" }); }
+    }
+    // Точечная рассылка: список id получателей обязателен.
+    let targetUserIds = null;
+    if (audience === "user") {
+      try { targetUserIds = JSON.parse(req.body.target_user_ids || "[]"); }
+      catch { return res.status(400).json({ error: "no_target_users" }); }
+      targetUserIds = Array.isArray(targetUserIds)
+        ? targetUserIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+        : [];
+      if (!targetUserIds.length) return res.status(400).json({ error: "no_target_users" });
     }
     let photoPath = null;
     if (kind === "photo" && req.file) {
@@ -598,7 +609,7 @@ router.post("/broadcasts", upload.single("photo"), async (req, res, next) => {
     // Создаём запись и СРАЗУ отвечаем админу, а отправку гоним в фоне — иначе на большой
     // аудитории запрос висел минуты и обрывался по таймауту (админ жал «отправить» повторно → дубль).
     const result = await broadcast.createBroadcast({
-      adminId: req.admin.id, audience, kind, text, photoPath, buttons
+      adminId: req.admin.id, audience, kind, text, photoPath, buttons, targetUserIds
     });
     broadcast.runBroadcast(result.id).catch((e) => console.error("[broadcast] run:", e.message));
     res.json({ broadcast: result });
@@ -678,8 +689,8 @@ router.put("/settings", async (req, res, next) => {
     const updates = req.body?.settings || req.body || {};
     const allowed = [
       "sub_price_basic", "sub_price_trainer", "tariffs", "free_scan_daily_limit",
-      "trial_days", "trainer_max_clients", "welcome_text", "paywall_text", "support_links",
-      "reminders", "meal_reminders",
+      "trial_days", "trainer_max_clients", "welcome_text", "paywall_text", "paywall_features",
+      "support_links", "reminders", "meal_reminders", "limit_push",
       "tg_log_enabled", "tg_log_channel_id", "tg_log_events", "admin_live_refresh_sec",
       // Вкладка «Ссылки»: глобальные ссылки для Главной.
       "nutritionist_url", "plan_url", "support_url", "reviews_url"
