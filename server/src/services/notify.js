@@ -66,7 +66,7 @@ async function notifyAdmins(text) {
 // --- Лог «Новый пользователь» ---
 
 const GENDER_LABELS = { male: "Мужской", female: "Женский" };
-const NEW_USER_FIELDS = "telegram_id, name, username, gender, height, weight, channel_joined_at";
+const NEW_USER_FIELDS = "telegram_id, name, username, gender, age, height, weight, channel_joined_at";
 
 // Подпись «кто» по уже загруженной строке пользователя — без лишнего запроса в БД.
 function whoOf(u) {
@@ -85,6 +85,7 @@ function newUserText(u, source, withProfile) {
   const action = source === "app" ? "впервые открыл приложение" : "подписался на канал и открыл бота";
   const profile = withProfile
     ? `Пол: ${GENDER_LABELS[u.gender] || "—"}\n` +
+      `Возраст: ${u.age ? `${u.age} лет` : "—"}\n` +
       `Рост: ${u.height ? `${u.height} см` : "—"}\n` +
       `Вес: ${num(u.weight) ? `${num(u.weight)} кг` : "—"}\n`
     : "";
