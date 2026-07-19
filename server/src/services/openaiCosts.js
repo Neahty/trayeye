@@ -53,4 +53,33 @@ async function getCosts(days = 30) {
   }
 }
 
-module.exports = { getCosts, hasKey };
+// Сколько долларов потрачено с момента startMs до сейчас (для остатка баланса в админке).
+// Возвращает число USD или null, если admin-ключа нет / запрос не удался. Кэш на 1 час по дню старта.
+let sinceCache = { key: null, usd: null, at: 0 };
+async function getSpentUsdSince(startMs) {
+  if (!hasKey()) return null;
+  const now = Date.now();
+  const key = String(Math.floor(startMs / 86400000)); // округляем старт до дня — граница бакетов
+  if (sinceCache.usd != null && sinceCache.key === key && now - sinceCache.at < TTL_MS) return sinceCache.usd;
+
+  try {
+    const startTime = Math.floor(startMs / 1000);
+    const days = Math.ceil((now - startMs) / 86400000) + 1;
+    const { data } = await axios.get("https://api.openai.com/v1/organization/costs", {
+      headers: { Authorization: `Bearer ${ADMIN_KEY}` },
+      params: { start_time: startTime, bucket_width: "1d", limit: Math.min(Math.max(days, 1), 180) },
+      timeout: 15000
+    });
+    const buckets = Array.isArray(data?.data) ? data.data : [];
+    let total = 0;
+    for (const b of buckets) for (const r of b.results || []) total += Number(r?.amount?.value) || 0;
+    total = Math.round(total * 1e4) / 1e4;
+    sinceCache = { key, usd: total, at: now };
+    return total;
+  } catch (err) {
+    console.error("[openaiCosts] since fetch failed:", err.response?.status, err.message);
+    return sinceCache.key === key ? sinceCache.usd : null;
+  }
+}
+
+module.exports = { getCosts, getSpentUsdSince, hasKey };

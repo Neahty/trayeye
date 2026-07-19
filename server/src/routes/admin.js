@@ -94,7 +94,29 @@ router.get("/dashboard", async (req, res, next) => {
 
     const conversion = totals.c ? Math.round((paidUsers.c / totals.c) * 1000) / 10 : 0;
 
+    // Остаток баланса OpenAI в рублях: баланс (введён вручную) минус расход с момента ввода.
+    // Расход берём из Costs API (реальные деньги), иначе — оценка по ai_usage. Курс — ЦБ РФ.
+    let gptBalanceRub = null, gptBalanceIsReal = false, gptBalanceUpdatedAt = null;
+    const balanceUsd = Number(await settings.get("openai_balance_usd")) || 0;
+    if (balanceUsd > 0) {
+      const balanceAt = await settings.get("openai_balance_at");
+      gptBalanceUpdatedAt = balanceAt || null;
+      const sinceMs = balanceAt ? new Date(balanceAt).getTime() : Date.now();
+      const [rate, realSpent] = await Promise.all([getUsdRub(), openaiCosts.getSpentUsdSince(sinceMs)]);
+      let spentUsd = realSpent;
+      if (spentUsd == null) {
+        const [row] = await q("SELECT COALESCE(SUM(cost_usd),0) AS c FROM ai_usage WHERE created_at >= $1", [new Date(sinceMs)]);
+        spentUsd = Number(row.c) || 0;
+      } else {
+        gptBalanceIsReal = true;
+      }
+      gptBalanceRub = Math.round(Math.max(0, balanceUsd - spentUsd) * rate);
+    }
+
     res.json({
+      gpt_balance_rub: gptBalanceRub,             // остаток в рублях (null → карточка скрыта)
+      gpt_balance_is_real: gptBalanceIsReal,      // true = расход из OpenAI, false = оценка по токенам
+      gpt_balance_updated_at: gptBalanceUpdatedAt,
       total_users: totals.c,        // активные (подписчик + не в ЧС) — основной счёт
       active_users: totals.c,
       inactive_users: inactive.c,   // отписались/в ЧС, но данные сохранены
@@ -698,6 +720,14 @@ router.put("/settings", async (req, res, next) => {
     for (const key of Object.keys(updates)) {
       if (!allowed.includes(key)) continue;
       await settings.set(key, updates[key], req.admin.id);
+    }
+    // Баланс OpenAI: сохраняем сумму и, только если она изменилась, обновляем дату ввода —
+    // с неё считается расход. Иначе сохранение других вкладок обнуляло бы «потрачено».
+    if (Object.prototype.hasOwnProperty.call(updates, "openai_balance_usd")) {
+      const newVal = Math.max(0, Number(updates.openai_balance_usd) || 0);
+      const prevVal = Number(await settings.get("openai_balance_usd")) || 0;
+      await settings.set("openai_balance_usd", newVal, req.admin.id);
+      if (newVal !== prevVal) await settings.set("openai_balance_at", new Date().toISOString(), req.admin.id);
     }
     // Зеркалим цену базового тарифа в sub_price_basic — единый источник правды для fallback'ов.
     if (Array.isArray(updates.tariffs)) {

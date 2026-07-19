@@ -37,6 +37,10 @@ export default function Dashboard() {
         <Stat label="Действующих подписок" value={data.active_subscribers} />
         <Stat label="Заработано за сегодня" value={money(data.revenue_today)} />
         <Stat label="Заработано за месяц" value={money(data.revenue_month)} />
+        {data.gpt_balance_rub != null && (
+          <Stat label="Баланс GPT API" value={money(data.gpt_balance_rub)}
+            sub={data.gpt_balance_is_real ? "осталось (данные OpenAI)" : "осталось (оценка)"} />
+        )}
       </div>
 
       <div className="grid cols-2" style={{ marginTop: 20 }}>

@@ -620,7 +620,9 @@ export default function SettingsPage() {
         tg_log_enabled: form.tg_log_enabled !== false,
         tg_log_channel_id: String(form.tg_log_channel_id ?? "").trim(),
         tg_log_events: (form.tg_log_events && typeof form.tg_log_events === "object") ? form.tg_log_events : {},
-        admin_live_refresh_sec: Math.max(0, Math.round(Number(form.admin_live_refresh_sec)) || 0)
+        admin_live_refresh_sec: Math.max(0, Math.round(Number(form.admin_live_refresh_sec)) || 0),
+        // Баланс OpenAI ($). Дата ввода фиксируется на сервере только при изменении суммы.
+        openai_balance_usd: Math.max(0, Number(form.openai_balance_usd) || 0)
       };
       const res = await Admin.saveSettings(payload);
       setData(res);
@@ -708,6 +710,25 @@ export default function SettingsPage() {
               {numField("trial_days", "Длительность пробного периода, дней")}
               {numField("trainer_max_clients", "Максимум клиентов у тренера")}
             </div>
+          </div>
+
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 800, marginBottom: 4 }}>Баланс GPT API (OpenAI)</div>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+              Впишите текущий баланс из личного кабинета OpenAI <b>в долларах $</b> (например, 25).
+              На Главной будет видно, сколько осталось <b>в рублях</b> по курсу ЦБ РФ: от введённой суммы
+              автоматически вычитается расход с момента ввода. После пополнения впишите новую сумму — счёт начнётся заново.
+            </p>
+            <div className="field" style={{ marginBottom: 0, maxWidth: 260 }}>
+              <label>Баланс OpenAI, $</label>
+              <input className="input" type="number" min={0} step="0.01" placeholder="0"
+                value={form.openai_balance_usd ?? ""} onChange={(e) => setVal("openai_balance_usd", e.target.value)} />
+            </div>
+            {form.openai_balance_at && (
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                Баланс задан: {new Date(form.openai_balance_at).toLocaleString("ru-RU")}
+              </div>
+            )}
           </div>
           {saveBtn}
         </>

@@ -9,6 +9,13 @@
 
 ---
 
+- **Поправка №46 — 2026-07-19 (Главная админки: карточка «Баланс GPT API» — остаток в рублях)**:
+  - **Контекст.** OpenAI не отдаёт остаток баланса через API — только расход (Costs API). Поэтому админ вписывает текущий баланс кабинета OpenAI (в долларах), а система показывает на Главной остаток в рублях = баланс − потрачено с момента ввода. Курс — ЦБ РФ (сервис `fx`).
+  - **Настройки — `server/src/utils/settings.js`.** DEFAULTS: `openai_balance_usd: 0` (сумма, введённая вручную) и `openai_balance_at: null` (дата ввода — с неё считается расход). Баланс `0` → карточка на Главной скрыта.
+  - **Сервис — `server/src/services/openaiCosts.js`.** Добавлен `getSpentUsdSince(startMs)`: сумма расхода в $ с указанного момента через `GET /v1/organization/costs` (`bucket_width=1d`, `start_time`), с кэшем на 1 час по дню старта; `null`, если нет `OPENAI_ADMIN_KEY` или запрос упал. Экспорт дополнен.
+  - **Роут — `server/src/routes/admin.js`.** `GET /dashboard`: если `openai_balance_usd > 0`, считает `spentUsd` (реальный из Costs API, иначе fallback `SUM(ai_usage.cost_usd) WHERE created_at >= openai_balance_at`), `gpt_balance_rub = round(max(0, balance − spent) × rate)`; отдаёт `gpt_balance_rub`, `gpt_balance_is_real`, `gpt_balance_updated_at`. `PUT /settings`: принимает `openai_balance_usd` (вне общего allowlist), дату `openai_balance_at` обновляет ТОЛЬКО при изменении суммы — иначе сохранение других вкладок обнуляло бы «потрачено».
+  - **Админ-UI.** `admin/src/pages/Dashboard.jsx`: карточка `Stat` «Баланс GPT API» (показывается при `gpt_balance_rub != null`), подпись «осталось (данные OpenAI)» / «осталось (оценка)». `admin/src/pages/Settings.jsx` (таб «Пробный период и лимиты»): карточка «Баланс GPT API (OpenAI)» — поле ввода в $, дата последнего задания баланса; `save()` кладёт `openai_balance_usd` в payload.
+
 - **Поправка №45 — 2026-07-16 (таргет-рассылки по сегментам/людям, экран Pro вместо тоста + редактируемый оффер, апселл-пуш при исчерпании дневного лимита)**:
   - **Контекст.** Развитие раздела «Рассылки» и монетизации. Нужно: слать рассылки не только 4 фикс-аудиториям, но и по новым сегментам и конкретным людям; при упоре в лимит открывать полноценный экран Pro (а не мелкий тост, как было при добавлении текстом); показывать на нём редактируемый из админки оффер; и слать апселл-пуш пробному юзеру, когда закончились дневные сканы. Признак подписчика во всём проекте — активная строка `subscriptions` (`status='active' AND expires_at > NOW()`, тип `basic`/`trainer`).
   - **БД (`server/src/db/schema.sql`).** Идемпотентно: `broadcasts.target_user_ids INTEGER[]` (получатели точечной рассылки, NULL для сегментов) + расширен комментарий к `audience`; `users.limit_push_at TIMESTAMPTZ` (дедуп апселл-пуша 1/сутки).
