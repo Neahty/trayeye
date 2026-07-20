@@ -325,11 +325,18 @@ async function setBlocked(id, blocked) {
   await db.query("UPDATE users SET is_blocked = $2 WHERE id = $1", [id, blocked]);
 }
 
+// Аккаунт админа нельзя банить/удалять — защита от блокировки самих себя и друг друга.
+async function isAdminUser(id) {
+  const { rows } = await db.query("SELECT is_admin FROM users WHERE id = $1", [id]);
+  return rows.length > 0 && rows[0].is_admin === true;
+}
+
 router.patch("/users/:id/block", async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "bad_id" });
     if (id === req.admin.id) return res.status(400).json({ error: "cannot_block_self" });
+    if (await isAdminUser(id)) return res.status(403).json({ error: "cannot_block_admin" });
     await setBlocked(id, true);
     await db.logAction(req.admin.id, "admin_action", { action: "block", target: id });
     res.json({ ok: true });
@@ -355,6 +362,7 @@ router.delete("/users/:id", async (req, res, next) => {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "bad_id" });
     if (id === req.admin.id) return res.status(400).json({ error: "cannot_delete_self" });
+    if (await isAdminUser(id)) return res.status(403).json({ error: "cannot_delete_admin" });
     // Каскадное удаление — в одной транзакции, иначе сбой посередине оставит осиротевшие данные.
     await db.withTx(async (c) => {
       await c.query("DELETE FROM broadcast_clicks WHERE user_id=$1", [id]);

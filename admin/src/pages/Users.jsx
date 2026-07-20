@@ -111,8 +111,8 @@ function UserModal({ id, onClose, onChanged }) {
               <button className="btn ghost sm" disabled={busy} onClick={() => act(() => Admin.revokeSub(id))}>Забрать подписку</button>
               {data.user.is_blocked
                 ? <button className="btn ghost sm" disabled={busy} onClick={() => act(() => Admin.unblock(id))}>Разблокировать</button>
-                : !isSelf && <button className="btn ghost sm" disabled={busy} onClick={() => act(() => Admin.block(id))}>Заблокировать</button>}
-              {!isSelf && <button className="btn danger sm" disabled={busy} onClick={() => act(() => Admin.deleteUser(id).then(onClose), "Удалить аккаунт безвозвратно?")}>Удалить аккаунт</button>}
+                : !isSelf && !data.user.is_admin && <button className="btn ghost sm" disabled={busy} onClick={() => act(() => Admin.block(id))}>Заблокировать</button>}
+              {!isSelf && !data.user.is_admin && <button className="btn danger sm" disabled={busy} onClick={() => act(() => Admin.deleteUser(id).then(onClose), "Удалить аккаунт безвозвратно?")}>Удалить аккаунт</button>}
             </div>
           </>
         )}
