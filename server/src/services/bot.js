@@ -231,10 +231,11 @@ function getBot() {
         "user_messages",
         `💬 <b>Сообщение боту</b>\n\n` +
         `Клиент ${who} написал боту сообщение:\n` +
-        `${channelLog.esc(text)}\n` +
+        // Для медиа не пишем пометку «[фото]» — сам файл уходит копией следом, он и есть содержимое.
+        (media ? "" : `${channelLog.esc(text)}\n`) +
         `Время: ${notify.fmtWhen()}`
       );
-      // Фото/голосовое/кружок и прочее — копией следом, чтобы в логах был сам файл.
+      // Фото/голосовое/кружок и прочее — копией следом, чтобы в логах был сам файл, а не «[фото]».
       if (media) await channelLog.copyTo("user_messages", ctx.chat.id, ctx.message.message_id);
     } catch (e) {
       console.error("[bot] user message log:", e.message);
