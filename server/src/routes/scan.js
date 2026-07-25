@@ -132,7 +132,7 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), async (req
           `Пользователь: ${channelLog.esc(who)}\n` +
           `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
           `Калории: ${totalCal} ккал`;
-        channelLog.postPhoto("scans_photo", photoUrl, caption).catch(() => {});
+        channelLog.postPhotoFor("scans_photo", req.user.id, photoUrl, caption).catch(() => {});
       }
     } catch { /* канал не критичен для скана */ }
 

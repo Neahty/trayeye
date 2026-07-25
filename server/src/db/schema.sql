@@ -163,6 +163,10 @@ UPDATE users SET channel_member = TRUE, channel_joined_at = COALESCE(channel_joi
 ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_log_new_user_msg JSONB;
 -- Когда боту в последний раз ушёл апселл-пуш по исчерпанию дневного лимита (дедуп 1/сутки).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS limit_push_at TIMESTAMPTZ;
+-- Аудит бана: когда заблокировали и telegram_id того, кто нажал (и в админке, и в лог-канале).
+-- Сам факт бана по-прежнему хранится в is_blocked — эти поля только объясняют, кто и когда.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_by BIGINT;
 
 -- Способ оплаты в платежах/подписках (для финансов админки)
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS method TEXT;        -- card/yukassa/referral/manual
@@ -592,3 +596,17 @@ CREATE TABLE IF NOT EXISTS employee_payments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_emp_payments ON employee_payments (employee_id, created_at);
+
+-- О ком сообщение в канале логов. Нужно, чтобы админ мог ответить на конкретный лог
+-- командой «.запретить» и бот понял, про кого речь. По самому сообщению это не восстановить:
+-- у скопированного фото нет ни текста, ни подписи, а в текстовых логах userLabel рендерит
+-- «@username» без числового id. chat_id храним, потому что канал меняется из админки.
+CREATE TABLE IF NOT EXISTS tg_log_refs (
+  chat_id     BIGINT NOT NULL,
+  message_id  BIGINT NOT NULL,
+  user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (chat_id, message_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tg_log_refs_user ON tg_log_refs (user_id);
+CREATE INDEX IF NOT EXISTS idx_tg_log_refs_created ON tg_log_refs (created_at);

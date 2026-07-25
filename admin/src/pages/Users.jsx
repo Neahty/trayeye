@@ -28,7 +28,11 @@ function UserModal({ id, onClose, onChanged }) {
             <div className="row" style={{ marginBottom: 14 }}>
               <span className="pill violet">Telegram: {data.user.telegram_id}</span>
               {data.user.is_admin && <span className="pill">администратор</span>}
-              {data.user.is_blocked && <span className="pill red">заблокирован</span>}
+              {data.user.is_blocked && (
+                <span className="pill red">
+                  заблокирован{data.user.blocked_at ? ` · ${fmtDate(data.user.blocked_at)}` : ""}
+                </span>
+              )}
               {data.user.app_opened !== false && (
                 data.user.tg_unreachable
                   ? <span className="pill red">неактивный · бот в ЧС</span>
@@ -203,7 +207,15 @@ export default function Users() {
                 {data.users.map((u) => (
                   <tr key={u.id} onClick={() => setOpenId(u.id)}>
                     <td data-label="Telegram ID">{u.telegram_id}</td>
-                    <td data-label="Имя">{u.name || "—"}{u.is_blocked && <span className="pill red" style={{ marginLeft: 6 }}>заблокирован</span>}<StatusBadge u={u} /></td>
+                    <td data-label="Имя">{u.name || "—"}{u.is_blocked && (
+                      <span
+                        className="pill red"
+                        style={{ marginLeft: 6 }}
+                        title={u.blocked_at ? `Заблокирован ${fmtDate(u.blocked_at)}` : undefined}
+                      >
+                        заблокирован
+                      </span>
+                    )}<StatusBadge u={u} /></td>
                     <td data-label="Username">{u.username || "—"}</td>
                     <td data-label="Регистрация">{fmtDate(u.created_at)}</td>
                     <td data-label="Последний вход">{fmtDate(u.last_login_at)}</td>

@@ -47,8 +47,9 @@ async function markChannelLeft(userId) {
     );
     if (!rows.length) return false;
     const who = await notify.userLabel(userId);
-    channelLog.post(
+    channelLog.postFor(
       "channel_left",
+      userId,
       `🚪 <b>Вышел из канала</b>\n\n` +
       `${who} отписался от обязательного канала.\n` +
       `Время: ${notify.fmtWhen()}`
@@ -73,8 +74,9 @@ async function markUnreachable(userId) {
     );
     if (!rows.length) return false;
     const who = await notify.userLabel(userId);
-    channelLog.post(
+    channelLog.postFor(
       "blocked_bot",
+      userId,
       `🚫 <b>Заблокировал бота</b>\n\n` +
       `${who} заблокировал бота или не начинал диалог — сообщения ему больше не доходят.\n` +
       `Время: ${notify.fmtWhen()}`

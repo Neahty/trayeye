@@ -267,6 +267,13 @@ async function subscriptionExpiryCheck() {
   if (logged) console.log(`[cron] subscriptionExpiryCheck -> logged=${logged}`);
 }
 
+// Чистка ссылок «сообщение в канале -> пользователь». Отвечать «.запретить» на логи
+// полугодовой давности всё равно никто не будет, а таблица растёт с каждым сообщением.
+async function cleanOldLogRefs() {
+  const { rowCount } = await db.query("DELETE FROM tg_log_refs WHERE created_at < NOW() - INTERVAL '180 days'");
+  if (rowCount) console.log(`[cron] cleanOldLogRefs -> deleted=${rowCount}`);
+}
+
 function start() {
   // node-cron: minute hour day month weekday
   cron.schedule("0 * * * *", () => mealReminders().catch((e) => console.error(e.message)));
@@ -276,6 +283,7 @@ function start() {
   // Детектор окончания подписок — ежечасно на 10-й минуте (не сливается с другими джобами).
   cron.schedule("10 * * * *", () => subscriptionExpiryCheck().catch((e) => console.error(e.message)));
   cron.schedule("0 3 * * *", () => cleanOldPhotos().catch((e) => console.error(e.message)));
+  cron.schedule("30 3 * * *", () => cleanOldLogRefs().catch((e) => console.error("[cron] cleanOldLogRefs:", e.message)));
   // Сотрудники-пиарщики: проверка рефералов через 24 ч + доатрибуция оплат — ежечасно на :20.
   cron.schedule("20 * * * *", () =>
     require("./employeeReferrals").runEmployeeReferralChecks().catch((e) => console.error("[cron] employeeReferrals:", e.message))
@@ -287,4 +295,4 @@ function start() {
   console.log("[cron] jobs scheduled");
 }
 
-module.exports = { start, mealReminders, sendTestMealReminder, subscriptionReminders, subscriptionExpiryCheck, dailyDigest, cleanOldPhotos, backupDatabase };
+module.exports = { start, mealReminders, sendTestMealReminder, subscriptionReminders, subscriptionExpiryCheck, dailyDigest, cleanOldPhotos, cleanOldLogRefs, backupDatabase };

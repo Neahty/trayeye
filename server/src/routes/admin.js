@@ -12,6 +12,7 @@ const { parseId } = require("../utils/http");
 const { listPaymentsSummary, listRefundsSummary } = require("../services/yukassa");
 const supportBot = require("../services/supportBot");
 const channelLog = require("../services/channelLog");
+const moderation = require("../services/moderation");
 const { subscriptionReminders, sendTestReminder } = require("../jobs/subscriptionReminders");
 const { sendTestMealReminder } = require("../jobs/notifications");
 
@@ -162,7 +163,7 @@ router.get("/users", async (req, res, next) => {
 
     const listParams = [...params, trialDays, limit, offset];
     const { rows } = await db.query(
-      `SELECT u.id, u.telegram_id, u.username, u.name, u.is_admin, u.is_blocked,
+      `SELECT u.id, u.telegram_id, u.username, u.name, u.is_admin, u.is_blocked, u.blocked_at,
               u.created_at, u.last_login_at, u.app_opened, u.channel_member, u.tg_unreachable,
               (SELECT type FROM subscriptions s WHERE s.user_id=u.id AND s.status='active' AND s.expires_at>NOW() ORDER BY expires_at DESC LIMIT 1) AS sub_type,
               (SELECT expires_at FROM subscriptions s WHERE s.user_id=u.id AND s.status='active' AND s.expires_at>NOW() ORDER BY expires_at DESC LIMIT 1) AS sub_expires_at,
@@ -321,11 +322,9 @@ router.delete("/users/:id/subscription", async (req, res, next) => {
   }
 });
 
-async function setBlocked(id, blocked) {
-  await db.query("UPDATE users SET is_blocked = $2 WHERE id = $1", [id, blocked]);
-}
-
-// Аккаунт админа нельзя банить/удалять — защита от блокировки самих себя и друг друга.
+// Аккаунт админа нельзя удалять — защита от удаления самих себя и друг друга.
+// Для банов такая же проверка живёт в services/moderation.js (isProtected): тем же
+// кодом банят команды «.запретить»/«.разрешить» из канала логов, правило одно на оба пути.
 async function isAdminUser(id) {
   const { rows } = await db.query("SELECT is_admin FROM users WHERE id = $1", [id]);
   return rows.length > 0 && rows[0].is_admin === true;
@@ -336,9 +335,8 @@ router.patch("/users/:id/block", async (req, res, next) => {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "bad_id" });
     if (id === req.admin.id) return res.status(400).json({ error: "cannot_block_self" });
-    if (await isAdminUser(id)) return res.status(403).json({ error: "cannot_block_admin" });
-    await setBlocked(id, true);
-    await db.logAction(req.admin.id, "admin_action", { action: "block", target: id });
+    if (await moderation.isProtected(id)) return res.status(403).json({ error: "cannot_block_admin" });
+    await moderation.blockUser(id, { byTelegramId: req.admin.telegram_id });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -347,8 +345,7 @@ router.patch("/users/:id/unblock", async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "bad_id" });
-    await setBlocked(id, false);
-    await db.logAction(req.admin.id, "admin_action", { action: "unblock", target: id });
+    await moderation.unblockUser(id, { byTelegramId: req.admin.telegram_id });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

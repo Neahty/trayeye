@@ -4,6 +4,7 @@
 // канал не должен ронять основной поток приложения.
 const { sendMessage, sendPhoto, editMessageText, editMessageCaption, copyMessage } = require("./telegram");
 const settings = require("../utils/settings");
+const db = require("../db");
 
 const TG_CAPTION_LIMIT = 1024;
 
@@ -95,6 +96,65 @@ async function copyTo(eventKey, fromChatId, messageId, extra = {}) {
   }
 }
 
+// Запоминает, о ком было отправленное в канал сообщение, — чтобы админ мог ответить
+// на него «.запретить» и бот понял, про кого речь (см. services/bot.js).
+// chatId передаём отдельно: copyMessage возвращает голый message_id, без chat.
+async function remember(chatId, apiResult, userId) {
+  try {
+    const messageId = apiResult?.result?.message_id;
+    if (!messageId || !userId || !chatId) return;
+    await db.query(
+      `INSERT INTO tg_log_refs (chat_id, message_id, user_id) VALUES ($1,$2,$3)
+       ON CONFLICT (chat_id, message_id) DO UPDATE SET user_id = EXCLUDED.user_id`,
+      [String(chatId), String(messageId), userId]
+    );
+  } catch (err) {
+    // Ссылка — удобство модерации, а не часть логирования: падать из-за неё нельзя.
+    console.error("[channelLog] remember failed:", err.message);
+  }
+}
+
+// Те же post/postPhoto/copyTo, но с привязкой сообщения к пользователю.
+// Используются везде, где лог относится к конкретному человеку.
+async function postFor(eventKey, userId, text, extra = {}) {
+  const channel = await allowed(eventKey).catch(() => null);
+  if (!channel) return null;
+  const res = await post(eventKey, text, extra);
+  await remember(channel, res, userId);
+  return res;
+}
+
+async function postPhotoFor(eventKey, userId, photo, caption = "", extra = {}) {
+  const channel = await allowed(eventKey).catch(() => null);
+  if (!channel) return null;
+  const res = await postPhoto(eventKey, photo, caption, extra);
+  await remember(channel, res, userId);
+  return res;
+}
+
+async function copyToFor(eventKey, userId, fromChatId, messageId, extra = {}) {
+  const channel = await allowed(eventKey).catch(() => null);
+  if (!channel) return null;
+  const res = await copyTo(eventKey, fromChatId, messageId, extra);
+  await remember(channel, res, userId);
+  return res;
+}
+
+// Пользователь, о котором сообщение в канале логов (или null, если связи нет —
+// например, сообщение отправлено до появления этой функции).
+async function userIdByLogMessage(chatId, messageId) {
+  try {
+    const { rows } = await db.query(
+      "SELECT user_id FROM tg_log_refs WHERE chat_id = $1 AND message_id = $2",
+      [String(chatId), String(messageId)]
+    );
+    return rows[0]?.user_id || null;
+  } catch (err) {
+    console.error("[channelLog] userIdByLogMessage failed:", err.message);
+    return null;
+  }
+}
+
 // Ошибка системы — понятным языком.
 async function logError(where, message) {
   await post(
@@ -105,4 +165,7 @@ async function logError(where, message) {
   );
 }
 
-module.exports = { post, postPhoto, editText, editCaption, copyTo, logError, esc };
+module.exports = {
+  post, postPhoto, editText, editCaption, copyTo, logError, esc,
+  postFor, postPhotoFor, copyToFor, userIdByLogMessage
+};

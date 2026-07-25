@@ -13,6 +13,11 @@ function isAdmin(telegramId) {
   return ADMIN_IDS.includes(String(telegramId));
 }
 
+// Что видит заблокированный пользователь. Дубль константы из
+// server/src/services/moderation.js — процессы разные, общего кода у них нет.
+// Меняете здесь — поменяйте и там.
+const BLOCKED_TEXT = "🌐 Bytwise не доступен в вашей стране.";
+
 function assertConfig() {
   const missing = [];
   if (!SUPPORT_BOT_TOKEN) missing.push("SUPPORT_BOT_TOKEN");
@@ -24,4 +29,4 @@ function assertConfig() {
   }
 }
 
-module.exports = { SUPPORT_BOT_TOKEN, DATABASE_URL, ADMIN_IDS, isAdmin, assertConfig };
+module.exports = { SUPPORT_BOT_TOKEN, DATABASE_URL, ADMIN_IDS, isAdmin, assertConfig, BLOCKED_TEXT };

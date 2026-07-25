@@ -17,6 +17,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Пользователя заблокировали — сервер отвечает 403 { error: "blocked" } на ЛЮБОЙ запрос
+// (server/src/middleware/auth.js). Сообщаем об этом приложению, чтобы оно показало заглушку
+// сразу, а не после перезагрузки: бан может случиться посреди сессии.
+let blockedHandler = null;
+export function onBlocked(cb) {
+  blockedHandler = cb;
+}
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err?.response?.status === 403 && err.response.data?.error === "blocked") {
+      blockedHandler?.();
+    }
+    return Promise.reject(err);
+  }
+);
+
 // Авторизация через Telegram initData (или dev_id для локалки)
 export async function login() {
   const tg = window.Telegram?.WebApp;

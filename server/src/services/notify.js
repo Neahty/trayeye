@@ -114,8 +114,8 @@ async function notifyNewUser(userId, source = "channel") {
   // (avatarSync отрабатывает только на входе в приложение).
   const photo = await getUserProfilePhotoFileId(u.telegram_id).catch(() => null);
   const res = photo
-    ? await channelLog.postPhoto("users", photo, text)
-    : await channelLog.post("users", text);
+    ? await channelLog.postPhotoFor("users", userId, photo, text)
+    : await channelLog.postFor("users", userId, text);
 
   // Лог мог не уйти (канал выключен в админке / бот не админ канала) — тогда и править нечего.
   const msg = res?.result;
@@ -186,7 +186,7 @@ async function notifyPurchase(userId, { amount, type, renewal = false } = {}) {
       `Время: ${fmtWhen()}`;
   await notifyAdmins(text);
   // Продления — отдельный тумблер в логах; если он выключен, такие события не засоряют канал.
-  channelLog.post(renewal ? "subscription_renew" : "payments", text).catch(() => {});
+  channelLog.postFor(renewal ? "subscription_renew" : "payments", userId, text).catch(() => {});
 }
 
 // Платёж не завершён (отменён/не оплачен) — подробное уведомление админам простыми словами.
@@ -214,7 +214,7 @@ async function notifyPaymentFailed(userId, { amount, type, when } = {}) {
     `<i>ЮKassa сообщает об отмене неоплаченного заказа с задержкой, поэтому это сообщение ` +
     `приходит через 1–2 часа после самого выхода — время выше показывает, когда человек начинал оплату.</i>`;
   await notifyAdmins(text);
-  channelLog.post("payments", text).catch(() => {});
+  channelLog.postFor("payments", userId, text).catch(() => {});
 }
 
 // Возврат платежа — подробное уведомление админам.
@@ -229,7 +229,7 @@ async function notifyRefund(userId, { amount, type, when } = {}) {
     `${amount != null ? `Сумма: ${amount} ₽\n` : ""}` +
     `Время: ${fmtWhen(when)}`;
   await notifyAdmins(text);
-  channelLog.post("payments", text).catch(() => {});
+  channelLog.postFor("payments", userId, text).catch(() => {});
 }
 
 // --- Уведомления тренер ↔ клиент ---

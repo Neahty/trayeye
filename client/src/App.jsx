@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import WebApp from "@twa-dev/sdk";
-import { login, Profile, Scan, Membership, MyTrainer } from "./api";
+import { login, onBlocked, Profile, Scan, Membership, MyTrainer } from "./api";
 import { AppContext } from "./AppContext";
 import { UIProvider, useUI } from "./ui/UIProvider";
 import { applyTheme } from "./lib/theme";
@@ -16,6 +16,7 @@ import Paywall from "./pages/Paywall";
 import ManageSubscription from "./pages/ManageSubscription";
 import Onboarding from "./pages/Onboarding";
 import SubscribeGate from "./pages/SubscribeGate";
+import BlockedScreen from "./pages/BlockedScreen";
 import TrainerPage from "./pages/Trainer";
 import BecomeTrainer from "./pages/BecomeTrainer";
 
@@ -40,6 +41,14 @@ function AppShell() {
   // boot
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
+
+  // Бан мог случиться уже во время сессии — тогда любой запрос вернёт 403 blocked,
+  // и заглушку надо показать сразу, не дожидаясь перезапуска приложения.
+  useEffect(() => {
+    onBlocked(() => setError("blocked"));
+    return () => onBlocked(null);
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -171,6 +180,10 @@ function AppShell() {
         Загрузка Bytwise…
       </div>
     );
+  }
+  // Заблокированный не видит ничего, кроме заглушки, — ни онбординга, ни приложения.
+  if (error === "blocked") {
+    return <div className="app"><BlockedScreen /></div>;
   }
   if (error) {
     return <div className="loading">Ошибка входа: {error}</div>;

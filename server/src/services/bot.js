@@ -5,6 +5,8 @@ const notify = require("./notify");
 const channelLog = require("./channelLog");
 const channelMembership = require("./channelMembership");
 const employeeReferrals = require("./employeeReferrals");
+const moderation = require("./moderation");
+const logModeration = require("./logModeration");
 const { uniqueRefCode } = require("../utils/refcode");
 
 const REQUIRED_CHANNEL_ID = process.env.REQUIRED_CHANNEL_ID || "";
@@ -47,6 +49,11 @@ const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 let bot = null;
 
+// Когда заблокированному в последний раз ответили заглушкой (telegram_id -> ts).
+// Нужен, чтобы забаненный не мог спамом заставить бота отвечать на каждое сообщение.
+const blockedNoticeAt = new Map();
+const BLOCKED_NOTICE_MS = 10 * 60 * 1000;
+
 // Клавиатура с предложением подписаться на обязательный канал.
 function subscribeKeyboard() {
   const url = process.env.REQUIRED_CHANNEL_URL;
@@ -86,6 +93,33 @@ function getBot() {
   if (bot) return bot;
 
   bot = new Telegraf(BOT_TOKEN);
+
+  // Гейт заблокированных — ПЕРВЫМ, до всех хендлеров: забаненному бот не отвечает ни на
+  // /start, ни на /ref, и его сообщения больше не уходят в канал логов (next() не зовём).
+  // Только личка: посты канала (команды модерации) и chat_member сюда не попадают.
+  bot.use(async (ctx, next) => {
+    try {
+      if (ctx.chat?.type !== "private" || !ctx.from?.id) return next();
+      if (!(await moderation.isBlockedByTelegramId(ctx.from.id))) return next();
+      // Про бан не говорим — легенда про страну. Не чаще раза в 10 минут на человека,
+      // чтобы спамом в бота нельзя было раскачать отправку.
+      const last = blockedNoticeAt.get(ctx.from.id) || 0;
+      if (Date.now() - last > BLOCKED_NOTICE_MS) {
+        blockedNoticeAt.set(ctx.from.id, Date.now());
+        await ctx.reply(moderation.BLOCKED_TEXT).catch(() => {});
+      }
+    } catch (e) {
+      // Сбой проверки не должен ронять бота для всех остальных — пропускаем дальше.
+      console.error("[bot] blocked gate:", e.message);
+      return next();
+    }
+  });
+
+  // Модерация из канала логов: «.запретить» / «.разрешить» / «.баны» реплаем на лог.
+  // Текст только показывает карточку с кнопкой; сам бан — в mod:-колбэке, где
+  // Telegram отдаёт настоящий from.id нажавшего (в постах канала его нет).
+  bot.on("channel_post", (ctx) => logModeration.onChannelPost(ctx));
+  bot.action(/^mod:/, (ctx) => logModeration.onModAction(ctx));
 
   bot.start(async (ctx) => {
     // Заводим пользователя в базе уже на /start (app_opened=FALSE по умолчанию).
@@ -228,8 +262,11 @@ function getBot() {
       const uid = await userIdByTg(ctx.from.id).catch(() => null);
       const who = uid ? await notify.userLabel(uid) : labelFromTg(ctx.from);
       const { text, media } = describeMessage(ctx.message);
-      await channelLog.post(
+      // postFor/copyToFor запоминают, о ком сообщение, — чтобы на него можно было
+      // ответить в канале «.запретить» (см. onLogChannelPost ниже).
+      await channelLog.postFor(
         "user_messages",
+        uid,
         `💬 <b>Сообщение боту</b>\n\n` +
         `Клиент ${who} написал боту сообщение:\n` +
         // Для медиа не пишем пометку «[фото]» — сам файл уходит копией следом, он и есть содержимое.
@@ -237,7 +274,7 @@ function getBot() {
         `Время: ${notify.fmtWhen()}`
       );
       // Фото/голосовое/кружок и прочее — копией следом, чтобы в логах был сам файл, а не «[фото]».
-      if (media) await channelLog.copyTo("user_messages", ctx.chat.id, ctx.message.message_id);
+      if (media) await channelLog.copyToFor("user_messages", uid, ctx.chat.id, ctx.message.message_id);
       // Подсказка пользователю: сам бот еду не распознаёт, всё это делается в мини-аппе.
       await ctx.reply(
         "🤔 Я не понимаю это сообщение.\n\n" +
@@ -277,7 +314,8 @@ async function launchBot() {
   }
   // allowedUpdates обязателен, чтобы Telegram присылал chat_member (по умолчанию он их НЕ шлёт).
   // Указав список явно, нужно перечислить и обычные апдейты, иначе они перестанут приходить.
-  b.launch({ allowedUpdates: ["message", "edited_message", "callback_query", "my_chat_member", "chat_member"] })
+  // channel_post — команды модерации из канала логов (см. services/logModeration.js).
+  b.launch({ allowedUpdates: ["message", "edited_message", "channel_post", "callback_query", "my_chat_member", "chat_member"] })
     .then(() => console.log("[bot] launched")).catch((e) => console.error("[bot] launch error:", e.message));
   process.once("SIGINT", () => b.stop("SIGINT"));
   process.once("SIGTERM", () => b.stop("SIGTERM"));

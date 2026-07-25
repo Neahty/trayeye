@@ -96,8 +96,9 @@ router.post("/telegram", async (req, res, next) => {
         const daysAway = Math.floor((Date.now() - new Date(prevLogin).getTime()) / 86400000);
         if (daysAway >= REACTIVATION_DAYS) {
           const who = await notify.userLabel(user.id);
-          channelLog.post(
+          channelLog.postFor(
             "reactivation",
+            user.id,
             `🔄 <b>Вернулся после паузы</b>\n\n` +
             `${who} снова зашёл после ${daysAway} дн. без активности.\n` +
             `Время: ${notify.fmtWhen()}`
