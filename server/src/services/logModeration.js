@@ -11,11 +11,17 @@ const settings = require("../utils/settings");
 const channelLog = require("./channelLog");
 const moderation = require("./moderation");
 const notify = require("./notify");
+const userInvites = require("./userInvites");
 
 const esc = channelLog.esc;
 
-// «.запретить», «.разрешить», «.баны» — с необязательным telegram_id через пробел.
-const CMD_RE = /^\s*\.(запретить|разрешить|баны)(?:\s+(\S+))?\s*$/i;
+// «.запретить», «.разрешить», «.баны», «.розыгрыш» — с необязательным аргументом через пробел
+// (telegram_id для бана, количество мест для розыгрыша).
+const CMD_RE = /^\s*\.(запретить|разрешить|баны|розыгрыш)(?:\s+(\S+))?\s*$/i;
+
+// Сколько мест показывать в «.розыгрыш» без аргумента.
+const RAFFLE_DEFAULT = 6;
+const RAFFLE_MAX = 30;
 
 // Читаемая подпись человека для карточки: @username либо имя, плюс числовой id.
 function label(u) {
@@ -118,6 +124,43 @@ async function showBans(ctx) {
   return reply(ctx, `🚫 <b>Заблокированные</b>\n\n${lines.join("\n")}${tail}`);
 }
 
+// Текст поста о розыгрыше. Вынесен из showRaffle отдельно и чистым: этот формат
+// копируют в публичный канал как есть, поэтому он покрыт тестом.
+// Первые три места идут под шапкой «Топ-3», остальные — за чертой, нумерация сквозная.
+function formatRaffle(rows) {
+  // Имя — ссылкой на профиль, если есть @username (без него профиль по имени не открыть).
+  const line = (u, i) => {
+    const name = esc(u.name || u.username || "Без имени");
+    const who = u.username ? `<a href="https://t.me/${esc(u.username)}">${name}</a>` : name;
+    return `${i + 1}. ${who} · ID <code>${u.telegram_id}</code> — ${u.invited} / ${u.confirmed}`;
+  };
+
+  const head = rows.slice(0, 3).map((u, i) => line(u, i));
+  const tail = rows.slice(3).map((u, i) => line(u, i + 3));
+
+  return (
+    `На данный момент следующие ТОП-${rows.length} участников\n\n` +
+    `🔫 Топ-${head.length} (приглашено / зачтено):\n` +
+    head.join("\n") +
+    (tail.length ? `\n_________________________________\n${tail.join("\n")}` : "")
+  );
+}
+
+// Топ участников розыгрыша «Пригласи друга». Только чтение — подтверждение не нужно,
+// как и у «.баны»: команда работает исключительно в канале логов, а туда пишут только админы.
+async function showRaffle(ctx, arg) {
+  if (arg && !/^\d+$/.test(arg)) {
+    return reply(ctx, "❌ Укажите число участников: <code>.розыгрыш 10</code> (или просто <code>.розыгрыш</code>).");
+  }
+  const limit = Math.min(RAFFLE_MAX, Math.max(1, Number(arg) || RAFFLE_DEFAULT));
+  const rows = await userInvites.leaderboard(limit);
+  if (!rows.length) {
+    return reply(ctx, "🔫 <b>Розыгрыш</b>\n\nПока никто никого не пригласил.");
+  }
+  // Превью профилей отключаем — иначе к посту прилипнет карточка первого участника.
+  return reply(ctx, formatRaffle(rows), { link_preview_options: { is_disabled: true } });
+}
+
 // Пост в канале логов. Не команда — молча выходим (в канал пишут и люди, и сам бот).
 async function onChannelPost(ctx) {
   try {
@@ -129,6 +172,7 @@ async function onChannelPost(ctx) {
 
     const cmd = m[1].toLowerCase();
     if (cmd === "баны") return showBans(ctx);
+    if (cmd === "розыгрыш") return showRaffle(ctx, m[2]);
 
     const { user, error } = await resolveTarget(ctx, m[2]);
     if (error) return reply(ctx, `❌ ${error}`);
@@ -187,4 +231,4 @@ async function onModAction(ctx) {
   }
 }
 
-module.exports = { onChannelPost, onModAction };
+module.exports = { onChannelPost, onModAction, formatRaffle, CMD_RE };

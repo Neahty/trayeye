@@ -6,6 +6,7 @@ const channelLog = require("./channelLog");
 const channelMembership = require("./channelMembership");
 const employeeReferrals = require("./employeeReferrals");
 const userInvites = require("./userInvites");
+const inviteRewards = require("./inviteRewards");
 const moderation = require("./moderation");
 const logModeration = require("./logModeration");
 const { uniqueRefCode } = require("../utils/refcode");
@@ -186,6 +187,36 @@ function getBot() {
       );
     } else {
       await ctx.answerCbQuery("Подписка не найдена, попробуйте ещё раз", { show_alert: true });
+    }
+  });
+
+  // Подарок за приглашения: кнопка «Забрать N дн. PRO» под ЛС от inviteRewards.notifyPending.
+  // Подписка продлевается тут же; сообщение переписываем в итог, чтобы кнопку не нажали дважды.
+  bot.action(/^invref:(\d+)$/, async (ctx) => {
+    try {
+      const rewardId = Number(ctx.match[1]);
+      const uid = await userIdByTg(ctx.from.id).catch(() => null);
+      if (!uid) return ctx.answerCbQuery("Не нашли твой аккаунт", { show_alert: true });
+
+      const res = await inviteRewards.claim(uid, rewardId);
+      if (!res.ok) {
+        if (res.error === "already_claimed") {
+          await ctx.editMessageText("🎁 Этот подарок уже получен.", { parse_mode: "HTML" }).catch(() => {});
+          return ctx.answerCbQuery("Уже получено");
+        }
+        return ctx.answerCbQuery("Не получилось — попробуй ещё раз", { show_alert: true });
+      }
+      const until = new Date(res.expires_at).toLocaleDateString("ru-RU");
+      await ctx.editMessageText(
+        `✅ <b>Подарок получен!</b>\n\n` +
+        `${res.extended ? "Подписка продлена" : "PRO активирован"} на ${res.days} ` +
+        `${inviteRewards.plural(res.days, "день", "дня", "дней")} — до ${until}.`,
+        { parse_mode: "HTML" }
+      ).catch(() => {});
+      return ctx.answerCbQuery("Готово! 🎉");
+    } catch (e) {
+      console.error("[bot] invref:", e.message);
+      return ctx.answerCbQuery("Не получилось — попробуй ещё раз", { show_alert: true }).catch(() => {});
     }
   });
 

@@ -79,7 +79,7 @@ AI каллории/
 │       ├── routes/          # auth, scan, history, stats, profile, membership, subscription,
 │       │                    #   trainer, myTrainer, invite, achievements, settingsPublic, track, health, adminAuth, admin, adminEmployees, adminInvites
 │       ├── middleware/      # auth, adminAuth, checkAdmin, checkLimit, checkTrainer, rateLimit
-│       ├── services/        # openai, telegram, bot (Telegraf), yukassa, notify, channelLog, channelMembership, employeeReferrals, userInvites, broadcast, cost, aiUsage, achievements, fx, openaiCosts
+│       ├── services/        # openai, telegram, bot (Telegraf), yukassa, notify, channelLog, channelMembership, employeeReferrals, userInvites, inviteRewards, broadcast, cost, aiUsage, achievements, fx, openaiCosts
 │       ├── jobs/            # notifications.js (cron), subscriptionReminders.js (напоминания о подписке), employeeReferrals.js (проверка рефералов сотрудников), userInvites.js (проверка приглашений друзей), backup.js (бэкап БД в Telegram)
 │       ├── utils/           # calories, jwt, subscription, settings, tz, refcode, nutrition, http (parseId)
 │       ├── db/              # index.js (pool + withTx), schema.sql, migrate.js
@@ -211,7 +211,7 @@ cd client && npm test     # Vitest + RTL
 | GET | `/api/achievements` · `/api/settings/public` | прочее |
 | * | `/api/trainer/*` | кабинет тренера (нужна активная подписка `trainer`): `GET /invite`, `clients`, `clients/:id/history\|stats\|weight`, **`DELETE clients/:id`** (отвязать клиента), `PATCH clients/:id/goals`, `POST scans/:id/comment` |
 | * | `/api/my-trainer` | связь клиента с тренером: `GET`, `POST /accept {code,replace}`, `DELETE` |
-| GET | `/api/invite` | «Пригласи друга»: личная короткая ссылка (`?start=<invite_code>`), `share_text` и своя статистика приглашений. Доступно всем авторизованным |
+| GET·POST | `/api/invite` · `/rewards/:id/claim` | «Пригласи друга»: личная короткая ссылка (`?start=<invite_code>`), `share_text`, своя статистика и подарки; `claim` забирает подарок (продлевает PRO). Доступно всем авторизованным |
 | POST·GET | `/api/admin/auth/login` · `/me` … | вход в админку (логин/пароль + 2FA) |
 | GET | `/api/admin/dashboard`, `/users`, `/finance`, `/finance/yukassa`, … | данные админки |
 | * | `/api/admin/employees/*` | раздел «Работники»: `GET /` (список с агрегатами), `POST /` `{query}` (добавить по telegram_id/@username; 404 `user_not_found` если не нажимал /start), `DELETE /:id` (деактивация, история остаётся), `GET /:id` (карточка: статистика, рефералы поимённо, график 30 дн, выплаты), `POST /:id/payouts {kind, rate}` (отметить выплату), `POST /:id/payouts/:payoutId/cancel` (отменить) |
@@ -287,7 +287,7 @@ cd client && npm test     # Vitest + RTL
 | `10 * * * *` (ежечасно) | **детектор окончания подписок** (`subscriptionExpiryCheck`): подписки с `expires_at` в окне последних 2 суток, `expiry_logged_at IS NULL` и без более поздней активной → лог `subscription_expired`; отметка `expiry_logged_at` до лога (дедуп) |
 | `5 * * * *` (ежечасно) | **напоминания о подписке/триале** (`jobs/subscriptionReminders.js`): шлёт тем, у кого локально «час отправки» из настройки `reminders`. Платная подписка — за `paid_pre_days` (деф. 7/3/1) дней до конца; триал — в первый и последний день; после окончания (обоих) — серия `post_days` (деф. 0/1/3/7/14 дней) и стоп. Тексты (10–12 вариантов на контекст) с плейсхолдерами `{name} {meals_count} {days_tracked} {weight_delta} {days_left} {expires_date} {trial_days}`; шаблон без данных пропускается, выбор детерминированный `(user_id+стадия) % N`. Кнопка «Продлить» → `t.me/<bot>?startapp=paywall`. Дедуп — таблица `subscription_reminders` (`UNIQUE user_id+kind+stage+anchor_at`, вставка ДО отправки; новый `expires_at` = новая серия). **`notifications_enabled` игнорируется** (бизнес-критично), уважаются `is_blocked`/`tg_unreachable`/`app_opened`, клиенты активного тренера пропускаются. Всё настраивается в админке («Настройки → Напоминания»). Кнопка **«Разослать сейчас»** (`POST /admin/reminders/run` → `subscriptionReminders({ force: true, blast: true })`) — режим blast: каждому уходит сообщение по его ТЕКУЩЕЙ ситуации (`classifyBlast`: пробный идёт/последний день/кончился, подписка истекает ≤ max(paid_pre_days)/истекла — сколько бы дней ни прошло), дедуп `manual_<тип>` + дата. Общий предохранитель в обоих режимах: не больше одного напоминания в сутки на человека (`reminded_recently`, окно 20 часов). Кнопка **«Проверить на себе»** (`POST /admin/reminders/test { kind }` → `sendTestReminder`) — пример с префиксом 🧪 только текущему админу, недостающие цифры — образцы. Env: `REMINDER_FORCE=1` — прогон планового режима без фильтра по часу |
 | `20 * * * *` (ежечасно) | **сотрудники-пиарщики** (`jobs/employeeReferrals.js`): pending-рефералы старше 24 ч → `confirmed` (открыл приложение + в канале + не заблокировал бота) или `rejected` с причиной; плюс страховочная атрибуция оплат рефералов за 2 дня (`attributePaymentsSince`) |
-| `25 * * * *` (ежечасно) | **приглашения друзей** (`jobs/userInvites.js`): pending-приглашения старше 24 ч → `confirmed` (открыл приложение + в канале + не заблокировал бота) или `rejected` с причиной; приглашающему уходит ЛС с итогом. Атрибуции оплат нет — денег в механике не платят |
+| `25 * * * *` (ежечасно) | **приглашения друзей** (`jobs/userInvites.js`): pending-приглашения старше 24 ч → `confirmed` (открыл приложение + в канале + не заблокировал бота) или `rejected` с причиной; приглашающему уходит ЛС с итогом. Затем по каждому приглашающему с новыми засчитанными — `inviteRewards.syncAndNotify`: начисление ступеней подарков (за каждые 10 друзей — 5 дней PRO) и ЛС «забери подарок». Атрибуции оплат нет — денег в механике не платят |
 | `0 3 * * *` | удаление фото старше 12 месяцев |
 | `0 21 * * *` (МСК) | **ежедневная сводка** в канал логов (`dailyDigest`): за сутки — новые подписчики/вышли из канала/активные/сканы/оплаты(кол-во+сумма)/истёкшие подписки + всего подписчиков канала. Тип события `daily_digest` |
 | `0 0 * * *` (МСК) | авто-бэкап БД: `pg_dump` → gzip → отправка `.sql.gz` всем `ADMIN_TELEGRAM_IDS` (`jobs/backup.js`). Путь к pg_dump — env `PG_DUMP`. Восстановление — `restore.bat` |
@@ -433,9 +433,33 @@ pending/confirmed/rejected; payout_id NULL = не выплачено), `employee
   бота**, иначе `rejected` с причиной (`app_not_opened` / `left_channel` / `blocked_bot`);
 - один приглашённый — один пригласивший (`user_invites.user_id UNIQUE`).
 
+**Подарки за приглашения.** За каждые `invite_reward_per` (деф. **10**) засчитанных друзей
+начисляется `invite_reward_days` (деф. **5**) дней PRO — настройки в `utils/settings.js`, любое
+неположительное значение выключает механику. Ступени считает `services/inviteRewards.js`
+(`syncForUser`: `floor(confirmed / per)` → строки в `invite_rewards`, идемпотентно по
+`UNIQUE (user_id, tier)`); зовётся из крона после подтверждения и на открытии экрана приглашений
+(самолечение, если процесс упал между подтверждением и начислением).
+
+Подарок **не начисляется молча** — его нужно забрать: кнопкой в ЛС бота (`bot.action(/^invref:/)`)
+или на экране приглашений (`POST /api/invite/rewards/:id/claim`). Обе кнопки ведут в один
+`inviteRewards.claim`, гонка закрыта guard'ом `status='pending'` в UPDATE.
+
+> **Продление, а не перезапись.** Ручная выдача подписки в админке считает срок от `NOW()` и гасит
+> активную строку. Для подарка так нельзя — 5 дней обрезали бы оплаченный месяц. Поэтому
+> `grantBonusDays` двигает `expires_at` активной подписки вперёд (`make_interval`), и только если
+> активной нет, заводит новую строку от `NOW()` с `method='invite_bonus'`.
+
 **Уведомления.** Приглашающему в ЛС (без имён — только факт): «по твоей ссылке пришёл друг, на
-проверке» и итог проверки через сутки. Всё дублируется в канал логов (тумблер `invites` в
+проверке», итог проверки через сутки и «забери подарок» с кнопкой. Если ЛС не доставилось
+(бот в ЧС), `notified_at` остаётся пустым и попытка повторится на следующем засчитанном друге —
+сам подарок всё это время ждёт в приложении. Всё дублируется в канал логов (тумблер `invites` в
 «Настройки → Логи в Telegram») — там имена видны.
+
+**Команда `.розыгрыш` в канале логов.** Ответом приходит готовый к публикации пост с топом
+участников: «приглашено / зачтено», первые три места под шапкой, остальные — за чертой.
+`.розыгрыш 10` меняет число мест (деф. 6, максимум 30). Как и `.баны`, это чтение без
+подтверждения: команда работает **только** в канале логов из настроек, а туда пишут лишь админы.
+Формат поста зафиксирован тестом (`logModeration.formatRaffle`).
 
 **Админка → «Приглашения»** (`/invites`): фильтр по датам (период конкурса), сводка, топ
 приглашающих с медалями, сквозная лента всех приглашений с фильтром по статусу. Карточка
@@ -446,8 +470,10 @@ pending/confirmed/rejected; payout_id NULL = не выплачено), `employee
 
 **БД** (`schema.sql`, блок «Пользовательские приглашения»): `users.invite_code UNIQUE`,
 `user_invites` (inviter_id, user_id UNIQUE, status pending/confirmed/rejected, reject_reason,
-decided_at), `user_invite_clicks` (inviter_id, telegram_id, existing_user). Статистика считается по
-**Москве** (`Europe/Moscow`).
+decided_at), `user_invite_clicks` (inviter_id, telegram_id, existing_user), `invite_rewards`
+(user_id + tier UNIQUE, days, status pending/claimed, notified_at). Статистика и границы периода
+конкурса считаются по **Москве** (`Europe/Moscow`; в `adminInvites.parseRange` смещение +03:00
+зашито явно, чтобы даты не зависели от таймзоны сервера).
 
 ---
 

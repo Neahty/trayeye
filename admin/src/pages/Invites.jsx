@@ -89,7 +89,7 @@ export default function InvitesPage() {
 
       {(range.from || range.to) && (
         <p className="muted" style={{ marginTop: -8, marginBottom: 14, fontSize: 13 }}>
-          Период конкурса: {range.from ? fmtDay(range.from) : "с самого начала"} — {range.to ? fmtDay(range.to) : "по сегодня"}.
+          Период конкурса: {range.from || "с самого начала"} — {range.to || "по сегодня"} (по Москве).
           Считаются приглашения, созданные внутри периода.
         </p>
       )}
@@ -198,7 +198,7 @@ export default function InvitesPage() {
                 })}
                 {!items.length && (
                   <tr><td colSpan={6} className="muted" style={{ textAlign: "center", cursor: "default" }}>
-                    Приглашений здесь пока нет.
+                    {feed.loading ? "Загружаем…" : "Приглашений здесь пока нет."}
                   </td></tr>
                 )}
               </tbody>

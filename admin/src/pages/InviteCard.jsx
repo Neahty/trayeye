@@ -25,7 +25,8 @@ export default function InviteCardPage() {
   if (loading) return <Loader />;
   if (error) return <div className="err">{error}</div>;
 
-  const { user, stats, invites, chart } = data;
+  const { user, stats, invites, chart, rewards } = data;
+  const pendingRewards = (rewards || []).filter((r) => r.status === "pending");
 
   const grant = async () => {
     if (busy) return;
@@ -81,6 +82,40 @@ export default function InviteCardPage() {
         <Stat label="Конверсия перехода" value={stats.clicks.total ? Math.round((stats.invites.total / stats.clicks.total) * 100) + "%" : "—"}
           sub="сколько переходов стали приглашениями" />
       </div>
+
+      {/* Автоподарки за каждые N друзей — начисляются сами, забирает их сам пользователь. */}
+      {(rewards || []).length > 0 && (
+        <>
+          <div className="section-title">Подарки за приглашения</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Ступень</th><th>Награда</th><th>Начислен</th><th>Статус</th></tr>
+              </thead>
+              <tbody>
+                {rewards.map((r) => (
+                  <tr key={r.id} style={{ cursor: "default" }}>
+                    <td data-label="Ступень">#{r.tier}</td>
+                    <td data-label="Награда">{r.days} дн. PRO</td>
+                    <td data-label="Начислен">{fmtDate(r.created_at)}</td>
+                    <td data-label="Статус">
+                      {r.status === "claimed"
+                        ? <span className="pill green">получен {fmtDate(r.claimed_at)}</span>
+                        : <span className="pill amber">ждёт получения</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {pendingRewards.length > 0 && (
+            <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+              Подарок забирает сам пользователь — кнопкой в сообщении бота или на экране приглашений.
+              Вручную выдавать его не нужно.
+            </p>
+          )}
+        </>
+      )}
 
       {/* Награда конкурса: та же ручная выдача подписки, что в разделе «Пользователи». */}
       <div className="section-title">Награда за конкурс</div>

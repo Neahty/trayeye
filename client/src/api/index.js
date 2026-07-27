@@ -116,7 +116,8 @@ export const Subscription = {
 
 // «Пригласи друга»: личная короткая ссылка юзера и его статистика приглашений.
 export const Invite = {
-  get: () => api.get("/invite").then((r) => r.data)
+  get: () => api.get("/invite").then((r) => r.data),
+  claimReward: (id) => api.post(`/invite/rewards/${id}/claim`).then((r) => r.data)
 };
 
 export const Trainer = {

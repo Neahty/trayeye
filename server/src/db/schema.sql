@@ -645,3 +645,21 @@ CREATE TABLE IF NOT EXISTS user_invite_clicks (
   clicked_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_user_invite_clicks ON user_invite_clicks (inviter_id, clicked_at);
+
+-- Подарки за приглашения: за каждые N засчитанных друзей — M дней PRO (настройки
+-- invite_reward_per / invite_reward_days). Строка на каждую достигнутую ступень:
+-- tier=1 за первых 10 друзей, tier=2 за 20 и т.д. UNIQUE (user_id, tier) делает
+-- начисление идемпотентным — крон может пересчитывать ступени сколько угодно раз.
+-- days фиксируется в момент начисления: изменение настройки не переписывает старые подарки.
+CREATE TABLE IF NOT EXISTS invite_rewards (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tier INT NOT NULL,                       -- номер ступени (1 = первые N друзей)
+  days INT NOT NULL,                       -- сколько дней PRO даёт подарок
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending (ждёт, пока заберут) | claimed
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  claimed_at TIMESTAMPTZ,
+  notified_at TIMESTAMPTZ,                 -- когда бот написал «забери подарок» (дедуп ЛС)
+  UNIQUE (user_id, tier)
+);
+CREATE INDEX IF NOT EXISTS idx_invite_rewards_user ON invite_rewards (user_id, status);

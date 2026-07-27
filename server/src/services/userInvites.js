@@ -115,6 +115,26 @@ async function statsForUser(userId) {
   return { clicks: clicks.rows[0], invites: invites.rows[0] };
 }
 
+// Топ участников розыгрыша за всё время: «приглашено / зачтено».
+// Приглашено — все строки, кроме отклонённых (то есть засчитанные + ждущие проверки),
+// зачтено — только confirmed. Порядок тот же, что в админке: по зачтённым, при равенстве
+// выше тот, кто привёл больше людей всего. Используется командой «.розыгрыш» в канале логов.
+async function leaderboard(limit = 6) {
+  const n = Math.max(1, Math.min(100, Number(limit) || 6));
+  const { rows } = await db.query(
+    `SELECT u.id, u.telegram_id, u.name, u.username,
+            COUNT(*) FILTER (WHERE i.status <> 'rejected')::int AS invited,
+            COUNT(*) FILTER (WHERE i.status = 'confirmed')::int AS confirmed
+       FROM user_invites i JOIN users u ON u.id = i.inviter_id
+      GROUP BY u.id
+     HAVING COUNT(*) FILTER (WHERE i.status <> 'rejected') > 0
+      ORDER BY confirmed DESC, invited DESC, u.id ASC
+      LIMIT $1`,
+    [n]
+  );
+  return rows;
+}
+
 // Итог проверки 24 ч — ЛС приглашающему. Зовётся из jobs/userInvites.js.
 // Имя приглашённого не раскрываем: приглашающий видит только свои цифры.
 async function notifyDecided(inviterId, status, reason) {
@@ -131,5 +151,6 @@ module.exports = {
   getByInviteCode,
   handleStartLink,
   statsForUser,
+  leaderboard,
   notifyDecided
 };

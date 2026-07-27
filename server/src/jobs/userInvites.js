@@ -5,6 +5,7 @@
 // Атрибуции оплат здесь нет: денег в этой механике не платят, награда за конкурс — вручную.
 const db = require("../db");
 const userInvites = require("../services/userInvites");
+const inviteRewards = require("../services/inviteRewards");
 const channelLog = require("../services/channelLog");
 const notify = require("../services/notify");
 
@@ -18,6 +19,8 @@ async function runUserInviteChecks() {
 
   let confirmed = 0;
   let rejected = 0;
+  // Кому пересчитать ступени подарков — только тем, у кого прибавилось засчитанных.
+  const touched = new Set();
   for (const r of pending) {
     let reason = null;
     if (!r.app_opened) reason = "app_not_opened";
@@ -32,7 +35,7 @@ async function runUserInviteChecks() {
       [r.id, status, reason]
     );
     if (!upd.rows.length) continue;
-    if (reason) rejected++; else confirmed++;
+    if (reason) rejected++; else { confirmed++; touched.add(r.inviter_id); }
 
     // Приглашающему — ЛС с итогом (без имени приведённого), в лог-канал — с именами.
     userInvites.notifyDecided(r.inviter_id, status, reason).catch(() => {});
@@ -49,8 +52,19 @@ async function runUserInviteChecks() {
       console.error("[invites job] log:", e.message);
     }
   }
+  // Подарки за каждые N друзей. Считаем ПОСЛЕ цикла, по одному разу на приглашающего:
+  // если за прогон ему засчитали сразу несколько друзей, ступень не начислится дважды.
+  let rewards = 0;
+  for (const inviterId of touched) {
+    try {
+      rewards += await inviteRewards.syncAndNotify(inviterId);
+    } catch (e) {
+      console.error("[invites job] rewards:", e.message);
+    }
+  }
+
   if (pending.length) {
-    console.log(`[cron] userInvites: confirmed=${confirmed} rejected=${rejected}`);
+    console.log(`[cron] userInvites: confirmed=${confirmed} rejected=${rejected} rewards=${rewards}`);
   }
 }
 

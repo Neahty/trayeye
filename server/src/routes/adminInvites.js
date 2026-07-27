@@ -6,6 +6,7 @@ const express = require("express");
 const db = require("../db");
 const adminAuth = require("../middleware/adminAuth");
 const userInvites = require("../services/userInvites");
+const inviteRewards = require("../services/inviteRewards");
 const { parseId } = require("../utils/http");
 
 const router = express.Router();
@@ -14,17 +15,26 @@ router.use(adminAuth);
 // Период конкурса из query (?from=YYYY-MM-DD&to=YYYY-MM-DD). Границы включительные:
 // «to» разворачивается в конец дня, иначе последний день акции терялся бы целиком.
 // Пустые значения → NULL, и SQL-условие ($n IS NULL OR ...) пропускает всё.
+//
+// Даты трактуем ПО МОСКВЕ — как и вся остальная статистика приглашений. Иначе
+// new Date("2026-07-01") дало бы полночь UTC (= 03:00 МСК) и первые три часа первого дня
+// акции выпали бы из подсчёта, а конец дня уехал бы по таймзоне сервера. Смещение
+// зашито как +03:00: в России нет перехода на летнее время с 2014 года.
+const MSK_OFFSET = "+03:00";
+
 function parseRange(q) {
-  const norm = (v) => {
+  const norm = (v, endOfDay) => {
     const s = String(v || "").trim();
     if (!s) return null;
-    const d = new Date(s);
+    // Голая дата YYYY-MM-DD — достраиваем до момента по Москве; всё остальное
+    // (полный ISO с зоной) отдаём Date как есть.
+    const iso = /^\d{4}-\d{2}-\d{2}$/.test(s)
+      ? `${s}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}${MSK_OFFSET}`
+      : s;
+    const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? null : d;
   };
-  const from = norm(q.from);
-  const to = norm(q.to);
-  if (to) to.setHours(23, 59, 59, 999);
-  return { from, to };
+  return { from: norm(q.from, false), to: norm(q.to, true) };
 }
 
 // GET /api/admin/invites?from=&to= — сводка за период + топ приглашающих.
@@ -126,7 +136,7 @@ router.get("/:userId", async (req, res, next) => {
     const user = users[0];
     if (!user) return res.status(404).json({ error: "not_found" });
 
-    const [stats, invites, chart] = await Promise.all([
+    const [stats, invites, chart, rewards] = await Promise.all([
       userInvites.statsForUser(id),
       db.query(
         `SELECT i.id, i.status, i.reject_reason, i.created_at, i.decided_at,
@@ -149,14 +159,16 @@ router.get("/:userId", async (req, res, next) => {
            FROM generate_series((NOW() AT TIME ZONE $2)::date - 29, (NOW() AT TIME ZONE $2)::date, interval '1 day') AS d(day)
           ORDER BY d.day`,
         [id, userInvites.TZ]
-      ).then((r) => r.rows)
+      ).then((r) => r.rows),
+      inviteRewards.listForUser(id)
     ]);
 
     res.json({
       user: { ...user, link: user.invite_code ? userInvites.buildLink(user.invite_code) : null },
       stats,
       invites,
-      chart
+      chart,
+      rewards
     });
   } catch (err) {
     next(err);
@@ -164,3 +176,5 @@ router.get("/:userId", async (req, res, next) => {
 });
 
 module.exports = router;
+// Для тестов: границы периода — самое хрупкое место (от них зависит победитель).
+module.exports.parseRange = parseRange;
