@@ -40,10 +40,11 @@ export async function login() {
   const tg = window.Telegram?.WebApp;
   const initData = tg?.initData || "";
   const params = new URLSearchParams(window.location.search);
-  const ref = params.get("ref") || tg?.initDataUnsafe?.start_param || null;
   const devId = params.get("dev_id");
 
-  const body = { initData, ref };
+  // Реф-параметр здесь не передаём: сервер его игнорирует, а привязка «кто кого привёл»
+  // делается ботом на /start (services/userInvites.js), а не при входе в мини-апп.
+  const body = { initData };
   if (!initData && devId) body.dev_id = devId;
 
   const { data } = await api.post("/auth/telegram", body);
@@ -111,6 +112,11 @@ export const Subscription = {
   status: () => api.get("/subscription/status").then((r) => r.data),
   payments: () => api.get("/subscription/payments").then((r) => r.data),
   cancel: () => api.post("/subscription/cancel").then((r) => r.data)
+};
+
+// «Пригласи друга»: личная короткая ссылка юзера и его статистика приглашений.
+export const Invite = {
+  get: () => api.get("/invite").then((r) => r.data)
 };
 
 export const Trainer = {

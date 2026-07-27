@@ -288,6 +288,10 @@ function start() {
   cron.schedule("20 * * * *", () =>
     require("./employeeReferrals").runEmployeeReferralChecks().catch((e) => console.error("[cron] employeeReferrals:", e.message))
   );
+  // Пользовательские приглашения «Пригласи друга»: проверка через 24 ч — ежечасно на :25.
+  cron.schedule("25 * * * *", () =>
+    require("./userInvites").runUserInviteChecks().catch((e) => console.error("[cron] userInvites:", e.message))
+  );
   // Ежедневная сводка в канал логов — 21:00 по Москве.
   cron.schedule("0 21 * * *", () => dailyDigest().catch((e) => console.error(e.message)), { timezone: "Europe/Moscow" });
   // Авто-бэкап базы каждый день в 00:00 по Москве — отправляется админам в Telegram.

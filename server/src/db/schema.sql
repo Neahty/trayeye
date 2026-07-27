@@ -610,3 +610,38 @@ CREATE TABLE IF NOT EXISTS tg_log_refs (
 );
 CREATE INDEX IF NOT EXISTS idx_tg_log_refs_user ON tg_log_refs (user_id);
 CREATE INDEX IF NOT EXISTS idx_tg_log_refs_created ON tg_log_refs (created_at);
+
+-- ============================================================
+--  Пользовательские приглашения «Пригласи друга» (Поправка №47).
+--  Ссылка обычного юзера: t.me/<бот>?start=<invite_code> — короткий код БЕЗ префикса
+--  (у сотрудников emp_<code>, у тренеров startapp=tr_<ref_code> — три разные механики).
+--  Правило зачёта то же, что у сотрудников: приглашением становится только НОВЫЙ
+--  пользователь, подтверждение через 24 ч (jobs/userInvites.js) — открыл приложение,
+--  в канале, не заблокировал бота. Денег здесь нет: награда за конкурс выдаётся
+--  вручную из админки, поэтому таблиц выплат (как employee_payouts) нет.
+--  НЕ путать с legacy referrals/referral_balance выше — та система удалена.
+-- ============================================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code TEXT UNIQUE;
+
+CREATE TABLE IF NOT EXISTS user_invites (
+  id SERIAL PRIMARY KEY,
+  inviter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id INT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- один юзер — один пригласивший
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending | confirmed | rejected
+  reject_reason TEXT,                      -- app_not_opened | left_channel | blocked_bot
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  decided_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_user_invites ON user_invites (inviter_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_user_invites_created ON user_invites (created_at);
+
+-- Каждый /start по пользовательской ссылке (в т.ч. существующих юзеров — для воронки
+-- «перешли → засчитаны» на экране приглашений).
+CREATE TABLE IF NOT EXISTS user_invite_clicks (
+  id SERIAL PRIMARY KEY,
+  inviter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  telegram_id BIGINT,
+  existing_user BOOLEAN DEFAULT FALSE,     -- TRUE = уже был в базе / своя же ссылка → приглашением не стал
+  clicked_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_user_invite_clicks ON user_invite_clicks (inviter_id, clicked_at);

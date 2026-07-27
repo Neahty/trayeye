@@ -21,6 +21,7 @@ const NAV = [
   { to: "/", label: "Главная", end: true },
   { to: "/users", label: "Пользователи" },
   { to: "/employees", label: "Работники" },
+  { to: "/invites", label: "Приглашения" },
   { to: "/subscriptions", label: "Подписки" },
   { to: "/finance", label: "Деньги" },
   { to: "/ai", label: "Расходы на ИИ" },

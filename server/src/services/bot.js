@@ -5,6 +5,7 @@ const notify = require("./notify");
 const channelLog = require("./channelLog");
 const channelMembership = require("./channelMembership");
 const employeeReferrals = require("./employeeReferrals");
+const userInvites = require("./userInvites");
 const moderation = require("./moderation");
 const logModeration = require("./logModeration");
 const { uniqueRefCode } = require("../utils/refcode");
@@ -132,10 +133,20 @@ function getBot() {
     // Ссылка сотрудника-пиарщика: /start emp_<code>. Фиксируем переход/реферала
     // ДО проверки подписки на канал (подписка — условие подтверждения через 24 ч,
     // а не условие привязки). Fire-and-forget — /start не должен ждать.
-    const empLink = /^emp_([0-9a-f]+)$/i.exec(String(ctx.payload || "").trim());
+    const payload = String(ctx.payload || "").trim();
+    const empLink = /^emp_([0-9a-f]+)$/i.exec(payload);
     if (empLink && user) {
       employeeReferrals.handleStartLink({ code: empLink[1].toLowerCase(), from: ctx.from, userRow: user })
         .catch((e) => console.error("[bot] emp link:", e.message));
+    } else if (user) {
+      // Пользовательская ссылка «Пригласи друга»: /start <invite_code>, короткий код без
+      // префикса. Ветка «иначе» — префиксные коды уже забрал блок выше, а регексом без «_»
+      // сюда не пролезут ни emp_, ни tr_ (последний вообще приходит через startapp).
+      const invLink = /^[a-z0-9]{4,12}$/i.exec(payload);
+      if (invLink) {
+        userInvites.handleStartLink({ code: invLink[0].toLowerCase(), from: ctx.from, userRow: user })
+          .catch((e) => console.error("[bot] invite link:", e.message));
+      }
     }
     const member = await isChannelMember(ctx.from.id);
     // Лог «Новый пользователь» уходит ТОЛЬКО когда человек подписан на канал

@@ -38,9 +38,10 @@
 10. [Подписки и оплата](#подписки-и-оплата)
 11. [Тренер и его клиенты](#тренер-и-его-клиенты)
 12. [Сотрудники-пиарщики](#сотрудники-пиарщики-работники)
-13. [Бот техподдержки](#бот-техподдержки-support)
-14. [Часовые пояса](#часовые-пояса)
-15. [Деплой на VPS](#деплой-на-vps)
+13. [Приглашения друзей](#приглашения-друзей-пригласи-друга)
+14. [Бот техподдержки](#бот-техподдержки-support)
+15. [Часовые пояса](#часовые-пояса)
+16. [Деплой на VPS](#деплой-на-vps)
 
 ---
 
@@ -65,21 +66,21 @@
 AI каллории/
 ├── client/                  # Telegram mini-app (React + Vite)
 │   └── src/
-│       ├── pages/           # Home, History, Stats, Profile, Paywall, Onboarding, Trainer, BecomeTrainer
+│       ├── pages/           # Home, History, Stats, Profile, Paywall, Onboarding, Trainer, BecomeTrainer, Invite
 │       ├── components/      # PhotoSlot, TabBar, CalorieRing, NavBar, NumberPicker, icons…
 │       ├── ui/              # UIProvider (sheets/toasts), mealDetail, meal (группировка приёмов), addByText
 │       ├── lib/             # theme, image (даунскейл фото), sub, timezones, useCountUp
 │       ├── api/index.js     # axios-клиент, login(), эндпоинты, assetUrl()
 │       └── App.jsx          # boot: login → гейт канала → онбординг → роуты
 ├── admin/                   # Веб-админка (React + Vite), вход логин/пароль + 2FA
-│   └── src/pages/           # Login, Dashboard, Users, Employees, EmployeeCard, Subscriptions, Finance, AIAnalytics, Scans, Notifications, Support, SupportTicket, Funnel, Logs, Settings
+│   └── src/pages/           # Login, Dashboard, Users, Employees, EmployeeCard, Invites, InviteCard, Subscriptions, Finance, AIAnalytics, Scans, Notifications, Support, SupportTicket, Funnel, Logs, Settings
 ├── server/                  # Express REST API
 │   └── src/
 │       ├── routes/          # auth, scan, history, stats, profile, membership, subscription,
-│       │                    #   trainer, myTrainer, achievements, settingsPublic, track, health, adminAuth, admin, adminEmployees
+│       │                    #   trainer, myTrainer, invite, achievements, settingsPublic, track, health, adminAuth, admin, adminEmployees, adminInvites
 │       ├── middleware/      # auth, adminAuth, checkAdmin, checkLimit, checkTrainer, rateLimit
-│       ├── services/        # openai, telegram, bot (Telegraf), yukassa, notify, channelLog, channelMembership, employeeReferrals, broadcast, cost, aiUsage, achievements, fx, openaiCosts
-│       ├── jobs/            # notifications.js (cron), subscriptionReminders.js (напоминания о подписке), employeeReferrals.js (проверка рефералов сотрудников), backup.js (бэкап БД в Telegram)
+│       ├── services/        # openai, telegram, bot (Telegraf), yukassa, notify, channelLog, channelMembership, employeeReferrals, userInvites, broadcast, cost, aiUsage, achievements, fx, openaiCosts
+│       ├── jobs/            # notifications.js (cron), subscriptionReminders.js (напоминания о подписке), employeeReferrals.js (проверка рефералов сотрудников), userInvites.js (проверка приглашений друзей), backup.js (бэкап БД в Telegram)
 │       ├── utils/           # calories, jwt, subscription, settings, tz, refcode, nutrition, http (parseId)
 │       ├── db/              # index.js (pool + withTx), schema.sql, migrate.js
 │       ├── app.js           # Express app (helmet, cors, статика /uploads и /api/uploads, роуты)
@@ -101,7 +102,9 @@ AI каллории/
 > не используются). Тренеры привязывают клиентов по ссылке-приглашению через `users.ref_code`
 > (см. [Тренер и его клиенты](#тренер-и-его-клиенты)). Отдельно существует система
 > **сотрудников-пиарщиков** с собственными таблицами `employee_*`
-> (см. [Сотрудники-пиарщики](#сотрудники-пиарщики-работники)).
+> (см. [Сотрудники-пиарщики](#сотрудники-пиарщики-работники)) и новая пользовательская программа
+> **«Пригласи друга»** с таблицами `user_invites` / `user_invite_clicks` и колонкой `users.invite_code`
+> (см. [Приглашения друзей](#приглашения-друзей-пригласи-друга)).
 
 ---
 
@@ -208,9 +211,11 @@ cd client && npm test     # Vitest + RTL
 | GET | `/api/achievements` · `/api/settings/public` | прочее |
 | * | `/api/trainer/*` | кабинет тренера (нужна активная подписка `trainer`): `GET /invite`, `clients`, `clients/:id/history\|stats\|weight`, **`DELETE clients/:id`** (отвязать клиента), `PATCH clients/:id/goals`, `POST scans/:id/comment` |
 | * | `/api/my-trainer` | связь клиента с тренером: `GET`, `POST /accept {code,replace}`, `DELETE` |
+| GET | `/api/invite` | «Пригласи друга»: личная короткая ссылка (`?start=<invite_code>`), `share_text` и своя статистика приглашений. Доступно всем авторизованным |
 | POST·GET | `/api/admin/auth/login` · `/me` … | вход в админку (логин/пароль + 2FA) |
 | GET | `/api/admin/dashboard`, `/users`, `/finance`, `/finance/yukassa`, … | данные админки |
 | * | `/api/admin/employees/*` | раздел «Работники»: `GET /` (список с агрегатами), `POST /` `{query}` (добавить по telegram_id/@username; 404 `user_not_found` если не нажимал /start), `DELETE /:id` (деактивация, история остаётся), `GET /:id` (карточка: статистика, рефералы поимённо, график 30 дн, выплаты), `POST /:id/payouts {kind, rate}` (отметить выплату), `POST /:id/payouts/:payoutId/cancel` (отменить) |
+| * | `/api/admin/invites/*` | раздел «Приглашения»: `GET /?from=&to=` (сводка + топ приглашающих за период), `GET /feed?status=&page=&limit=` (сквозная лента всех приглашений), `GET /:userId` (карточка приглашающего: статистика, график 30 дн, приведённые поимённо) |
 | * | `/api/admin/support/*` | тикеты поддержки: `GET /tickets?status=`, `GET /tickets/:id`, `POST /tickets/:id/reply\|close`, `GET /photo/:fileId` (прокси фото из Telegram) |
 | static | `/uploads/*`, `/api/uploads/*` | загруженные фото |
 
@@ -282,6 +287,7 @@ cd client && npm test     # Vitest + RTL
 | `10 * * * *` (ежечасно) | **детектор окончания подписок** (`subscriptionExpiryCheck`): подписки с `expires_at` в окне последних 2 суток, `expiry_logged_at IS NULL` и без более поздней активной → лог `subscription_expired`; отметка `expiry_logged_at` до лога (дедуп) |
 | `5 * * * *` (ежечасно) | **напоминания о подписке/триале** (`jobs/subscriptionReminders.js`): шлёт тем, у кого локально «час отправки» из настройки `reminders`. Платная подписка — за `paid_pre_days` (деф. 7/3/1) дней до конца; триал — в первый и последний день; после окончания (обоих) — серия `post_days` (деф. 0/1/3/7/14 дней) и стоп. Тексты (10–12 вариантов на контекст) с плейсхолдерами `{name} {meals_count} {days_tracked} {weight_delta} {days_left} {expires_date} {trial_days}`; шаблон без данных пропускается, выбор детерминированный `(user_id+стадия) % N`. Кнопка «Продлить» → `t.me/<bot>?startapp=paywall`. Дедуп — таблица `subscription_reminders` (`UNIQUE user_id+kind+stage+anchor_at`, вставка ДО отправки; новый `expires_at` = новая серия). **`notifications_enabled` игнорируется** (бизнес-критично), уважаются `is_blocked`/`tg_unreachable`/`app_opened`, клиенты активного тренера пропускаются. Всё настраивается в админке («Настройки → Напоминания»). Кнопка **«Разослать сейчас»** (`POST /admin/reminders/run` → `subscriptionReminders({ force: true, blast: true })`) — режим blast: каждому уходит сообщение по его ТЕКУЩЕЙ ситуации (`classifyBlast`: пробный идёт/последний день/кончился, подписка истекает ≤ max(paid_pre_days)/истекла — сколько бы дней ни прошло), дедуп `manual_<тип>` + дата. Общий предохранитель в обоих режимах: не больше одного напоминания в сутки на человека (`reminded_recently`, окно 20 часов). Кнопка **«Проверить на себе»** (`POST /admin/reminders/test { kind }` → `sendTestReminder`) — пример с префиксом 🧪 только текущему админу, недостающие цифры — образцы. Env: `REMINDER_FORCE=1` — прогон планового режима без фильтра по часу |
 | `20 * * * *` (ежечасно) | **сотрудники-пиарщики** (`jobs/employeeReferrals.js`): pending-рефералы старше 24 ч → `confirmed` (открыл приложение + в канале + не заблокировал бота) или `rejected` с причиной; плюс страховочная атрибуция оплат рефералов за 2 дня (`attributePaymentsSince`) |
+| `25 * * * *` (ежечасно) | **приглашения друзей** (`jobs/userInvites.js`): pending-приглашения старше 24 ч → `confirmed` (открыл приложение + в канале + не заблокировал бота) или `rejected` с причиной; приглашающему уходит ЛС с итогом. Атрибуции оплат нет — денег в механике не платят |
 | `0 3 * * *` | удаление фото старше 12 месяцев |
 | `0 21 * * *` (МСК) | **ежедневная сводка** в канал логов (`dailyDigest`): за сутки — новые подписчики/вышли из канала/активные/сканы/оплаты(кол-во+сумма)/истёкшие подписки + всего подписчиков канала. Тип события `daily_digest` |
 | `0 0 * * *` (МСК) | авто-бэкап БД: `pg_dump` → gzip → отправка `.sql.gz` всем `ADMIN_TELEGRAM_IDS` (`jobs/backup.js`). Путь к pg_dump — env `PG_DUMP`. Восстановление — `restore.bat` |
@@ -391,6 +397,56 @@ cd client && npm test     # Vitest + RTL
 pending/confirmed/rejected; payout_id NULL = не выплачено), `employee_payments` (payment_id UNIQUE),
 `employee_payouts` (kind, unit_count, unit_rate, total, status paid/cancelled). Повторное добавление
 уволенного (`ON CONFLICT DO UPDATE active=TRUE`) сохраняет код и историю. Статистика считается по
+**Москве** (`Europe/Moscow`).
+
+---
+
+## Приглашения друзей («Пригласи друга»)
+
+Пользовательская реферальная программа: у каждого юзера своя короткая ссылка, по которой он
+приводит друзей. Механика зачёта — как у сотрудников-пиарщиков, но **денег в ней нет**: награда
+(например, месяц PRO победителю конкурса в канале) выдаётся вручную из админки. Бизнес-логика —
+`server/src/services/userInvites.js`.
+
+> Не путать с legacy-таблицами `referrals` / `referral_balance` / `users.referred_by` — старая
+> реферальная система удалена (Поправка №23), эти таблицы мертвы и не используются.
+
+**Ссылка.** `t.me/<бот>?start=<invite_code>` — короткий код **без префикса** (например `rxfpj`),
+5–7 символов из алфавита без похожих знаков (`23456789abcdefghjkmnpqrstuvwxyz`, нет `0/o`, `1/l/i`).
+Генерация — `utils/refcode.js` (`genInviteCode`, `uniqueInviteCode`, `ensureInviteCode`), хранение —
+`users.invite_code`. Код выдаётся лениво при первом открытии экрана приглашений. В боте `/start`
+сначала пробует ветку `emp_`, и только затем — пользовательский код (`bot.js`).
+
+Три механики ссылок в проекте не пересекаются: `?start=emp_<hex>` — сотрудник,
+`?startapp=tr_<ref_code>` — тренер, `?start=<invite_code>` — обычный пользователь.
+
+**Экран.** «Профиль → Приглашай друзей → Пригласить друга» (`client/src/pages/Invite.jsx`, роут
+`/invite`) — ссылка, кнопки «Поделиться»/«Копировать», статистика (засчитано / на проверке /
+переходы / отклонено) и правила. Доступно **всем**, включая тренеров и сотрудников (их собственные
+механики считаются отдельно). Данные — `GET /api/invite`.
+
+**Правила зачёта** (те же, что у сотрудников):
+- переход фиксируется всегда (`user_invite_clicks`), приглашением становится только **новый**
+  пользователь (признак `inserted` из `registerStartUser`); своя же ссылка — нет;
+- приглашение создаётся со статусом `pending`; через 24 ч крон (`jobs/userInvites.js`, `25 * * * *`)
+  подтверждает (`confirmed`), если человек **открыл приложение + состоит в канале + не заблокировал
+  бота**, иначе `rejected` с причиной (`app_not_opened` / `left_channel` / `blocked_bot`);
+- один приглашённый — один пригласивший (`user_invites.user_id UNIQUE`).
+
+**Уведомления.** Приглашающему в ЛС (без имён — только факт): «по твоей ссылке пришёл друг, на
+проверке» и итог проверки через сутки. Всё дублируется в канал логов (тумблер `invites` в
+«Настройки → Логи в Telegram») — там имена видны.
+
+**Админка → «Приглашения»** (`/invites`): фильтр по датам (период конкурса), сводка, топ
+приглашающих с медалями, сквозная лента всех приглашений с фильтром по статусу. Карточка
+приглашающего (`/invites/:id`) — его цифры, конверсия, график за 30 дней, все приведённые поимённо
+со статусом и флагом «купил PRO», плюс кнопка **«🎁 Выдать PRO»** (та же ручная выдача подписки,
+что в разделе «Пользователи»). В карточке пользователя виден блок «Приглашения»: как он пришёл
+(по ссылке друга / сотрудника / сам) и скольких привёл сам.
+
+**БД** (`schema.sql`, блок «Пользовательские приглашения»): `users.invite_code UNIQUE`,
+`user_invites` (inviter_id, user_id UNIQUE, status pending/confirmed/rejected, reject_reason,
+decided_at), `user_invite_clicks` (inviter_id, telegram_id, existing_user). Статистика считается по
 **Москве** (`Europe/Moscow`).
 
 ---

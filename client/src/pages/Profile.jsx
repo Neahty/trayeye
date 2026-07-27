@@ -382,6 +382,11 @@ export default function ProfilePage() {
         )}
       </SectionCard>
 
+      {/* приглашение друзей — доступно всем, включая тренеров и сотрудников */}
+      <SectionCard title="Приглашай друзей">
+        <ListRow icon="sparkles" label="Пригласить друга" onClick={() => navigate("/invite")} last />
+      </SectionCard>
+
       {/* тренер: кабинет / стать тренером */}
       {isTrainer ? (
         <SectionCard title="Тренер">

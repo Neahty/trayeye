@@ -220,6 +220,49 @@ router.get("/users/:id", async (req, res, next) => {
       "SELECT * FROM payments WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50",
       [id]
     );
+    // Откуда человек пришёл: по личной ссылке друга, по ссылке сотрудника-пиарщика
+    // или сам. Механики независимы, но у одного юзера может быть только одна строка
+    // в каждой таблице, поэтому проверяем обе и отдаём первую найденную.
+    const fromFriend = await db.query(
+      `SELECT i.status, i.reject_reason, i.created_at,
+              u.id, u.name, u.username, u.telegram_id
+         FROM user_invites i JOIN users u ON u.id = i.inviter_id
+        WHERE i.user_id = $1`,
+      [id]
+    );
+    const fromEmployee = fromFriend.rows.length ? { rows: [] } : await db.query(
+      `SELECT r.status, r.reject_reason, r.created_at,
+              u.id, u.name, u.username, u.telegram_id
+         FROM employee_referrals r
+         JOIN employees e ON e.id = r.employee_id
+         JOIN users u ON u.id = e.user_id
+        WHERE r.user_id = $1`,
+      [id]
+    );
+    // Сколько привёл сам — чтобы победителя конкурса было видно прямо в карточке.
+    const invitesSent = await db.query(
+      `SELECT COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed,
+              COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
+              COUNT(*)::int AS total
+         FROM user_invites WHERE inviter_id = $1`,
+      [id]
+    );
+
+    const inviteRow = fromFriend.rows[0] || fromEmployee.rows[0] || null;
+    const inviteSource = inviteRow
+      ? {
+        kind: fromFriend.rows.length ? "user" : "employee",
+        status: inviteRow.status,
+        reject_reason: inviteRow.reject_reason,
+        created_at: inviteRow.created_at,
+        inviter: {
+          id: inviteRow.id,
+          name: inviteRow.name,
+          username: inviteRow.username,
+          telegram_id: inviteRow.telegram_id
+        }
+      }
+      : null;
 
     const n = nutrition.rows[0];
     const avgDayCal = n.days ? Math.round(n.total_cal / n.days) : 0;
@@ -250,7 +293,9 @@ router.get("/users/:id", async (req, res, next) => {
         tokens: ai.rows[0].tokens,
         cost_usd: Math.round(Number(ai.rows[0].cost) * 1e4) / 1e4
       },
-      payments: payments.rows
+      payments: payments.rows,
+      invite_source: inviteSource,
+      invites_sent: invitesSent.rows[0]
     });
   } catch (err) {
     next(err);

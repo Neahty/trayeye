@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Users from "./pages/Users.jsx";
 import Employees from "./pages/Employees.jsx";
 import EmployeeCard from "./pages/EmployeeCard.jsx";
+import Invites from "./pages/Invites.jsx";
+import InviteCard from "./pages/InviteCard.jsx";
 import Subscriptions from "./pages/Subscriptions.jsx";
 import Finance from "./pages/Finance.jsx";
 import AIAnalytics from "./pages/AIAnalytics.jsx";
@@ -59,6 +61,8 @@ export default function App() {
                     <Route path="/users" element={<Users />} />
                     <Route path="/employees" element={<Employees />} />
                     <Route path="/employees/:id" element={<EmployeeCard />} />
+                    <Route path="/invites" element={<Invites />} />
+                    <Route path="/invites/:id" element={<InviteCard />} />
                     <Route path="/subscriptions" element={<Subscriptions />} />
                     <Route path="/finance" element={<Finance />} />
                     <Route path="/ai" element={<AIAnalytics />} />

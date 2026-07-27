@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Admin } from "../api";
 import { useAuth } from "../App.jsx";
 import { useFetch, useLive, Loader, fmtDate, money, subLabel, askGrantBody, useTariffMap, GRANT_PERIODS } from "../lib.jsx";
+import { INVITE_STATUS, REJECT_REASONS } from "./Invites.jsx";
 
 function UserModal({ id, onClose, onChanged }) {
   const { admin } = useAuth();
@@ -70,6 +71,27 @@ function UserModal({ id, onClose, onChanged }) {
             <div className="kv"><span>Рост / Вес</span><span>{data.user.height || "—"} см · {data.user.weight || "—"} кг</span></div>
             <div className="kv"><span>Цель / Активность</span><span>{data.user.goal || "—"} · {data.user.activity || "—"}</span></div>
             <div className="kv"><span>Норма калорий</span><span>{data.user.daily_calories || "—"} ккал</span></div>
+
+            {/* Откуда пришёл и сколько привёл сам — источник трафика одним взглядом. */}
+            <div className="section-title">Приглашения</div>
+            <div className="kv">
+              <span>Как пришёл</span>
+              <span>{(() => {
+                const src = data.invite_source;
+                if (!src) return "сам";
+                const who = src.inviter.name || (src.inviter.username ? "@" + src.inviter.username : src.inviter.telegram_id);
+                const st = INVITE_STATUS[src.status]?.label || src.status;
+                const by = src.kind === "employee" ? "по ссылке сотрудника" : "по ссылке друга";
+                return `${by} ${who} · ${st}${src.reject_reason ? ` (${REJECT_REASONS[src.reject_reason] || src.reject_reason})` : ""}`;
+              })()}</span>
+            </div>
+            <div className="kv">
+              <span>Привёл друзей</span>
+              <span>
+                {data.invites_sent?.confirmed ?? 0} засчитано
+                {data.invites_sent?.pending ? ` · ${data.invites_sent.pending} на проверке` : ""}
+              </span>
+            </div>
 
             <div className="section-title">Активность</div>
             <div className="kv"><span>Всего входов</span><span>{data.activity.logins}</span></div>

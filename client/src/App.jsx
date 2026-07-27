@@ -18,6 +18,7 @@ import Onboarding from "./pages/Onboarding";
 import SubscribeGate from "./pages/SubscribeGate";
 import BlockedScreen from "./pages/BlockedScreen";
 import TrainerPage from "./pages/Trainer";
+import InvitePage from "./pages/Invite";
 import BecomeTrainer from "./pages/BecomeTrainer";
 
 function AppShell() {
@@ -223,6 +224,7 @@ function AppShell() {
           <Route path="/paywall" element={<Paywall />} />
           <Route path="/subscription" element={<ManageSubscription />} />
           <Route path="/trainer" element={<TrainerPage />} />
+          <Route path="/invite" element={<InvitePage />} />
           <Route path="/become-trainer" element={<BecomeTrainer />} />
         </Routes>
       </div>

@@ -99,6 +99,14 @@ export const Employees = {
   cancelPayout: (id, payoutId) => api.post(`/admin/employees/${id}/payouts/${payoutId}/cancel`).then((r) => r.data)
 };
 
+// Раздел «Приглашения»: пользовательская программа «Пригласи друга». Только просмотр —
+// награда победителю конкурса выдаётся через Admin.grantSub.
+export const Invites = {
+  summary: (params) => api.get("/admin/invites", { params }).then((r) => r.data),
+  feed: (params) => api.get("/admin/invites/feed", { params }).then((r) => r.data),
+  detail: (userId) => api.get(`/admin/invites/${userId}`).then((r) => r.data)
+};
+
 // Раздел «Квесты»: квесты с наградами (ссылка + текст в ЛС при получении).
 export const Quests = {
   list: () => api.get("/admin/quests").then((r) => r.data),
