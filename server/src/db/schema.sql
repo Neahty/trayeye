@@ -663,3 +663,22 @@ CREATE TABLE IF NOT EXISTS invite_rewards (
   UNIQUE (user_id, tier)
 );
 CREATE INDEX IF NOT EXISTS idx_invite_rewards_user ON invite_rewards (user_id, status);
+
+-- ============================================================
+--  Личные сообщения пользователям из канала логов (Поправка №49).
+-- ============================================================
+-- Админ отвечает на лог человека текстом «.Привет» — бот показывает карточку
+-- подтверждения, а после нажатия кнопки шлёт текст в ЛС от своего лица.
+-- Черновик живёт в базе, потому что в callback_data влезает только 64 байта:
+-- по кнопке передаётся id этой строки, а не сам текст.
+CREATE TABLE IF NOT EXISTS channel_messages (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending | sending | sent | failed | canceled
+  error TEXT,                              -- описание ошибки Telegram при failed
+  sent_by TEXT,                            -- telegram_id админа, нажавшего кнопку
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  decided_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_channel_messages_user ON channel_messages (user_id, created_at);
