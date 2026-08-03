@@ -6,6 +6,8 @@ coverage
 *.log
 .DS_Store
 
-# Xcode-проект генерируется при сборке (npx cap add ios) и в репозитории не хранится:
-# он целиком выводится из capacitor.config.json, package.json и assets/.
+# Проекты Xcode и Android Studio генерируются при сборке (npx cap add) и в
+# репозитории не хранятся: они целиком выводятся из capacitor.config.json,
+# package.json и assets/.
 ios/
+android/

@@ -64,6 +64,43 @@ let bot = null;
 const blockedNoticeAt = new Map();
 const BLOCKED_NOTICE_MS = 10 * 60 * 1000;
 
+// Отправка кода входа в приложение тому, кто его получил право иметь.
+async function sendLoginCode(tgId, uid) {
+  const b = getBot();
+  if (!b) return;
+  const code = appLoginCodes.issue(uid);
+  await b.telegram.sendMessage(
+    tgId,
+    `📱 <b>Код входа в приложение</b>\n\n` +
+    `<code>${code}</code>\n\n` +
+    `Введи его на экране входа в приложении на телефоне — это нужно один раз.\n\n` +
+    `⏳ Код одноразовый и живёт 15 минут. Протух — пришли /pwa ещё раз.`,
+    { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
+  );
+}
+
+// Заявка на доступ уходит каждому админу личным сообщением с кнопками.
+// Нажатие обрабатывает тот, кто успел первым, остальным копиям ответит
+// «уже обработана» — заявка гасится при первом нажатии.
+async function askAdminsToApprove(reqId, who) {
+  const b = getBot();
+  if (!b) return;
+  const text =
+    `🔐 <b>Запрос доступа к приложению</b>\n\n` +
+    `${who} просит код входа в Bytwise на телефоне.\n` +
+    `Время: ${notify.fmtWhen()}`;
+  const reply_markup = {
+    inline_keyboard: [[
+      { text: "✅ Выдать код", callback_data: `pwa:ok:${reqId}` },
+      { text: "✖️ Отказать", callback_data: `pwa:no:${reqId}` }
+    ]]
+  };
+  for (const id of adminIds()) {
+    await b.telegram.sendMessage(id, text, { parse_mode: "HTML", reply_markup })
+      .catch(() => { /* один админ недоступен — не роняем заявку */ });
+  }
+}
+
 // Клавиатура с предложением подписаться на обязательный канал.
 function subscribeKeyboard() {
   const url = process.env.REQUIRED_CHANNEL_URL;
@@ -279,11 +316,14 @@ function getBot() {
   });
 
   // Код входа в приложение на телефоне: снаружи Telegram initData взять неоткуда.
-  // Только для админов — приложение раздаётся вручную, и светить этот путь всем
-  // незачем. Остальным тишина, как на любую незнакомую команду.
   //
+  // Команда доступна всем, но нигде не объявлена — ни в /help, ни в меню команд.
+  // О ней узнают только с экрана входа в самом приложении, а значит спрашивает
+  // код лишь тот, кому приложение уже дали.
+  //
+  // Админ получает код сразу, остальные — после подтверждения админом.
   // Админом считаем и по списку в окружении, и по флагу в базе: права выдаются
-  // и так, и так, а человек с доступом к приложению должен получить код в любом случае.
+  // и так, и так.
   bot.command("pwa", async (ctx) => {
     try {
       const tgId = String(ctx.from.id);
@@ -292,21 +332,62 @@ function getBot() {
         [tgId]
       );
       const user = rows[0];
-      if (!user?.is_admin && !adminIds().includes(tgId)) return;
       if (!user) {
         await ctx.reply("Сначала открой Bytwise кнопкой в боте — тебя ещё нет в базе.");
         return;
       }
-      const code = appLoginCodes.issue(user.id);
+
+      if (user.is_admin || adminIds().includes(tgId)) {
+        await sendLoginCode(tgId, user.id);
+        return;
+      }
+
+      if (appLoginCodes.pendingFor(user.id)) {
+        await ctx.reply("Запрос уже отправлен администратору. Как подтвердит — пришлю код сюда.");
+        return;
+      }
+
+      const reqId = appLoginCodes.requestAccess(user.id, tgId);
+      const who = await notify.userLabel(user.id);
+      await askAdminsToApprove(reqId, who);
       await ctx.reply(
-        `📱 <b>Код входа в приложение</b>\n\n` +
-        `<code>${code}</code>\n\n` +
-        `Введи его на экране входа в приложении на телефоне — это нужно один раз.\n\n` +
-        `⏳ Код одноразовый и живёт 15 минут. Протух — пришли /pwa ещё раз.`,
-        { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
+        "🔐 Запрос на доступ отправлен администратору.\n\n" +
+        "Как подтвердит — код придёт сюда же, в этот чат."
       );
     } catch (e) {
       console.error("[bot] /pwa:", e.message);
+    }
+  });
+
+  // Кнопки под заявкой. Как и в модерации логов, ctx.from.id здесь настоящий —
+  // по нему и проверяем права нажавшего.
+  bot.action(/^pwa:(ok|no):(\d+)$/, async (ctx) => {
+    try {
+      if (!db.getAdminIds().includes(String(ctx.from?.id))) {
+        return ctx.answerCbQuery("❌ У вас нет прав на это действие", { show_alert: true });
+      }
+      const [, verdict, reqId] = ctx.match;
+      const req = appLoginCodes.takeRequest(reqId);
+      if (!req) {
+        await ctx.editMessageText("Заявка уже обработана.", { parse_mode: "HTML" }).catch(() => {});
+        return ctx.answerCbQuery("Уже обработана");
+      }
+
+      if (verdict === "no") {
+        await bot.telegram.sendMessage(
+          req.tgId,
+          "К сожалению, доступ к приложению не подтверждён."
+        ).catch(() => {});
+        await ctx.editMessageText("✖️ Отказано.", { parse_mode: "HTML" }).catch(() => {});
+        return ctx.answerCbQuery("Отказано");
+      }
+
+      await sendLoginCode(req.tgId, req.uid);
+      await ctx.editMessageText("✅ Код выдан.", { parse_mode: "HTML" }).catch(() => {});
+      return ctx.answerCbQuery("Код отправлен");
+    } catch (e) {
+      console.error("[bot] pwa action:", e.message);
+      return ctx.answerCbQuery("Не получилось — попробуйте ещё раз", { show_alert: true }).catch(() => {});
     }
   });
 

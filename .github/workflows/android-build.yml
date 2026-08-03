@@ -1,0 +1,67 @@
+name: Сборка приложения для Android
+
+# Запуск вручную из вкладки Actions. Раннер обычный (Linux), поэтому минуты
+# считаются 1:1 — в отличие от сборки под iPhone.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile/app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Capacitor 8 CLI не запускается на Node ниже 22
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Зависимости
+        run: npm ci
+
+      - name: Сборка веб-части
+        # mode=production подхватывает .env.production (VITE_API_URL боевого сервера)
+        run: npm run build
+
+      - name: Создать проект Android
+        # android/ в репозитории не хранится — генерируем на чистой машине каждый раз.
+        run: npx cap add android
+
+      - name: Иконка и заставка
+        run: npx capacitor-assets generate --android
+
+      - name: Синхронизировать проект
+        run: npx cap sync android
+
+      - name: Собрать APK
+        # Debug-сборка подписана отладочным ключом, и этого достаточно, чтобы
+        # поставить приложение на телефон вручную. Магазин её не примет, но
+        # мы туда и не идём.
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug --no-daemon
+
+      - name: Переименовать
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Bytwise.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bytwise-apk
+          path: mobile/app/Bytwise.apk
+          retention-days: 30
+          if-no-files-found: error
