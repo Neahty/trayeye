@@ -44,7 +44,7 @@ jobs:
 
       - name: Разрешения на камеру и фото
         # Плагин камеры их не объявляет, а без них съёмка на телефоне не работает.
-        run: node scripts/android-permissions.js
+        run: node scripts/android-permissions.cjs
 
       - name: Иконка и заставка
         run: npx capacitor-assets generate --android
