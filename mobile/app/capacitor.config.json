@@ -3,7 +3,7 @@
   "appName": "Bytwise",
   "webDir": "dist",
   "server": {
-    "url": "https://shekspireteam.ru/app/",
+    "url": "https://shekspireteam.ru/app/index.html",
     "cleartext": false,
     "errorPath": "error.html"
   },
