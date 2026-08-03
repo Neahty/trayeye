@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { HashRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { login, onBlocked, Profile, Scan, Membership, MyTrainer } from "./api";
 import { AppContext } from "./AppContext";
 import { UIProvider, useUI } from "./ui/UIProvider";
@@ -253,13 +253,15 @@ function AppShell() {
 }
 
 export default function App() {
-  // Приложение живёт не в корне домена, а по /app/ — маршрутам нужен этот же префикс.
-  const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
+  // Маршруты живут в хеше (/app/#/history), а не в пути. Так статика раздаётся
+  // обычным file_server без правил переписывания: сервер всегда видит только
+  // /app/, а перезагрузка на любом экране возвращает то же приложение, а не
+  // Telegram-версию из корня домена.
   return (
-    <BrowserRouter basename={basename}>
+    <HashRouter>
       <UIProvider>
         <AppShell />
       </UIProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

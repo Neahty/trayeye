@@ -44,9 +44,15 @@ jobs:
         # Без этих строк iOS завершает приложение в момент обращения к камере.
         run: |
           PLIST=ios/App/App/Info.plist
-          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Камера нужна, чтобы сфотографировать еду — по фото Bytwise считает калории и БЖУ.'" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Доступ к фото нужен, чтобы добавить в дневник уже сделанный снимок еды.'" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Bytwise сохраняет снимок блюда в вашу медиатеку.'" "$PLIST"
+          # Add падает, если ключ уже есть, поэтому вторым заходом Set.
+          put() {
+            /usr/libexec/PlistBuddy -c "Add :$1 string '$2'" "$PLIST" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Set :$1 '$2'" "$PLIST"
+          }
+          put NSCameraUsageDescription "Камера нужна, чтобы сфотографировать еду — по фото Bytwise считает калории и БЖУ."
+          put NSPhotoLibraryUsageDescription "Доступ к фото нужен, чтобы добавить в дневник уже сделанный снимок еды."
+          put NSPhotoLibraryAddUsageDescription "Bytwise сохраняет снимок блюда в вашу медиатеку."
+          /usr/libexec/PlistBuddy -c "Print" "$PLIST" | grep -i usagedescription
 
       - name: Синхронизировать проект
         run: npx cap sync ios

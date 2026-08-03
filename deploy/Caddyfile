@@ -13,15 +13,6 @@ shekspireteam.ru {
         file_server
         try_files {path} /index.html
     }
-    # Приложение для iPhone. Внутри .ipa лежит только нативная оболочка,
-    # а сам интерфейс она грузит отсюда — поэтому обновления приезжают
-    # на телефон обычным деплоем, без пересборки приложения.
-    redir /app /app/
-    handle_path /app/* {
-        root * /opt/bytwise/mobile/app/dist
-        file_server
-        try_files {path} /index.html
-    }
     # Клиентское приложение
     handle {
         root * /opt/bytwise/client/dist

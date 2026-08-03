@@ -46,9 +46,16 @@ npm run build
 echo "[7/8] Сборка приложения для iPhone..."
 # Внутри .ipa лежит только нативная оболочка, интерфейс она грузит с /app/ —
 # поэтому обновления доезжают до телефона обычным деплоем, без пересборки .ipa.
+#
+# Кладём сборку внутрь client/dist: Caddy уже раздаёт эту папку как статику,
+# так что отдельного маршрута в /etc/caddy/Caddyfile не нужно (а править его
+# деплой всё равно не может — прав нет). Порядок важен: client собирается выше
+# и очищает свой dist, поэтому копируем после него.
 cd "$REPO_DIR/mobile/app"
 npm ci
 npm run build
+rm -rf "$REPO_DIR/client/dist/app"
+cp -r dist "$REPO_DIR/client/dist/app"
 
 echo "[8/8] Перезапуск сервисов..."
 sudo systemctl restart bytwise-api bytwise-support
