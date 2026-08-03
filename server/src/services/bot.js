@@ -10,8 +10,16 @@ const inviteRewards = require("./inviteRewards");
 const moderation = require("./moderation");
 const logModeration = require("./logModeration");
 const { uniqueRefCode } = require("../utils/refcode");
+const appLoginCodes = require("./appLoginCodes");
 
 const REQUIRED_CHANNEL_ID = process.env.REQUIRED_CHANNEL_ID || "";
+
+function adminIds() {
+  return (process.env.ADMIN_TELEGRAM_IDS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 // id пользователя в нашей базе по telegram_id (для отметки членства из колбэков бота).
 async function userIdByTg(telegramId) {
@@ -265,6 +273,32 @@ function getBot() {
       );
     } catch (e) {
       console.error("[bot] /ref:", e.message);
+    }
+  });
+
+  // Ссылка для установки Bytwise на телефон отдельной иконкой (PWA).
+  // Только для админов: снаружи Telegram вход идёт по одноразовому коду,
+  // и раздавать этот путь всем подряд незачем. Остальным — тишина.
+  bot.command("pwa", async (ctx) => {
+    try {
+      if (!adminIds().includes(String(ctx.from.id))) return;
+      const { rows } = await db.query("SELECT id FROM users WHERE telegram_id = $1", [String(ctx.from.id)]);
+      if (!rows[0]) {
+        await ctx.reply("Сначала открой Bytwise кнопкой в боте — тебя ещё нет в базе.");
+        return;
+      }
+      const code = appLoginCodes.issue(rows[0].id);
+      await ctx.reply(
+        `📱 <b>Код входа в приложение</b>\n\n` +
+        `<code>${code}</code>\n\n` +
+        `Введи его на экране входа в приложении на телефоне.\n` +
+        `Если ставишь Bytwise иконкой на «Домой» — можно просто открыть в Safari:\n` +
+        `${CLIENT_URL}/?pwa=${code}\n\n` +
+        `⏳ Код одноразовый и живёт 15 минут. Протух — пришли /pwa ещё раз.`,
+        { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
+      );
+    } catch (e) {
+      console.error("[bot] /pwa:", e.message);
     }
   });
 

@@ -15,7 +15,11 @@ function sign(payload) {
 }
 
 function verify(token) {
-  return jwt.verify(token, SECRET);
+  const decoded = jwt.verify(token, SECRET);
+  // Сессионный токен подписывается без scope: токены других назначений
+  // (например admin) подписаны иначе и сессией работать не должны.
+  if (decoded.scope) throw new Error("wrong_scope");
+  return decoded;
 }
 
 // Отдельный токен для админ-панели. Срок 12 ч, но middleware adminAuth «скользяще»

@@ -55,10 +55,16 @@ function createApp() {
     })
   );
 
+  // Нативное приложение (Capacitor, iOS) грузит свои файлы с локальной схемы,
+  // а не с нашего домена, поэтому его origin надо разрешать всегда — иначе
+  // браузерный движок внутри приложения зарубит все запросы к API.
+  const NATIVE_ORIGINS = ["capacitor://localhost", "ionic://localhost", "http://localhost"];
+
   const allowedOrigins = (process.env.CORS_ORIGIN || "*")
     .split(",")
     .map((o) => o.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .concat(NATIVE_ORIGINS);
 
   app.use(
     cors({

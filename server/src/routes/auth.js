@@ -7,6 +7,8 @@ const channelMembership = require("../services/channelMembership");
 const channelLog = require("../services/channelLog");
 const avatarSync = require("../services/avatarSync");
 const { uniqueRefCode } = require("../utils/refcode");
+const auth = require("../middleware/auth");
+const appLoginCodes = require("../services/appLoginCodes");
 
 // Порог «возвращения после паузы» (дней) для лога reactivation.
 const REACTIVATION_DAYS = 14;
@@ -123,6 +125,52 @@ router.post("/telegram", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// POST /api/auth/pwa  { code }
+// Вход для приложения, установленного на телефон (нативная сборка или иконка
+// на экране «Домой»). Telegram initData там нет, поэтому бот по команде /pwa
+// выдаёт одноразовый код, а мы меняем его на обычный 30-дневный токен.
+router.post("/pwa", async (req, res, next) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) return res.status(400).json({ error: "no_code" });
+
+    const uid = appLoginCodes.redeem(code);
+    if (!uid) return res.status(401).json({ error: "invalid_code" });
+
+    const { rows } = await db.query("SELECT * FROM users WHERE id = $1", [uid]);
+    const user = rows[0];
+    if (!user) return res.status(401).json({ error: "user_not_found" });
+    if (user.is_blocked) return res.status(403).json({ error: "blocked" });
+
+    const device = (req.headers["user-agent"] || "").toString().slice(0, 200) || null;
+    await db.query(
+      `UPDATE users SET last_login_at = NOW(),
+                        login_count = COALESCE(login_count, 0) + 1,
+                        app_opened = TRUE,
+                        device = COALESCE($2, device)
+       WHERE id = $1`,
+      [user.id, device]
+    );
+    await db.logAction(user.id, "login", { event: "login", source: "pwa" });
+
+    const token = jwtUtil.sign({ uid: user.id, telegram_id: user.telegram_id });
+    res.json({
+      token,
+      user: { id: user.id, telegram_id: user.telegram_id, name: user.name, is_admin: user.is_admin }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/auth/me — кто мы по сохранённому токену.
+// Нужен установленному приложению: при каждом запуске initData взять неоткуда,
+// а токен уже лежит в localStorage — просто проверяем, что он ещё живой.
+router.get("/me", auth, async (req, res) => {
+  const u = req.user;
+  res.json({ user: { id: u.id, telegram_id: u.telegram_id, name: u.name, is_admin: u.is_admin } });
 });
 
 module.exports = router;
