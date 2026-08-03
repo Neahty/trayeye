@@ -4,6 +4,7 @@ import { Subscription, Settings } from "../api";
 import { useApp } from "../AppContext";
 import { useUI } from "../ui/UIProvider";
 import { Ic } from "../components/icons";
+import { openPayment } from "../lib/tg";
 
 export default function Paywall() {
   const navigate = useNavigate();
@@ -32,9 +33,8 @@ export default function Paywall() {
         navigate("/");
         return;
       }
-      if (res?.payment_url) window.location.href = res.payment_url;
-      else if (res?.mock) { window.location.href = res.mock; }
-      else setLoading(false);
+      openPayment(ui, res?.payment_url || res?.mock);
+      setLoading(false);
     } catch (e) {
       if (e?.response?.data?.error === "already_subscribed") {
         const until = e.response.data.expires_at
