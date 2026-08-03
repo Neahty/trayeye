@@ -4,6 +4,7 @@ import { Subscription, Settings } from "../api";
 import { useApp } from "../AppContext";
 import { useUI } from "../ui/UIProvider";
 import { Ic } from "../components/icons";
+import { openPayment } from "../lib/openExternal";
 
 export default function BecomeTrainer() {
   const navigate = useNavigate();
@@ -27,8 +28,8 @@ export default function BecomeTrainer() {
         navigate("/trainer");
         return;
       }
-      if (res?.payment_url) window.location.href = res.payment_url;
-      else setLoading(false);
+      openPayment(ui, res?.payment_url);
+      setLoading(false);
     } catch (e) {
       const err = e?.response?.data?.error;
       if (err === "already_subscribed") {

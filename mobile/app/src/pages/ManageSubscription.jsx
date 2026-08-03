@@ -5,6 +5,7 @@ import { useApp } from "../AppContext";
 import { useUI } from "../ui/UIProvider";
 import { Ic } from "../components/icons";
 import { subName } from "../lib/sub";
+import { openPayment } from "../lib/tg";
 
 const PAY_STATUS = {
   succeeded: { label: "Оплачено", color: "var(--green-ink)" },
@@ -75,9 +76,8 @@ export default function ManageSubscription() {
     try {
       const res = await Subscription.buy(type);
       if (res?.activated) { await reload(); ui.toast("Подписка активна", "check"); navigate("/"); return; }
-      if (res?.payment_url) window.location.href = res.payment_url;
-      else if (res?.mock) window.location.href = res.mock;
-      else setLoading(false);
+      openPayment(ui, res?.payment_url || res?.mock);
+      setLoading(false);
     } catch (e) {
       const err = e?.response?.data?.error;
       if (err === "already_subscribed") { ui.toast("Подписка уже активна", "check"); await reload(); }
