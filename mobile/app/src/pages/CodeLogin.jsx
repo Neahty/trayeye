@@ -40,6 +40,8 @@ export default function CodeLogin({ onDone }) {
         <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Вход в Bytwise</h1>
         <p style={{ color: "var(--text-2)", marginTop: 8, lineHeight: 1.5 }}>
           Отправь боту команду <b>/pwa</b> — он пришлёт код. Введи его здесь, это нужно один раз.
+          <br />
+          Если код не пришёл сразу — запрос ушёл на подтверждение администратору.
         </p>
       </div>
 

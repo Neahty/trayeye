@@ -12,6 +12,9 @@
     "backgroundColor": "#F3F3F6",
     "preferredContentMode": "mobile"
   },
+  "android": {
+    "backgroundColor": "#F3F3F6"
+  },
   "plugins": {
     "SplashScreen": {
       "launchAutoHide": false,
