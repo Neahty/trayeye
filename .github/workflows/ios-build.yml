@@ -61,9 +61,11 @@ jobs:
       - name: Собрать без подписи
         # Подписывать нечем и незачем: подпись ставит Sideloadly на стороне
         # пользователя его собственным Apple ID.
+        # Capacitor 8 подключает плагины через Swift Package Manager, поэтому
+        # .xcworkspace (как было с CocoaPods) не создаётся — собираем .xcodeproj.
         run: |
           xcodebuild \
-            -workspace ios/App/App.xcworkspace \
+            -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
