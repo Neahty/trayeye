@@ -47,11 +47,19 @@ function headSha() {
   }
 }
 
-// Заголовок коммита — необязателен: не прочитался, значит просто не пишем «Что нового».
+// Заголовок коммита — необязателен: не прочитался, значит просто не пишем «Что поправили».
+// --no-merges обязателен: авто-деплой вливает ветку в master, и HEAD — это merge-коммит
+// («Merge remote-tracking branch ...»). Такую строку в канал выкладывать нельзя, там не
+// разработчики. Берём последний осмысленный коммит.
 // «[deploy]» — служебная метка для GitHub Actions, в канале она ничего не значит.
 function headSubject() {
-  try { return git("log", "-1", "--pretty=%s").replace(/^\s*\[deploy\]\s*/i, ""); }
-  catch (err) { console.error("[deployNotice] заголовок коммита не прочитан:", err.message); return null; }
+  try {
+    const s = git("log", "-1", "--no-merges", "--pretty=%s").replace(/\s*\[deploy\]\s*/i, " ").trim();
+    return s || null;
+  } catch (err) {
+    console.error("[deployNotice] заголовок коммита не прочитан:", err.message);
+    return null;
+  }
 }
 
 // Свежий блок анонса: файл поделён строками-разделителями «---», сегмент 0 — шапка
@@ -95,8 +103,8 @@ async function announceDeploy() {
   let text = isNewAnnounce
     ? `🚀 <b>Обнова выкачена на сервер</b>\n\n${toHtml(block)}\n\nВремя: ${notify.fmtWhen()}`
     : `🚀 <b>Обнова выкачена на сервер</b>\n\n` +
-      (subject ? `Что нового: ${channelLog.esc(subject)}\n` : "") +
-      `<i>Правки внутренние — отдельного анонса для пользователей нет.</i>\n` +
+      (subject ? `Что поправили: ${channelLog.esc(subject)}\n\n` : "") +
+      `<i>Техническая правка — в приложении пользователи ничего нового не увидят.</i>\n` +
       `Время: ${notify.fmtWhen()}`;
   if (text.length > TG_TEXT_LIMIT) text = text.slice(0, TG_TEXT_LIMIT - 1) + "…";
 
