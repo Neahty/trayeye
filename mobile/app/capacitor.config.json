@@ -2,6 +2,11 @@
   "appId": "ru.shekspireteam.bytwise",
   "appName": "Bytwise",
   "webDir": "dist",
+  "server": {
+    "url": "https://shekspireteam.ru/app/",
+    "cleartext": false,
+    "errorPath": "error.html"
+  },
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#F3F3F6",

@@ -253,8 +253,10 @@ function AppShell() {
 }
 
 export default function App() {
+  // Приложение живёт не в корне домена, а по /app/ — маршрутам нужен этот же префикс.
+  const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <UIProvider>
         <AppShell />
       </UIProvider>
