@@ -28,8 +28,17 @@ export default function TabBar({ onCapture, busy }) {
     try {
       const file = await pickPhoto(fromCamera);
       if (file && onCapture) onCapture(file);
-    } catch {
-      ui.toast("Не удалось получить фото");
+    } catch (e) {
+      // Отказ в доступе лечится только в настройках телефона — говорим об этом прямо,
+      // иначе «не удалось» выглядит как поломка приложения.
+      const msg = String(e?.message || "").toLowerCase();
+      if (/denied|permission|not allowed|unauthorized/.test(msg)) {
+        ui.toast(fromCamera
+          ? "Разрешите доступ к камере в Настройках → Bytwise"
+          : "Разрешите доступ к фото в Настройках → Bytwise");
+      } else {
+        ui.toast("Не удалось получить фото");
+      }
     }
   };
 
