@@ -8,6 +8,7 @@
 // передаёт from.id нажавшего — его и сверяем с ADMIN_TELEGRAM_IDS.
 const db = require("../db");
 const settings = require("../utils/settings");
+const channelDm = require("./channelDm");
 const channelLog = require("./channelLog");
 const moderation = require("./moderation");
 const notify = require("./notify");
@@ -18,6 +19,15 @@ const esc = channelLog.esc;
 // «.запретить», «.разрешить», «.баны», «.розыгрыш» — с необязательным аргументом через пробел
 // (telegram_id для бана, количество мест для розыгрыша).
 const CMD_RE = /^\s*\.(запретить|разрешить|баны|розыгрыш)(?:\s+(\S+))?\s*$/i;
+
+// Любой другой текст с точки — личное сообщение человеку, на лог которого ответили
+// (Поправка №49). Команды из CMD_RE проверяются первыми и всегда в приоритете,
+// поэтому написать человеку одним словом «баны» через эту команду не выйдет.
+const DM_RE = /^\s*\.(?!\s)([\s\S]+?)\s*$/;
+
+// Опечатка в команде («.запретить 123 456») формально попадает под DM_RE и ушла бы
+// человеку текстом. Такие случаи разворачиваем с подсказкой по синтаксису.
+const CMD_TYPO_RE = /^(запретить|разрешить|баны|розыгрыш)\b/i;
 
 // Сколько мест показывать в «.розыгрыш» без аргумента.
 const RAFFLE_DEFAULT = 6;
@@ -109,6 +119,53 @@ async function askConfirm(ctx, action, u) {
   });
 }
 
+// «.текст» реплаем на лог — личное сообщение человеку от лица бота (Поправка №49).
+// Карточка, как и у бана, только предлагает действие: отправка — по кнопке,
+// потому что в channel_post нет автора и проверить права по тексту невозможно.
+async function askDm(ctx, text) {
+  if (CMD_TYPO_RE.test(text)) {
+    return reply(
+      ctx,
+      "❌ Похоже на команду с лишними словами. Команды пишутся так: <code>.запретить</code>, " +
+      "<code>.разрешить</code>, <code>.баны</code>, <code>.розыгрыш 10</code> — не больше одного аргумента.\n\n" +
+      "Если это правда текст для человека — начните его с другого слова."
+    );
+  }
+
+  const replyTo = ctx.channelPost.reply_to_message;
+  if (!replyTo) {
+    return reply(ctx, "❌ Ответьте этим сообщением на лог нужного человека — иначе я не пойму, кому его отправить.");
+  }
+  const userId = await channelLog.userIdByLogMessage(ctx.chat.id, replyTo.message_id);
+  if (!userId) {
+    return reply(ctx, "❌ Не понял, о ком это сообщение. Так бывает со старыми логами — ответьте на более свежее сообщение об этом человеке.");
+  }
+  const u = await channelDm.recipient(userId);
+  if (!u) return reply(ctx, "❌ Этот пользователь уже удалён из базы.");
+  if (u.is_blocked) return reply(ctx, `❌ ${label(u)} заблокирован — сообщения ему не уходят.`);
+  if (text.length > channelDm.MAX_LEN) {
+    return reply(ctx, `❌ Слишком длинно: ${text.length} символов, а Telegram принимает не больше ${channelDm.MAX_LEN}.`);
+  }
+
+  const draft = await channelDm.createDraft(u.id, text);
+  return reply(
+    ctx,
+    `✉️ <b>Отправить сообщение ${label(u)}?</b>\n\n` +
+    `Придёт обычным сообщением от бота — без упоминания, что это админ.` +
+    (u.tg_unreachable ? `\n\n⚠️ Человек ранее заблокировал бота — сообщение может не дойти.` : "") +
+    `\n\n<blockquote>${esc(text)}</blockquote>`,
+    {
+      link_preview_options: { is_disabled: true },
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "✉️ Отправить", callback_data: `dm:send:${draft.id}` },
+          { text: "✖️ Отмена", callback_data: `dm:cancel:${draft.id}` }
+        ]]
+      }
+    }
+  );
+}
+
 // Список текущих банов. Только чтение — подтверждение не нужно.
 async function showBans(ctx) {
   const rows = await moderation.listBlocked(50);
@@ -167,7 +224,13 @@ async function onChannelPost(ctx) {
     const text = ctx.channelPost?.text;
     if (!text) return;
     const m = CMD_RE.exec(text);
-    if (!m) return;
+    // Не команда — может быть личным сообщением человеку: «.Привет» реплаем на лог.
+    if (!m) {
+      const dm = DM_RE.exec(text);
+      if (!dm) return;
+      if (!(await isLogChannel(ctx.chat.id))) return;
+      return askDm(ctx, dm[1]);
+    }
     if (!(await isLogChannel(ctx.chat.id))) return;
 
     const cmd = m[1].toLowerCase();
@@ -231,4 +294,52 @@ async function onModAction(ctx) {
   }
 }
 
-module.exports = { onChannelPost, onModAction, formatRaffle, CMD_RE };
+// Нажатие кнопки под карточкой личного сообщения — здесь оно и уходит человеку.
+// Права проверяем по ctx.from.id: в callback_query он настоящий.
+async function onDmAction(ctx) {
+  try {
+    const m = /^dm:(send|cancel):(\d+)$/.exec(ctx.callbackQuery?.data || "");
+    if (!m) return ctx.answerCbQuery();
+    if (!db.getAdminIds().includes(String(ctx.from?.id))) {
+      return ctx.answerCbQuery("❌ У вас нет прав на это действие", { show_alert: true });
+    }
+    const id = Number(m[2]);
+
+    if (m[1] === "cancel") {
+      await channelDm.cancel(id, ctx.from.id);
+      await ctx.editMessageText(`✖️ Отправка отменена.\n\nКто: ${actorLabel(ctx.from)} · ${notify.fmtWhen()}`, {
+        parse_mode: "HTML"
+      }).catch(() => {});
+      return ctx.answerCbQuery("Отменено");
+    }
+
+    const actor = await moderation.findByTelegramId(ctx.from.id);
+    const res = await channelDm.send(id, { byTelegramId: ctx.from.id, actorUserId: actor?.id || null });
+
+    // Кто-то уже нажал кнопку раньше — карточку не трогаем, чтобы не затереть итог.
+    if (res.busy) return ctx.answerCbQuery("Это сообщение уже обработано", { show_alert: true });
+
+    if (!res.ok) {
+      await ctx.editMessageText(
+        `❌ Не отправлено: ${esc(res.error || "Telegram не принял сообщение")}\n\n` +
+        `Кто: ${actorLabel(ctx.from)} · ${notify.fmtWhen()}`,
+        { parse_mode: "HTML" }
+      ).catch(() => {});
+      return ctx.answerCbQuery("Не отправлено", { show_alert: true });
+    }
+
+    // Переписываем карточку в итог — заодно пропадает клавиатура, повторно не нажать.
+    await ctx.editMessageText(
+      `✉️ Отправлено ${label(res.user)}\n\n` +
+      `<blockquote>${esc(res.draft.text)}</blockquote>\n\n` +
+      `Кто: ${actorLabel(ctx.from)} · ${notify.fmtWhen()}`,
+      { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
+    ).catch((e) => console.error("[logModeration] editMessageText:", e.message));
+    return ctx.answerCbQuery("Отправлено");
+  } catch (e) {
+    console.error("[logModeration] dm action:", e.message);
+    return ctx.answerCbQuery("Не получилось — попробуйте ещё раз", { show_alert: true }).catch(() => {});
+  }
+}
+
+module.exports = { onChannelPost, onModAction, onDmAction, formatRaffle, CMD_RE, DM_RE };

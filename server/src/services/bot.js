@@ -165,8 +165,10 @@ function getBot() {
   // Модерация из канала логов: «.запретить» / «.разрешить» / «.баны» реплаем на лог.
   // Текст только показывает карточку с кнопкой; сам бан — в mod:-колбэке, где
   // Telegram отдаёт настоящий from.id нажавшего (в постах канала его нет).
+  // Там же: «.любой текст» реплаем на лог — личное сообщение человеку от лица бота.
   bot.on("channel_post", (ctx) => logModeration.onChannelPost(ctx));
   bot.action(/^mod:/, (ctx) => logModeration.onModAction(ctx));
+  bot.action(/^dm:/, (ctx) => logModeration.onDmAction(ctx));
 
   bot.start(async (ctx) => {
     // Заводим пользователя в базе уже на /start (app_opened=FALSE по умолчанию).
