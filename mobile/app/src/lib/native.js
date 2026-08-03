@@ -12,13 +12,14 @@ import { Share } from "@capacitor/share";
 
 export const isNative = () => Capacitor.isNativePlatform();
 
-// Плагин камеры отдаёт ссылку на файл, а вся остальная логика (сжатие, отправка)
-// работает с File — приводим к нему, чтобы ничего дальше не переписывать.
-async function photoToFile(photo) {
-  const res = await fetch(photo.webPath);
-  const blob = await res.blob();
-  const ext = photo.format || "jpg";
-  return new File([blob], `meal.${ext}`, { type: blob.type || "image/jpeg" });
+// Снимок приходит строкой base64, а вся остальная логика (сжатие, отправка)
+// работает с File — собираем File сами.
+function base64ToFile(b64, format) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const ext = format || "jpg";
+  return new File([bytes], `meal.${ext}`, { type: ext === "png" ? "image/png" : "image/jpeg" });
 }
 
 // Снимок или выбор из галереи системным интерфейсом.
@@ -27,14 +28,22 @@ export async function pickPhoto(fromCamera) {
   try {
     const photo = await Camera.getPhoto({
       source: fromCamera ? CameraSource.Camera : CameraSource.Photos,
-      resultType: CameraResultType.Uri,
-      quality: 90,
+      // Именно Base64, а не Uri: интерфейс загружен с https://shekspireteam.ru,
+      // а плагин отдал бы ссылку capacitor://localhost/... — забрать по ней файл
+      // со страницы другой схемы браузерный движок не даёт. Base64 приходит
+      // через мост Capacitor, минуя сеть.
+      resultType: CameraResultType.Base64,
+      // Ужимаем сразу в плагине: полный кадр это ~8 МБ, а в base64 он раздувается
+      // ещё на треть. Дальше downscaleImage всё равно приводит к 1536 px.
+      width: 1600,
+      quality: 85,
       // Кадрировать не даём: AI считает калории по всей тарелке, обрезка только вредит.
       allowEditing: false,
       correctOrientation: true,
       presentationStyle: "fullscreen"
     });
-    return await photoToFile(photo);
+    if (!photo?.base64String) throw new Error("empty_photo");
+    return base64ToFile(photo.base64String, photo.format);
   } catch (e) {
     // Отмена — не ошибка. Плагин сообщает о ней текстом, кода у неё нет.
     const msg = String(e?.message || "").toLowerCase();
