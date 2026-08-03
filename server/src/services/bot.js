@@ -276,24 +276,30 @@ function getBot() {
     }
   });
 
-  // Ссылка для установки Bytwise на телефон отдельной иконкой (PWA).
-  // Только для админов: снаружи Telegram вход идёт по одноразовому коду,
-  // и раздавать этот путь всем подряд незачем. Остальным — тишина.
+  // Код входа в приложение на телефоне: снаружи Telegram initData взять неоткуда.
+  // Только для админов — приложение раздаётся вручную, и светить этот путь всем
+  // незачем. Остальным тишина, как на любую незнакомую команду.
+  //
+  // Админом считаем и по списку в окружении, и по флагу в базе: права выдаются
+  // и так, и так, а человек с доступом к приложению должен получить код в любом случае.
   bot.command("pwa", async (ctx) => {
     try {
-      if (!adminIds().includes(String(ctx.from.id))) return;
-      const { rows } = await db.query("SELECT id FROM users WHERE telegram_id = $1", [String(ctx.from.id)]);
-      if (!rows[0]) {
+      const tgId = String(ctx.from.id);
+      const { rows } = await db.query(
+        "SELECT id, is_admin FROM users WHERE telegram_id = $1",
+        [tgId]
+      );
+      const user = rows[0];
+      if (!user?.is_admin && !adminIds().includes(tgId)) return;
+      if (!user) {
         await ctx.reply("Сначала открой Bytwise кнопкой в боте — тебя ещё нет в базе.");
         return;
       }
-      const code = appLoginCodes.issue(rows[0].id);
+      const code = appLoginCodes.issue(user.id);
       await ctx.reply(
         `📱 <b>Код входа в приложение</b>\n\n` +
         `<code>${code}</code>\n\n` +
-        `Введи его на экране входа в приложении на телефоне.\n` +
-        `Если ставишь Bytwise иконкой на «Домой» — можно просто открыть в Safari:\n` +
-        `${CLIENT_URL}/?pwa=${code}\n\n` +
+        `Введи его на экране входа в приложении на телефоне — это нужно один раз.\n\n` +
         `⏳ Код одноразовый и живёт 15 минут. Протух — пришли /pwa ещё раз.`,
         { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
       );
