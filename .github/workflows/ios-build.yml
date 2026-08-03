@@ -1,0 +1,88 @@
+name: Сборка приложения для iPhone
+
+# Только вручную из вкладки Actions: macOS-минуты в приватном репозитории
+# считаются как 1:10, лишние прогоны ни к чему.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: ios-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile/app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/app/package-lock.json
+
+      - name: Зависимости
+        run: npm ci
+
+      - name: Сборка веб-части
+        # mode=production подхватывает .env.production (VITE_API_URL боевого сервера)
+        run: npm run build
+
+      - name: Создать Xcode-проект
+        # ios/ в репозитории не хранится — генерируем на чистой машине каждый раз.
+        # cap add сам ставит поды.
+        run: npx cap add ios
+
+      - name: Иконка и заставка
+        run: npx capacitor-assets generate --ios
+
+      - name: Разрешения на камеру и фото
+        # Без этих строк iOS завершает приложение в момент обращения к камере.
+        run: |
+          PLIST=ios/App/App/Info.plist
+          # Add падает, если ключ уже есть, поэтому вторым заходом Set.
+          put() {
+            /usr/libexec/PlistBuddy -c "Add :$1 string '$2'" "$PLIST" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Set :$1 '$2'" "$PLIST"
+          }
+          put NSCameraUsageDescription "Камера нужна, чтобы сфотографировать еду — по фото Bytwise считает калории и БЖУ."
+          put NSPhotoLibraryUsageDescription "Доступ к фото нужен, чтобы добавить в дневник уже сделанный снимок еды."
+          put NSPhotoLibraryAddUsageDescription "Bytwise сохраняет снимок блюда в вашу медиатеку."
+          /usr/libexec/PlistBuddy -c "Print" "$PLIST" | grep -i usagedescription
+
+      - name: Синхронизировать проект
+        run: npx cap sync ios
+
+      - name: Собрать без подписи
+        # Подписывать нечем и незачем: подпись ставит Sideloadly на стороне
+        # пользователя его собственным Apple ID.
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO
+
+      - name: Упаковать в .ipa
+        # .ipa — это zip с приложением внутри папки Payload, больше ничего.
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr Bytwise.ipa Payload
+          ls -lh Bytwise.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bytwise-ipa
+          path: mobile/app/Bytwise.ipa
+          retention-days: 30
+          if-no-files-found: error
