@@ -10,12 +10,30 @@ const { createBot } = require("./bot");
 process.on("unhandledRejection", (err) => console.error("[support] unhandledRejection:", err));
 process.on("uncaughtException", (err) => console.error("[support] uncaughtException:", err));
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// После перезагрузки/деплоя сервис поднимается раньше, чем PostgreSQL начинает
+// принимать соединения, и падал на первом же ECONNREFUSED. Даём базе до минуты.
+async function connectWithRetry(attempts = 12, delayMs = 5000) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await db.ensureSchema();
+      return;
+    } catch (err) {
+      // У AggregateError (ECONNREFUSED) message пустой — показываем код ошибки.
+      const reason = err.message || err.code || err;
+      if (i === attempts) throw new Error(reason);
+      console.warn(`[support] база не отвечает (${reason}), попытка ${i}/${attempts}, повтор через ${delayMs / 1000}с`);
+      await sleep(delayMs);
+    }
+  }
+}
+
 (async () => {
   try {
-    await db.ensureSchema();
+    await connectWithRetry();
   } catch (err) {
-    // У AggregateError (ECONNREFUSED) message пустой — показываем код ошибки.
-    console.error("[support] не удалось подключиться к базе:", err.message || err.code || err);
+    console.error("[support] не удалось подключиться к базе:", err.message);
     console.error("[support] проверьте, что PostgreSQL запущен и DATABASE_URL в support/.env верный.");
     process.exit(1);
   }

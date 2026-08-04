@@ -60,8 +60,11 @@ function EditForm({ scan, close, ui, onChange }) {
       close();
       ui.toast("Изменения сохранены", "check");
       onChange && onChange();
-    } catch {
-      ui.toast("Не удалось сохранить");
+    } catch (err) {
+      // Сервер отбивает отрицательные и нечисловые значения — говорим за что, а не «не вышло».
+      ui.toast(err?.response?.data?.error === "bad_number"
+        ? "Проверьте числа: только положительные значения"
+        : "Не удалось сохранить");
     } finally {
       setBusy(false);
     }
@@ -110,6 +113,41 @@ function EditForm({ scan, close, ui, onChange }) {
         <Ic name="check" size={20} sw={2.4} /> Сохранить
       </button>
     </div>
+  );
+}
+
+// Кнопка удаления блокируется на время запроса: без этого повторные тапы слали
+// DELETE по уже удалённому id и пользователь ловил ошибку на успешное действие.
+function DeleteButton({ scan, close, ui, onChange }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      className="sheet-btn ghost"
+      disabled={busy}
+      onClick={async () => {
+        if (busy) return;
+        setBusy(true);
+        try {
+          await Scan.remove(scan.id);
+          close();
+          ui.toast("Блюдо удалено", "check");
+          onChange && onChange();
+        } catch (err) {
+          // 404 — блюда уже нет (например, удалили с другого устройства): это тоже успех.
+          if (err?.response?.status === 404) {
+            close();
+            ui.toast("Блюдо удалено", "check");
+            onChange && onChange();
+          } else {
+            ui.toast("Не удалось удалить");
+          }
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <Ic name="trash" size={19} sw={2} /> Удалить из истории
+    </button>
   );
 }
 
@@ -245,21 +283,7 @@ export function openMealDetail(ui, scan, onChange, tz) {
         >
           <Ic name="edit" size={20} sw={2} /> Редактировать
         </button>
-        <button
-          className="sheet-btn ghost"
-          onClick={async () => {
-            try {
-              await Scan.remove(scan.id);
-              close();
-              ui.toast("Блюдо удалено", "check");
-              onChange && onChange();
-            } catch {
-              ui.toast("Не удалось удалить");
-            }
-          }}
-        >
-          <Ic name="trash" size={19} sw={2} /> Удалить из истории
-        </button>
+        <DeleteButton scan={scan} close={close} ui={ui} onChange={onChange} />
       </div>
     )
   });

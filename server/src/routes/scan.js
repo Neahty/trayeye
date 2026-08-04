@@ -211,12 +211,32 @@ router.post("/manual", auth, checkLimit, async (req, res, next) => {
   }
 });
 
+// Число из формы редактирования. Пусто/undefined — поле не меняем (null для COALESCE),
+// мусор или отрицательное — NaN, чтобы ответить 400. calories в схеме INT, поэтому
+// дробное значение округляем: иначе Postgres валит запрос в 500.
+function numOrNull(v, round = false) {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return NaN;
+  return round ? Math.round(n) : n;
+}
+
 // PATCH /api/scan/:id
 router.patch("/:id", auth, async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "bad_id" });
     const { dish_name, calories, protein, fat, carbs, weight_grams, meal_type } = req.body || {};
+    const num = {
+      calories: numOrNull(calories, true),
+      protein: numOrNull(protein),
+      fat: numOrNull(fat),
+      carbs: numOrNull(carbs),
+      weight_grams: numOrNull(weight_grams)
+    };
+    if (Object.values(num).some((v) => Number.isNaN(v))) {
+      return res.status(400).json({ error: "bad_number" });
+    }
     const { rows } = await db.query(
       `UPDATE scans SET
          dish_name = COALESCE($3, dish_name),
@@ -229,7 +249,7 @@ router.patch("/:id", auth, async (req, res, next) => {
        WHERE id = $1 AND user_id = $2 RETURNING *`,
       [id, req.user.id,
        dish_name ?? null,
-       calories ?? null, protein ?? null, fat ?? null, carbs ?? null, weight_grams ?? null,
+       num.calories, num.protein, num.fat, num.carbs, num.weight_grams,
        MEAL_TYPES.includes(meal_type) ? meal_type : null]
     );
     if (!rows.length) return res.status(404).json({ error: "not_found" });
