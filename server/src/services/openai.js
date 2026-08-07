@@ -9,6 +9,35 @@ const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL || "gpt-4.1-mini";
 // Для обратной совместимости (старый экспорт/фолбэк в учёте расходов)
 const MODEL = VISION_MODEL;
 
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+// Gemini отвечает в OpenAI-совместимом формате — тело запроса и разбор ответа общие.
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+// Фото анализирует бесплатный Gemini, OpenAI остаётся страховкой.
+// Модели перечислены по порядку: суточная квота (500 запросов) считается ОТДЕЛЬНО на каждую,
+// поэтому вторая модель не дублирует первую, а удваивает бесплатный запас.
+// Замеры на боевых фото: 3.1-flash-lite точнее 3.5-flash-lite (медиана расхождения 13% против 16%).
+// «Размышления» (reasoning_effort) намеренно не включаем — на lite-моделях они не улучшают
+// оценку, только удваивают время ответа. Полноразмерные Flash не годятся: у них лимит 20 фото в сутки.
+const GEMINI_VISION_MODELS = (process.env.GEMINI_VISION_MODELS || "gemini-3.1-flash-lite,gemini-3.5-flash-lite")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+
+// Цепочка провайдеров для фото: бесплатные Gemini → платный OpenAI.
+// Переключение молчаливое: пользователь не замечает, кто именно посчитал его тарелку.
+function visionChain() {
+  const chain = GEMINI_API_KEY
+    ? GEMINI_VISION_MODELS.map((model) => ({ name: "gemini", url: GEMINI_URL, apiKey: GEMINI_API_KEY, model }))
+    : [];
+  chain.push({ name: "openai", url: OPENAI_URL, apiKey: API_KEY, model: VISION_MODEL });
+  return chain;
+}
+
+// Текст пока только на OpenAI: качество Gemini на текстовых описаниях не проверялось,
+// а стоит этот путь копейки (~5% расходов). Перевести можно тем же способом, что и фото.
+function textChain() {
+  return [{ name: "openai", url: OPENAI_URL, apiKey: API_KEY, model: TEXT_MODEL }];
+}
+
 const IMAGE_PROMPT = `Ты — эксперт-нутрициолог и шеф-повар. Твои задачи: (1) ТОЧНО определить, ЧТО за блюдо,
 (2) ЧЕСТНО оценить МАССУ порции, (3) посчитать КБЖУ ИМЕННО для этой массы.
 
@@ -148,31 +177,36 @@ function normalizeDish(d) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function callOpenAI(model, messages, maxTokens) {
-  if (!API_KEY) {
-    const err = new Error("openai_not_configured");
+// hasNext — есть ли в цепочке следующий провайдер. Если есть, на 429 (кончилась квота)
+// не ретраим: Gemini просит ждать до минуты, а держать пользователя столько нельзя —
+// быстрее молча уйти к следующему провайдеру.
+async function callProvider(provider, messages, maxTokens, hasNext = false) {
+  if (!provider.apiKey) {
+    const err = new Error(`${provider.name}_not_configured`);
     err.status = 503;
-    err.model = model;
+    err.model = provider.model;
     throw err;
   }
-  // Ретраи разовых сбоев OpenAI: сеть / 5xx / 429 (rate limit) — до 3 попыток с нарастающей паузой.
+  // Ретраи разовых сбоев: сеть / 5xx / 429 (rate limit) — до 3 попыток с нарастающей паузой.
   // Из-за них раньше в логах появлялись «Request failed with status code 500».
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const { data } = await axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        { model, messages, max_tokens: maxTokens, temperature: 0.2, response_format: { type: "json_object" } },
+        provider.url,
+        { model: provider.model, messages, max_tokens: maxTokens, temperature: 0.2, response_format: { type: "json_object" } },
         {
-          headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
           timeout: 60000
         }
       );
       return data;
     } catch (err) {
-      err.model = model;
+      err.model = provider.model;
+      err.provider = provider.name;
       lastErr = err;
       const status = err.response?.status;
+      if (status === 429 && hasNext) break;
       const retryable = !err.response || status >= 500 || status === 429;
       if (!retryable || attempt === 2) break;
       await sleep(400 * (attempt + 1));
@@ -213,16 +247,16 @@ function fallbackDish(name) {
   });
 }
 
-// Общий путь: вызов → разбор → повтор (обрезка/пусто) → гарантированный запас.
-// Всегда возвращает непустой { dishes, low_confidence, usage, model, finish_reason, fallback }.
-async function analyze({ model, messages, maxTokens, fallbackName }) {
+// Один провайдер: вызов → разбор → повтор (обрезка/пусто).
+// dishes пустой, если модель так и не вернула ни одного блюда.
+async function analyzeWith(provider, messages, maxTokens, hasNext) {
   let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
   let finishReason = null;
   let tokens = maxTokens;
   let msgs = messages;
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const data = await callOpenAI(model, msgs, tokens);
+    const data = await callProvider(provider, msgs, tokens, hasNext);
     const choice = data.choices?.[0] || {};
     const content = choice.message?.content || "";
     finishReason = choice.finish_reason || null;
@@ -231,7 +265,7 @@ async function analyze({ model, messages, maxTokens, fallbackName }) {
     const dishes = parseDishes(content);
     if (dishes.length) {
       const low_confidence = dishes.some((d) => d.confidence === "low");
-      return { dishes, low_confidence, usage, model, finish_reason: finishReason, fallback: false };
+      return { dishes, low_confidence, usage, model: provider.model, finish_reason: finishReason, fallback: false };
     }
 
     // Блюд нет — готовим повтор: при обрезке даём больше места, иначе жмём вернуть хотя бы одно блюдо.
@@ -245,10 +279,41 @@ async function analyze({ model, messages, maxTokens, fallbackName }) {
     }
   }
 
-  // Запас: еда добавляется всегда (с пометкой низкой уверенности).
+  return { dishes: [], usage, model: provider.model, finish_reason: finishReason };
+}
+
+// Идём по цепочке: побеждает первый провайдер, вернувший блюда.
+// Упал или отдал пустоту — молча берём следующего. Всегда возвращает непустой
+// { dishes, low_confidence, usage, model, finish_reason, fallback } либо кидает ошибку,
+// если не ответил ВООБЩЕ никто (тогда роут отдаст ai_failed, как и раньше).
+async function analyze({ providers, messages, maxTokens, fallbackName }) {
+  let lastErr = null;
+  let lastEmpty = null;
+
+  for (let i = 0; i < providers.length; i++) {
+    const provider = providers[i];
+    const hasNext = i < providers.length - 1;
+    try {
+      const result = await analyzeWith(provider, messages, maxTokens, hasNext);
+      if (result.dishes.length) return result;
+      lastEmpty = result;
+    } catch (err) {
+      lastErr = err;
+      console.error(`[ai] ${provider.name}/${provider.model} не справился: ${err.message} — пробую следующего`);
+    }
+  }
+
+  // Все провайдеры упали с ошибкой и никто даже не ответил — это ошибка, а не «не распознал».
+  if (!lastEmpty && lastErr) throw lastErr;
+
+  // Кто-то ответил, но блюд не нашёл. Запас: еда добавляется всегда (с пометкой низкой уверенности).
   return {
     dishes: [fallbackDish(fallbackName)],
-    low_confidence: true, usage, model, finish_reason: finishReason, fallback: true
+    low_confidence: true,
+    usage: lastEmpty.usage,
+    model: lastEmpty.model,
+    finish_reason: lastEmpty.finish_reason,
+    fallback: true
   };
 }
 
@@ -256,7 +321,7 @@ async function analyze({ model, messages, maxTokens, fallbackName }) {
 async function analyzeImage(imageBuffer, mimeType = "image/jpeg") {
   const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
   return analyze({
-    model: VISION_MODEL,
+    providers: visionChain(),
     messages: [
       {
         role: "user",
@@ -275,7 +340,7 @@ async function analyzeImage(imageBuffer, mimeType = "image/jpeg") {
 async function analyzeText(description) {
   const text = String(description || "").slice(0, 500);
   return analyze({
-    model: TEXT_MODEL,
+    providers: textChain(),
     messages: [
       { role: "system", content: TEXT_PROMPT },
       { role: "user", content: text }
@@ -287,6 +352,6 @@ async function analyzeText(description) {
 
 module.exports = {
   analyzeImage, analyzeText, reconcileMacros, normalizeDish,
-  parseDishes, fallbackDish,
-  IMAGE_PROMPT, TEXT_PROMPT, MODEL, VISION_MODEL, TEXT_MODEL
+  parseDishes, fallbackDish, visionChain, textChain,
+  IMAGE_PROMPT, TEXT_PROMPT, MODEL, VISION_MODEL, TEXT_MODEL, GEMINI_VISION_MODELS
 };

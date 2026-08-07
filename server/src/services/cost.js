@@ -12,6 +12,10 @@ const FALLBACK = { in: 0.15, out: 0.6 };
 
 // usage: { prompt_tokens, completion_tokens }
 function costUsd(model, usage) {
+  // Gemini работает на бесплатном тире Google — его запросы не тарифицируются.
+  // Проверяем по префиксу, а не по списку: имена моделей меняются, а неизвестная модель
+  // ушла бы в FALLBACK и рисовала бы в админке расходы, которых нет.
+  if (String(model || "").startsWith("gemini")) return 0;
   const p = PRICING[model] || FALLBACK;
   const inTok = Number(usage?.prompt_tokens || 0);
   const outTok = Number(usage?.completion_tokens || 0);

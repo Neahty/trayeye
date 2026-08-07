@@ -18,4 +18,12 @@ describe("costUsd", () => {
   test("handles missing usage object", () => {
     expect(costUsd("gpt-4o-mini")).toBe(0);
   });
+
+  // Gemini считает фото бесплатно. Без этого он попадал бы в FALLBACK-прайс
+  // и админка показывала бы расходы, которых на самом деле нет.
+  test("gemini is free regardless of tokens or version", () => {
+    for (const m of ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-99-unreleased"]) {
+      expect(costUsd(m, { prompt_tokens: 5_000_000, completion_tokens: 1_000_000 })).toBe(0);
+    }
+  });
 });
