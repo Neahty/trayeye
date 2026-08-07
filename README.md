@@ -534,14 +534,15 @@ Telegram») и хранится в `app_settings`:
   `payments` (оплаты/отмены/возвраты/ручная выдача), `payment_started` (открыл окно оплаты ЮKassa),
   `subscription_renew` (повторная оплата = продление), `subscription_expired` (подписка/триал кончились),
   `autorenew_cancel` (отключил автопродление), `scans_photo` (фото-сканы — фото + блюдо/ккал, только
-  `source='photo'`), `errors` (500-ошибки из `app.js` и сбои AI в `scan.js`), `support` (обращения),
+  `source='photo'`), `scans_text` (текстовые сканы — что написал человек + блюдо/ккал, `source='text'`), `errors` (500-ошибки из `app.js` и сбои AI в `scan.js`), `support` (обращения),
   `employees` (сотрудники-пиарщики: выдача роли, новые рефералы и итоги их проверки, оплаты рефералов, выплаты).
 
 Хуки: `services/channelMembership.js` (новый пользователь/выход из канала/блокировка — идемпотентно,
 по одному разу), `bot.js` (`/start`, `check_sub`, `bot.on("chat_member")` — нужны права админа бота в
 канале + `allowedUpdates` со `chat_member`), `auth.js` (новый через приложение + `reactivation`),
 `notify.js` (платежи/продления), `routes/subscription.js` (`payment_started`/`autorenew_cancel`),
-`jobs/notifications.js` (`daily_digest`/`subscription_expired`), `routes/scan.js` (фото), `app.js`
+`jobs/notifications.js` (`daily_digest` — включая разбивку сканов фото/текст за сутки, 7 и 30 дней —
+и `subscription_expired`), `routes/scan.js` (фото и текст), `app.js`
 (ошибки), `routes/admin.js` (ручная выдача), `support/src/handlers/user.js` (обращения). Любой сбой
 отправки гасится — канал не роняет основной поток.
 

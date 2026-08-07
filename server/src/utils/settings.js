@@ -61,6 +61,7 @@ const DEFAULTS = {
     subscription_expired: true,  // подписка/пробный закончились
     autorenew_cancel: true,      // отключил автопродление
     scans_photo: true,           // фото-сканы еды (с самим фото)
+    scans_text: true,            // текстовые сканы еды (что написал человек + что посчитал AI)
     errors: true,                // ошибки системы
     support: true,               // новые обращения и сообщения в поддержку
     employees: true,             // сотрудники-пиарщики: роль, рефералы, их оплаты, выплаты

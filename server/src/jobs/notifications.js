@@ -205,32 +205,49 @@ async function cleanOldPhotos() {
 // Ежедневная сводка в канал логов: ключевые цифры за последние сутки.
 async function dailyDigest() {
   const q = (t) => db.query(t).then((r) => r.rows[0]);
+  // Сканы по способу ввода (интервал — наша константа, не пользовательский ввод):
+  // сколько посчитали по фото, сколько текстом, сколько вбили руками.
+  const scansBySource = (interval) => q(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE source = 'photo')::int  AS photo,
+            COUNT(*) FILTER (WHERE source = 'text')::int   AS text,
+            COUNT(*) FILTER (WHERE source = 'manual')::int AS manual
+       FROM scans WHERE scanned_at >= NOW() - interval '${interval}'`
+  );
   // Активный = подписчик канала, открывавший приложение, бот не в ЧС (как в дашборде).
-  const [joined, left, pay, dau, scans, expired, active, inactive] = await Promise.all([
+  const [joined, left, pay, dau, scans, scans7, scans30, expired, active, inactive] = await Promise.all([
     q("SELECT COUNT(*)::int AS c FROM users WHERE app_opened = TRUE AND channel_joined_at >= NOW() - interval '1 day'"),
     q("SELECT COUNT(*)::int AS c FROM users WHERE app_opened = TRUE AND channel_left_at >= NOW() - interval '1 day'"),
     q("SELECT COUNT(*)::int AS c, COALESCE(SUM(amount),0)::int AS s FROM payments WHERE status='succeeded' AND created_at >= NOW() - interval '1 day'"),
     q("SELECT COUNT(DISTINCT user_id)::int AS c FROM system_logs WHERE action='login' AND created_at >= NOW() - interval '1 day'"),
-    q("SELECT COUNT(*)::int AS c FROM scans WHERE scanned_at >= NOW() - interval '1 day'"),
+    scansBySource("1 day"),
+    scansBySource("7 days"),
+    scansBySource("30 days"),
     q(`SELECT COUNT(*)::int AS c FROM subscriptions s
         WHERE s.expires_at <= NOW() AND s.expires_at >= NOW() - interval '1 day'
           AND NOT EXISTS (SELECT 1 FROM subscriptions s2 WHERE s2.user_id = s.user_id AND s2.expires_at > NOW())`),
     q("SELECT COUNT(*)::int AS c FROM users WHERE app_opened = TRUE AND channel_member = TRUE AND tg_unreachable = FALSE"),
     q("SELECT COUNT(*)::int AS c FROM users WHERE app_opened = TRUE AND (channel_member = FALSE OR tg_unreachable = TRUE)")
   ]);
+  // Строка разбивки: сколько сканов посчитано по фото, сколько текстом, сколько вбито руками.
+  const bySource = (s) =>
+    `${s.total} (📷 ${s.photo} фото · ✍️ ${s.text} текстом${s.manual ? ` · ✏️ ${s.manual} вручную` : ""})`;
   const text =
     `📊 <b>Сводка за сутки</b>\n\n` +
     `➕ Новые подписчики: ${joined.c}\n` +
     `🚪 Вышли из канала: ${left.c}\n` +
     `🟢 Заходили за сутки: ${dau.c}\n` +
-    `🍽 Сканов еды: ${scans.c}\n` +
     `💰 Оплаты: ${pay.c} на ${pay.s} ₽\n` +
     `⌛️ Закончились подписки: ${expired.c}\n\n` +
+    `<b>Сканы еды за период</b>\n` +
+    `За сутки: ${bySource(scans)}\n` +
+    `За 7 дней: ${bySource(scans7)}\n` +
+    `За 30 дней: ${bySource(scans30)}\n\n` +
     `👥 Активных пользователей: ${active.c}\n` +
     `💤 Неактивных (отписались / в ЧС): ${inactive.c}\n` +
     `Время: ${notify.fmtWhen()}`;
   await channelLog.post("daily_digest", text);
-  console.log(`[cron] dailyDigest -> joined=${joined.c} left=${left.c} pay=${pay.c}/${pay.s} active=${active.c}`);
+  console.log(`[cron] dailyDigest -> joined=${joined.c} left=${left.c} pay=${pay.c}/${pay.s} scans=${scans.total} active=${active.c}`);
 }
 
 // Логируем окончание подписок/пробного. Окно в 2 суток — чтобы поймать истечение,

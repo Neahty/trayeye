@@ -180,6 +180,20 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
     await db.logAction(req.user.id, "scan", { count: saved.length, meal_type: mealType, source: "text", fallback: result.fallback || false });
     notifyTrainerOfClientScan(req.user).catch(() => {});
 
+    // Дублируем текстовый скан в канал: что человек написал и что из этого посчитал AI.
+    try {
+      const dishes = saved.map((s) => s.dish_name).filter(Boolean);
+      const totalCal = saved.reduce((a, s) => a + (s.calories || 0), 0);
+      const who = req.user.username ? `@${req.user.username}` : (req.user.name || `#${req.user.id}`);
+      const text =
+        `✍️ <b>Текстовый скан еды</b>\n` +
+        `Пользователь: ${channelLog.esc(who)}\n` +
+        `Написал: ${channelLog.esc(description.slice(0, 400))}\n` +
+        `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
+        `Калории: ${totalCal} ккал`;
+      channelLog.postFor("scans_text", req.user.id, text).catch(() => {});
+    } catch { /* канал не критичен для скана */ }
+
     res.json({ scans: saved, scan: saved[0], low_confidence: result.low_confidence });
   } catch (err) {
     next(err);
