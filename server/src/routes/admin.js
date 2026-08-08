@@ -761,7 +761,8 @@ router.put("/settings", async (req, res, next) => {
     const updates = req.body?.settings || req.body || {};
     const allowed = [
       "sub_price_basic", "sub_price_trainer", "tariffs", "free_scan_daily_limit",
-      "trial_days", "trainer_max_clients", "welcome_text", "paywall_text", "paywall_features",
+      "trial_days", "trainer_max_clients", "welcome_text", "paywall_text",
+      "paywall_text_daily_cap", "paywall_text_trial_over", "paywall_text_sub_over", "paywall_features",
       "support_links", "reminders", "meal_reminders", "limit_push",
       "tg_log_enabled", "tg_log_channel_id", "tg_log_events", "admin_live_refresh_sec",
       // Вкладка «Ссылки»: глобальные ссылки для Главной.

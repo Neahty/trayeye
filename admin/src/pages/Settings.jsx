@@ -627,6 +627,9 @@ export default function SettingsPage() {
         trainer_max_clients: Number(form.trainer_max_clients),
         welcome_text: form.welcome_text,
         paywall_text: form.paywall_text,
+        paywall_text_daily_cap: form.paywall_text_daily_cap,
+        paywall_text_trial_over: form.paywall_text_trial_over,
+        paywall_text_sub_over: form.paywall_text_sub_over,
         paywall_features: (Array.isArray(form.paywall_features) ? form.paywall_features : []).map((f) => String(f).trim()).filter(Boolean),
         limit_push: {
           enabled: (form.limit_push?.enabled) !== false,
@@ -759,8 +762,17 @@ export default function SettingsPage() {
         <>
           <div className="card" style={{ marginBottom: 16 }}>
             {textField("welcome_text", "Приветственное сообщение")}
-            {textField("paywall_text", "Текст на экране оплаты")}
-            <p className="muted" style={{ margin: "-6px 0 12px", fontSize: 12.5 }}>Плейсхолдер <code>{"{limit}"}</code> подставит бесплатный лимит сканов в день.</p>
+            {textField("paywall_text", "Текст на экране оплаты — обычный оффер")}
+            <p className="muted" style={{ margin: "-6px 0 12px", fontSize: 12.5 }}>
+              Виден тому, у кого пробный период идёт и сканы на сегодня ещё остались.
+            </p>
+            {textField("paywall_text_daily_cap", "…когда сканы на сегодня закончились (пробный ещё идёт)")}
+            {textField("paywall_text_trial_over", "…когда пробный период закончился")}
+            {textField("paywall_text_sub_over", "…когда закончилась платная подписка")}
+            <p className="muted" style={{ margin: "-6px 0 12px", fontSize: 12.5 }}>
+              Плейсхолдеры: <code>{"{limit}"}</code> — бесплатных сканов в день, <code>{"{days_left}"}</code> — сколько
+              дней пробного осталось, <code>{"{trial_days}"}</code> — вся длина пробного периода.
+            </p>
 
             <div className="field">
               <label>Преимущества Pro (буллеты на экране оплаты)</label>
@@ -790,7 +802,7 @@ export default function SettingsPage() {
               </label>
             </div>
             <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-              Когда у пробного пользователя закончились сканы за день — бот один раз в сутки шлёт апселл Pro с кнопкой на экран оплаты. Плейсхолдер <code>{"{limit}"}</code> — дневной лимит.
+              Когда у пробного пользователя закончились сканы за день — бот один раз в сутки шлёт апселл Pro с кнопкой на экран оплаты. Плейсхолдеры: <code>{"{limit}"}</code> — дневной лимит, <code>{"{days_left}"}</code> — сколько дней пробного осталось.
             </p>
             <div className="field">
               <label>Текст сообщения</label>

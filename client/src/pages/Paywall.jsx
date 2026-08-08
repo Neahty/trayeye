@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Subscription, Settings } from "../api";
 import { useApp } from "../AppContext";
 import { useUI } from "../ui/UIProvider";
@@ -8,6 +8,7 @@ import { openPayment } from "../lib/openExternal";
 
 export default function Paywall() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile, reload } = useApp();
   const ui = useUI();
   const [cfg, setCfg] = useState(null);
@@ -58,19 +59,34 @@ export default function Paywall() {
   // (его также можно купить через «Стать тренером» в Профиле).
   const tariffs = cfg?.tariffs?.length ? cfg.tariffs : defaultTariffs;
 
-  // Подзаголовок по ситуации (доступа нет, иначе был бы редирект выше):
-  //  — была платная подписка и закончилась → «Подписка закончилась»;
-  //  — платной не было, но пробный истёк → «Пробный период закончился»;
-  //  — пробный ещё идёт → нейтральное предложение (текст из настроек).
-  // {limit} в текстах оффера → дневной лимит бесплатных сканов из настроек.
+  // Подстановки в текстах оффера: дневной лимит, остаток пробного и его длина.
   const freeLimit = cfg?.free_scan_daily_limit;
-  const fillLimit = (s) => String(s || "").replace(/\{limit\}/g, freeLimit != null ? freeLimit : "");
+  const trialEnds = profile?.trial?.ends_at ? new Date(profile.trial.ends_at).getTime() : null;
+  // 1 = «последний день, сегодня ещё работает» — так же считает сервер (utils/scanUsage.js).
+  const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds - Date.now()) / 86400000)) : null;
+  const fillVars = (s) => String(s || "")
+    .replace(/\{limit\}/g, freeLimit != null ? freeLimit : "")
+    .replace(/\{days_left\}/g, daysLeft != null ? daysLeft : "")
+    .replace(/\{trial_days\}/g, profile?.trial?.days != null ? profile.trial.days : "");
+
+  // Ситуация человека (доступа нет, иначе был бы редирект выше):
+  //  sub_over   — была платная подписка и закончилась;
+  //  trial_over — платной не было, пробный истёк;
+  //  daily_cap  — пробный ещё идёт, но сканы на сегодня кончились;
+  //  иначе      — нейтральный оффер (человек зашёл сам, сканы ещё есть).
+  // Причину берём из навигации (её кладёт обработчик 403 при скане) — это точный сигнал прямо
+  // в момент отказа. Если пришли иначе (диплинк из пуша бота, перезагрузка) — смотрим остаток
+  // сканов из профиля: `limit` сервер отдаёт только тем, у кого нет доступа.
+  const reason = location.state?.reason;
+  const outOfScansToday = reason === "daily_cap" || profile?.limit?.left_today === 0;
 
   const subtitle = profile?.last_subscription
-    ? "Подписка закончилась. Продлите Bytwise PRO, чтобы вернуть безлимит и статистику."
+    ? fillVars(cfg?.paywall_text_sub_over || "Подписка закончилась. Продлите Bytwise PRO, чтобы вернуть безлимит и статистику.")
     : !profile?.trial?.active
-    ? "Пробный период закончился. Оформите Bytwise PRO, чтобы продолжать считать калории без ограничений."
-    : fillLimit(cfg?.paywall_text || "Безлимитное сканирование, AI-добавление текстом и полная статистика.");
+    ? fillVars(cfg?.paywall_text_trial_over || "Пробный период закончился. Оформите Bytwise PRO, чтобы продолжать считать калории без ограничений.")
+    : outOfScansToday
+    ? fillVars(cfg?.paywall_text_daily_cap || "На сегодня бесплатные сканы закончились. Пробный доступ ещё идёт — можно вернуться завтра, а с Bytwise PRO сканы без ограничений доступны прямо сейчас.")
+    : fillVars(cfg?.paywall_text || "Безлимитное сканирование, AI-добавление текстом и полная статистика.");
 
   // Заметный оффер-блок: буллеты преимуществ Pro (редактируются в админке).
   const offerFeatures = Array.isArray(cfg?.paywall_features) ? cfg.paywall_features.filter(Boolean) : [];
@@ -97,7 +113,7 @@ export default function Paywall() {
               <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15.5, fontWeight: 600 }}>
                 <span style={{ display: "inline-flex", width: 22, height: 22, flex: "0 0 22px", borderRadius: "50%", background: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" }}>
                   <Ic name="check" size={15} sw={2.6} style={{ color: "#fff" }} />
-                </span> {fillLimit(f)}
+                </span> {fillVars(f)}
               </div>
             ))}
           </div>
