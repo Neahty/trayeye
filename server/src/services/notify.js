@@ -3,6 +3,8 @@ const { sendMessage, getUserProfilePhotoFileId } = require("./telegram");
 const settings = require("../utils/settings");
 const channelLog = require("./channelLog");
 
+const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "Bytwise_bot";
+
 // Название тарифа по его id. Сначала — реальное название из настроек (динамически),
 // затем запасные варианты, если настроек нет.
 async function tariffTitle(type) {
@@ -189,11 +191,12 @@ async function notifyPurchase(userId, { amount, type, renewal = false } = {}) {
   channelLog.postFor(renewal ? "subscription_renew" : "payments", userId, text).catch(() => {});
 }
 
-// Платёж не завершён (отменён/не оплачен) — подробное уведомление админам простыми словами.
+// Платёж не завершён (отменён/не оплачен) — короткая инфо-строка админам: это не ошибка,
+// а отказ клиента. Плюс догоняющее сообщение самому клиенту (см. sendAbandonedCart).
 // when — момент НАЧАЛА оплаты (created_at заказа). Само сообщение приходит позже: ЮKassa
 // присылает отмену неоплаченного заказа с задержкой (обычно через 1–2 часа), а не сразу при выходе.
 async function notifyPaymentFailed(userId, { amount, type, when } = {}) {
-  // Не пугаем «не завершён», если человек в итоге всё же оформил подписку
+  // Не пугаем отказом, если человек в итоге всё же оформил подписку
   // (мог оплатить со второй попытки — тогда отмена старого заказа уже не важна).
   if (userId) {
     const act = await db.query(
@@ -205,16 +208,77 @@ async function notifyPaymentFailed(userId, { amount, type, when } = {}) {
   const who = userId ? await userLabel(userId) : "клиент";
   const title = esc(await tariffTitle(type));
   const text =
-    `❌ <b>Платёж не завершён</b>\n\n` +
-    `Клиент ${who} открыл окно оплаты, но не довёл её до конца — закрыл, передумал или не оплатил ` +
-    `до истечения заказа. Деньги не списаны, это не ошибка.\n\n` +
-    `Подписка: <b>${title}</b>\n` +
-    `${amount != null ? `Сумма: ${amount} ₽\n` : ""}` +
-    `Начал оплату: ${fmtWhen(when)}\n` +
-    `<i>ЮKassa сообщает об отмене неоплаченного заказа с задержкой, поэтому это сообщение ` +
-    `приходит через 1–2 часа после самого выхода — время выше показывает, когда человек начинал оплату.</i>`;
+    `ℹ️ <b>Отказ от оплаты</b>\n\n` +
+    `${who} открыл оплату и не купил. Деньги не списаны.\n` +
+    `${title}${amount != null ? ` · ${amount} ₽` : ""} · начал ${fmtWhen(when)}\n` +
+    `<i>ЮKassa сообщает об отмене с задержкой 1–2 ч.</i>`;
   await notifyAdmins(text);
   channelLog.postFor("payments", userId, text).catch(() => {});
+
+  // Догоняем клиента отдельным сообщением. Ошибка здесь не должна ломать админский лог.
+  if (userId) {
+    try { await sendAbandonedCart(userId, { amount, type, when }); }
+    catch (e) { console.error("[notify] abandoned cart:", e.message); }
+  }
+}
+
+// Догоняющее сообщение тому, кто открыл окно оплаты и не купил.
+// Тексты, тумблер и кнопка — в настройке `reminders` (правится в админке), как у остальных
+// напоминаний; здесь только механика. Уходит один раз на брошенный заказ и не чаще раза в 3 дня.
+// notifications_enabled сознательно игнорируем (как в jobs/subscriptionReminders.js),
+// но is_blocked/tg_unreachable уважаем.
+async function sendAbandonedCart(userId, { amount, type, when } = {}) {
+  // require по месту: channelMembership тянет notify, и на верхнем уровне это был бы цикл.
+  const { pickTemplate, loadPersonalStats } = require("../jobs/subscriptionReminders")._internal;
+  const channelMembership = require("./channelMembership");
+
+  const def = settings.DEFAULTS.reminders;
+  const raw = (await settings.get("reminders")) || {};
+  const cfg = { ...def, ...(typeof raw === "object" ? raw : {}) };
+  cfg.texts = { ...def.texts, ...(raw && typeof raw.texts === "object" ? raw.texts : {}) };
+  if (cfg.abandoned_enabled === false) return;
+
+  const { rows } = await db.query(
+    "SELECT telegram_id, name, timezone, is_blocked, tg_unreachable FROM users WHERE id = $1",
+    [userId]
+  );
+  const u = rows[0];
+  if (!u || !u.telegram_id || u.is_blocked || u.tg_unreachable) return;
+
+  // Дедуп на существующей таблице напоминаний: не чаще раза в 3 дня на человека…
+  const recent = await db.query(
+    `SELECT 1 FROM subscription_reminders
+      WHERE user_id = $1 AND kind = 'payment_abandoned' AND sent_at > NOW() - INTERVAL '3 days' LIMIT 1`,
+    [userId]
+  );
+  if (recent.rows.length) return;
+  // …и одна попытка на брошенный заказ: повторный webhook ЮKassa ничего не продублирует.
+  const ins = await db.query(
+    `INSERT INTO subscription_reminders (user_id, kind, stage, anchor_at)
+     VALUES ($1, 'payment_abandoned', 'cart', date_trunc('hour', $2::timestamptz))
+     ON CONFLICT DO NOTHING RETURNING id`,
+    [userId, when || new Date()]
+  );
+  if (!ins.rows.length) return;
+
+  const stats = await loadPersonalStats(userId, u.timezone || "Europe/Moscow").catch(() => ({}));
+  const text = pickTemplate(cfg.texts.payment_abandoned, userId, 0, {
+    name: (u.name || "").trim() || null,
+    tariff: await tariffTitle(type),
+    price: amount ?? null,
+    ...stats
+  });
+  if (!text) return; // в админке стёрли все тексты
+
+  const res = await sendMessage(u.telegram_id, text, {
+    reply_markup: {
+      inline_keyboard: [[{
+        text: cfg.abandoned_button_text || "Оформить подписку",
+        url: `https://t.me/${BOT_USERNAME}?startapp=paywall`
+      }]]
+    }
+  });
+  if (res && res.error_code === 403) await channelMembership.markUnreachable(userId);
 }
 
 // Возврат платежа — подробное уведомление админам.

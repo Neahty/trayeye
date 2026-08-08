@@ -182,7 +182,8 @@ const REMINDER_GROUPS = [
   { key: "paid_post", title: "После окончания платной подписки", hint: "Серия после истечения: в день окончания и далее по расписанию." },
   { key: "trial_start", title: "Первый день пробного периода", hint: "Приветствие новичку — что доступно и сколько дней бесплатно." },
   { key: "trial_end", title: "Последний день пробного периода", hint: "Уходит в последний день бесплатного доступа." },
-  { key: "trial_post", title: "После окончания пробного периода", hint: "Серия для тех, кто попробовал бесплатно и не купил." }
+  { key: "trial_post", title: "После окончания пробного периода", hint: "Серия для тех, кто попробовал бесплатно и не купил." },
+  { key: "payment_abandoned", title: "Не завершил оплату", hint: "Уходит тому, кто открыл окно оплаты и не купил (через 1–2 ч, когда ЮKassa сообщит об отмене). Один раз на заказ и не чаще раза в 3 дня." }
 ];
 
 // Приёмы пищи для напоминаний (ключи — как в настройке meal_reminders.texts).
@@ -313,11 +314,27 @@ function RemindersEditor({ rem, onChange }) {
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
+        <div style={{ fontWeight: 800, marginBottom: 4 }}>Не завершил оплату</div>
+        <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          Догоняющее сообщение тому, кто открыл окно оплаты и не купил. Уходит один раз на брошенный
+          заказ и не чаще раза в 3 дня. Тексты — в блоке ниже, пункт «Не завершил оплату».
+        </p>
+        <div className="kv"><span>Догонять тех, кто не оплатил</span>
+          <button className="btn ghost sm" onClick={() => set("abandoned_enabled", rem.abandoned_enabled === false)}>
+            {rem.abandoned_enabled === false ? <span className="pill red">выключено — включить</span> : <span className="pill green">включено — выключить</span>}
+          </button>
+        </div>
+        <div className="field" style={{ marginTop: 14, marginBottom: 0 }}><label>Текст кнопки под этим сообщением</label>
+          <input className="input" value={rem.abandoned_button_text ?? ""} onChange={(e) => set("abandoned_button_text", e.target.value)} placeholder="Оформить подписку" /></div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 800, marginBottom: 4 }}>Тексты сообщений</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
           Бот чередует варианты, чтобы не повторяться. Подстановки: {"{name}"} — имя, {"{meals_count}"} — записано приёмов пищи,
           {" {days_tracked}"} — дней с дневником, {"{weight_delta}"} — изменение веса, {"{days_left}"} — дней до конца,
-          {" {expires_date}"} — дата окончания, {"{trial_days}"} — длина пробного периода.
+          {" {expires_date}"} — дата окончания, {"{trial_days}"} — длина пробного периода,
+          {" {tariff}"} и {"{price}"} — название и цена тарифа (только в «Не завершил оплату»).
           Если у человека нет данных для подстановки (например, не записывал вес) — такой вариант пропускается.
         </p>
         {REMINDER_GROUPS.map((g) => {
@@ -585,6 +602,8 @@ export default function SettingsPage() {
         paid_pre_days: parseDays(rem.paid_pre_days, [7, 3, 1]),
         post_days: parseDays(rem.post_days, [0, 1, 3, 7, 14]),
         button_text: (rem.button_text || "").trim() || "Продлить подписку",
+        abandoned_enabled: rem.abandoned_enabled !== false,
+        abandoned_button_text: (rem.abandoned_button_text || "").trim() || "Оформить подписку",
         texts: cleanTexts
       };
       // Чистим напоминания о еде: пустые тексты убираем, часы валидируем (0–23).

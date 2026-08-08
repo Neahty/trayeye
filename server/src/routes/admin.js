@@ -807,7 +807,7 @@ router.post("/reminders/run", async (req, res, next) => {
 
 // Тестовое напоминание себе (кнопка «Проверить на себе»): пример выбранного типа
 // уходит только текущему админу в Telegram.
-const REMINDER_KINDS = ["trial_start", "trial_end", "trial_post", "paid_pre", "paid_post"];
+const REMINDER_KINDS = ["trial_start", "trial_end", "trial_post", "paid_pre", "paid_post", "payment_abandoned"];
 router.post("/reminders/test", async (req, res, next) => {
   try {
     const kind = req.body?.kind;
