@@ -9,7 +9,7 @@ const checkLimit = require("../middleware/checkLimit");
 const rateLimit = require("../middleware/rateLimit");
 const {
   analyzeImage, analyzeText, modelLabel, VISION_MODEL, TEXT_MODEL,
-  GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ
+  GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ, GEMINI_ALL_MODELS, GEMINI_ENABLED
 } = require("../services/openai");
 const aiUsage = require("../services/aiUsage");
 const { notifyTrainerOfClientScan } = require("../services/notify");
@@ -45,9 +45,9 @@ async function insertScan(userId, dish, mealType, photoPath, source, batchId) {
 }
 
 // Строки про лимиты для лога в канал: сколько сканов осталось человеку и сколько
-// бесплатных запросов осталось у модели, которая посчитала. Второе важно потому,
-// что после исчерпания суточной квоты Gemini фото молча уходят на платный OpenAI.
-async function limitLines(req, model) {
+// бесплатных запросов осталось у Gemini суммарно. Второе важно потому, что после
+// исчерпания суточной квоты сканы молча уходят на платный OpenAI.
+async function limitLines(req) {
   const lines = [];
 
   const lim = req.scanLimit;
@@ -55,17 +55,27 @@ async function limitLines(req, model) {
   else if (lim.unlimited) lines.push("Лимит: безлимит (подписка)");
   else lines.push(`Лимит: осталось ${Math.max(0, lim.left - 1)} из ${lim.limit} сканов на сегодня`);
 
-  if (String(model || "").startsWith("gemini")) {
+  // Показываем ВЕСЬ бесплатный запас, а не счётчик ответившей модели: у Google квота
+  // считается на каждую модель отдельно, поэтому цифра одной модели скакала бы туда-сюда
+  // (фото ответило одной, текст — другой) и читалась бы как сбой счётчика.
+  // Строку даём всегда, даже когда ответил OpenAI: тогда по ней видно, кончилась квота или нет.
+  if (GEMINI_ENABLED && GEMINI_ALL_MODELS.length) {
     try {
       // Считаем по своим записям: в ai_usage попадает только победивший провайдер,
       // поэтому неудачные попытки Google посчитает, а мы нет — цифра идёт с запасом вниз.
       const { rows } = await db.query(
-        `SELECT COUNT(*)::int AS cnt FROM ai_usage
-         WHERE model = $1 AND (created_at AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date`,
-        [model, GEMINI_QUOTA_TZ]
+        `SELECT model, COUNT(*)::int AS cnt FROM ai_usage
+         WHERE model = ANY($1) AND (created_at AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date
+         GROUP BY model`,
+        [GEMINI_ALL_MODELS, GEMINI_QUOTA_TZ]
       );
-      const used = rows[0]?.cnt || 0;
-      lines.push(`Квота Gemini: ${used} из ${GEMINI_DAILY_LIMIT} за сутки (осталось ${Math.max(0, GEMINI_DAILY_LIMIT - used)})`);
+      const usedBy = new Map(rows.map((r) => [r.model, r.cnt]));
+      const total = GEMINI_DAILY_LIMIT * GEMINI_ALL_MODELS.length;
+      const left = GEMINI_ALL_MODELS.reduce((a, m) => a + Math.max(0, GEMINI_DAILY_LIMIT - (usedBy.get(m) || 0)), 0);
+      const detail = GEMINI_ALL_MODELS
+        .map((m) => `${m.replace(/^gemini-/, "")} ${Math.max(0, GEMINI_DAILY_LIMIT - (usedBy.get(m) || 0))}`)
+        .join(" · ");
+      lines.push(`Квота Gemini: осталось ${left} из ${total} на сегодня (${detail})`);
     } catch { /* квота — справочная строка, лог из-за неё падать не должен */ }
   }
   return lines.join("\n");
@@ -163,7 +173,7 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), async (req
           `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
           `Калории: ${totalCal} ккал\n` +
           `Модель: ${channelLog.esc(modelLabel(result.model))}\n` +
-          channelLog.esc(await limitLines(req, result.model));
+          channelLog.esc(await limitLines(req));
         channelLog.postPhotoFor("scans_photo", req.user.id, photoUrl, caption).catch(() => {});
       }
     } catch { /* канал не критичен для скана */ }
@@ -224,7 +234,7 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
         `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
         `Калории: ${totalCal} ккал\n` +
         `Модель: ${channelLog.esc(modelLabel(result.model))}\n` +
-        channelLog.esc(await limitLines(req, result.model));
+        channelLog.esc(await limitLines(req));
       channelLog.postFor("scans_text", req.user.id, text).catch(() => {});
     } catch { /* канал не критичен для скана */ }
 

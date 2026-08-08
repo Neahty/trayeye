@@ -30,6 +30,11 @@ const GEMINI_VISION_MODELS = (process.env.GEMINI_VISION_MODELS || "gemini-3.1-fl
 const GEMINI_TEXT_MODELS = (process.env.GEMINI_TEXT_MODELS || "gemini-3.5-flash-lite,gemini-3.1-flash-lite")
   .split(",").map((s) => s.trim()).filter(Boolean);
 const GEMINI_DAILY_LIMIT = Number(process.env.GEMINI_DAILY_RPD || 500);
+// Все бесплатные модели вместе — это общий запас на сутки. В логах показываем именно его:
+// счётчик одной модели прыгал бы вверх-вниз в зависимости от того, кто ответил, и выглядел
+// бы сломанным, хотя каждая цифра по отдельности верна.
+const GEMINI_ALL_MODELS = [...new Set([...GEMINI_VISION_MODELS, ...GEMINI_TEXT_MODELS])];
+const GEMINI_ENABLED = Boolean(GEMINI_API_KEY);
 const GEMINI_QUOTA_TZ = process.env.GEMINI_QUOTA_TZ || "America/Los_Angeles";
 
 // Цепочка провайдеров для фото: бесплатные Gemini → платный OpenAI.
@@ -509,5 +514,5 @@ module.exports = {
   parseDishes, fallbackDish, visionChain, textChain,
   IMAGE_PROMPT_GPT, IMAGE_PROMPT_GEMINI, TEXT_PROMPT_GPT, TEXT_PROMPT_GEMINI,
   MODEL, VISION_MODEL, TEXT_MODEL, GEMINI_VISION_MODELS, GEMINI_TEXT_MODELS,
-  GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ
+  GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ, GEMINI_ALL_MODELS, GEMINI_ENABLED
 };
