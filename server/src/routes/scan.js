@@ -7,7 +7,7 @@ const db = require("../db");
 const auth = require("../middleware/auth");
 const checkLimit = require("../middleware/checkLimit");
 const rateLimit = require("../middleware/rateLimit");
-const { analyzeImage, analyzeText, VISION_MODEL, TEXT_MODEL } = require("../services/openai");
+const { analyzeImage, analyzeText, modelLabel, VISION_MODEL, TEXT_MODEL } = require("../services/openai");
 const aiUsage = require("../services/aiUsage");
 const { notifyTrainerOfClientScan } = require("../services/notify");
 const channelLog = require("../services/channelLog");
@@ -131,7 +131,8 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), async (req
           `🍽 <b>Фото-скан еды</b>\n` +
           `Пользователь: ${channelLog.esc(who)}\n` +
           `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
-          `Калории: ${totalCal} ккал`;
+          `Калории: ${totalCal} ккал\n` +
+          `Модель: ${channelLog.esc(modelLabel(result.model))}`;
         channelLog.postPhotoFor("scans_photo", req.user.id, photoUrl, caption).catch(() => {});
       }
     } catch { /* канал не критичен для скана */ }
@@ -190,7 +191,8 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
         `Пользователь: ${channelLog.esc(who)}\n` +
         `Написал: ${channelLog.esc(description.slice(0, 400))}\n` +
         `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
-        `Калории: ${totalCal} ккал`;
+        `Калории: ${totalCal} ккал\n` +
+        `Модель: ${channelLog.esc(modelLabel(result.model))}`;
       channelLog.postFor("scans_text", req.user.id, text).catch(() => {});
     } catch { /* канал не критичен для скана */ }
 

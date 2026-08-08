@@ -120,6 +120,16 @@ const TEXT_PROMPT = `Ты диетолог. Пользователь текст�
 ПРИМЕР (показывает ход рассуждения внутри analysis; числа не копируй):
 {"analysis":"\\"200 г куриной грудки\\" — масса задана, 200 г. Отварная грудка ~1.61 ккал/г → 200×1.61≈322 ккал. Белок ~62 г, жир ~7 г, углеводы 0 (проверка 62×4+7×9=311≈322).","dishes":[{"dish_name":"Куриная грудка","calories":322,"protein":62,"fat":7,"carbs":0,"weight_grams":200,"confidence":"high"}]}`;
 
+// Кто именно посчитал тарелку — для лога в канал. Важно видеть глазами: Gemini работает
+// на бесплатном тире, а уход на OpenAI (резерв) стоит денег. Определяем по префиксу имени
+// модели — тем же способом, что и тариф в services/cost.js.
+function modelLabel(model) {
+  const m = String(model || "").trim();
+  if (!m) return "неизвестно";
+  if (m.startsWith("gemini")) return `Gemini — бесплатно (${m})`;
+  return `ChatGPT — платно (${m})`;
+}
+
 function extractJson(text) {
   if (!text) return null;
   const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
@@ -351,7 +361,7 @@ async function analyzeText(description) {
 }
 
 module.exports = {
-  analyzeImage, analyzeText, reconcileMacros, normalizeDish,
+  analyzeImage, analyzeText, reconcileMacros, normalizeDish, modelLabel,
   parseDishes, fallbackDish, visionChain, textChain,
   IMAGE_PROMPT, TEXT_PROMPT, MODEL, VISION_MODEL, TEXT_MODEL, GEMINI_VISION_MODELS
 };
