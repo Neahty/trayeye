@@ -163,7 +163,8 @@ function AppShell() {
       stop();
       const d = e?.response?.data;
       if (e?.response?.status === 403 && d?.error === "limit") {
-        navigate("/paywall");
+        // reason ("daily_cap" / "trial_expired") — по нему пейволл выбирает текст.
+        navigate("/paywall", { state: { reason: d.reason } });
       } else if (e?.response?.status === 429) {
         ui.toast("Слишком много запросов, подождите");
       } else {

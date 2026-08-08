@@ -191,7 +191,7 @@ export default function Home() {
 
       {/* AI добавление текстом (замена избранного) */}
       <h2 className="sec-title" style={{ margin: "26px 0 14px" }}>Добавить блюдо</h2>
-      <button className="card card-press ai-card" onClick={() => openAddByText(ui, onChange, tz, () => navigate("/paywall"))}>
+      <button className="card card-press ai-card" onClick={() => openAddByText(ui, onChange, tz, (reason) => navigate("/paywall", { state: { reason } }))}>
         <span className="ai-spark"><Ic name="sparkles" size={26} sw={1.9} /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>Опишите блюдо текстом</div>
@@ -240,7 +240,7 @@ export default function Home() {
             sub="Сфотографируйте еду кнопкой камеры или опишите блюдо текстом — AI посчитает КБЖУ."
             action="Добавить текстом"
             actionIcon="sparkles"
-            onAction={() => openAddByText(ui, onChange, tz, () => navigate("/paywall"))}
+            onAction={() => openAddByText(ui, onChange, tz, (reason) => navigate("/paywall", { state: { reason } }))}
           />
         </div>
       )}

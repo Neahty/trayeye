@@ -7,6 +7,7 @@ const auth = require("../middleware/auth");
 const { calcDailyNorms, activityLevelFromWorkouts, deriveGoal } = require("../utils/calories");
 const { getActiveSubscription, isTrainer, getActiveTrainer } = require("../utils/subscription");
 const { userTz } = require("../utils/tz");
+const { countScansToday } = require("../utils/scanUsage");
 const settings = require("../utils/settings");
 const notify = require("../services/notify");
 
@@ -50,14 +51,26 @@ router.get("/", auth, async (req, res, next) => {
       [userTz(req.user)]
     );
 
+    // Остаток бесплатных сканов на сегодня — только тем, у кого нет доступа: пейволл по этому
+    // полю понимает «сканы на сегодня кончились, но пробный ещё идёт» и показывает свой текст.
+    // Заходом по диплинку из пуша бота 403 не приходит, узнать ситуацию можно только отсюда.
+    const has_access = Boolean(sub) || Boolean(trainer);
+    let limit = null;
+    if (!has_access) {
+      const daily = Number(await settings.get("free_scan_daily_limit")) || 10;
+      const used_today = await countScansToday(req.user.id, userTz(req.user));
+      limit = { daily, used_today, left_today: Math.max(0, daily - used_today) };
+    }
+
     res.json({
       user: publicUser(req.user),
       subscription: sub || null,
       last_subscription: lastSub.rows[0] || null,
       is_trainer,
       trainer: trainer ? { id: trainer.id, name: trainer.name, username: trainer.username } : null,
-      has_access: Boolean(sub) || Boolean(trainer),
+      has_access,
       trial: { ends_at: trialEnd, active: Date.now() < trialEnd.getTime(), days: trialDays },
+      limit,
       server_today: today.rows[0]?.d || null
     });
   } catch (err) {

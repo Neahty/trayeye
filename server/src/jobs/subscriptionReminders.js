@@ -339,16 +339,24 @@ async function sendTestReminder({ kind, user }) {
     days_tracked: stats.days_tracked ?? 12,
     weight_delta: stats.weight_delta ?? "−2,5 кг",
     days_left: 3,
-    expires_date: fmtDate(inThreeDays, tz)
+    expires_date: fmtDate(inThreeDays, tz),
+    // Только для «Не завершил оплату» — в тесте показываем образец тарифа и цены.
+    tariff: "PRO",
+    price: 150
   };
   // Случайная стадия — каждый клик показывает другой вариант текста.
   const text = pickTemplate(templates, user.id, Math.floor(Math.random() * 100), data);
   if (!text) return { ok: false, error: "no_templates" };
 
+  // У догонялки по брошенной оплате своя кнопка — «Продлить» человеку без покупок не подходит.
+  const buttonText = kind === "payment_abandoned"
+    ? (cfg.abandoned_button_text || "Оформить подписку")
+    : (cfg.button_text || "Продлить подписку");
+
   return sendMessage(user.telegram_id, `🧪 Тест — так это увидит пользователь:\n\n${text}`, {
     reply_markup: {
       inline_keyboard: [[{
-        text: cfg.button_text || "Продлить подписку",
+        text: buttonText,
         url: `https://t.me/${BOT_USERNAME}?startapp=paywall`
       }]]
     }

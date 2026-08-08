@@ -62,7 +62,7 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
       if (e?.response?.status === 403 && d?.error === "limit") {
         // Как при фото-скане: открываем полный экран оплаты, а не мелкий тост.
         close();
-        onLimit && onLimit();
+        onLimit && onLimit(d.reason);
         return;
       }
       if (e?.response?.status === 422) {

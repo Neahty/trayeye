@@ -846,7 +846,8 @@ router.put("/settings", async (req, res, next) => {
     const updates = req.body?.settings || req.body || {};
     const allowed = [
       "sub_price_basic", "sub_price_trainer", "tariffs", "free_scan_daily_limit",
-      "trial_days", "trainer_max_clients", "welcome_text", "paywall_text", "paywall_features",
+      "trial_days", "trainer_max_clients", "welcome_text", "paywall_text",
+      "paywall_text_daily_cap", "paywall_text_trial_over", "paywall_text_sub_over", "paywall_features",
       "support_links", "reminders", "meal_reminders", "limit_push",
       "tg_log_enabled", "tg_log_channel_id", "tg_log_events", "admin_live_refresh_sec",
       // Вкладка «Ссылки»: глобальные ссылки для Главной.
@@ -892,7 +893,7 @@ router.post("/reminders/run", async (req, res, next) => {
 
 // Тестовое напоминание себе (кнопка «Проверить на себе»): пример выбранного типа
 // уходит только текущему админу в Telegram.
-const REMINDER_KINDS = ["trial_start", "trial_end", "trial_post", "paid_pre", "paid_post"];
+const REMINDER_KINDS = ["trial_start", "trial_end", "trial_post", "paid_pre", "paid_post", "payment_abandoned"];
 router.post("/reminders/test", async (req, res, next) => {
   try {
     const kind = req.body?.kind;
