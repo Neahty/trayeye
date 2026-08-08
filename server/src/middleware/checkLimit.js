@@ -34,7 +34,12 @@ module.exports = async function checkLimit(req, res, next) {
   try {
     const user = req.user;
 
-    if (await hasEffectiveAccess(user.id)) return next();
+    // req.scanLimit — состояние лимита на момент запроса. Нужно роуту скана, чтобы
+    // показать остаток в логе канала, не делая тот же подсчёт второй раз.
+    if (await hasEffectiveAccess(user.id)) {
+      req.scanLimit = { unlimited: true };
+      return next();
+    }
 
     const trialDays = Number(await settings.get("trial_days")) || 3;
     const dailyLimit = Number(await settings.get("free_scan_daily_limit")) || 10;
@@ -59,6 +64,7 @@ module.exports = async function checkLimit(req, res, next) {
       [user.id, tz]
     );
     const todayCount = rows[0]?.cnt || 0;
+    req.scanLimit = { unlimited: false, limit: dailyLimit, used: todayCount, left: Math.max(0, dailyLimit - todayCount) };
     if (todayCount >= dailyLimit) {
       // Апселл-пуш шлём в фоне, не задерживая ответ; ошибки/недоступность гасим внутри.
       maybeSendLimitPush(user, dailyLimit, tz).catch((e) => console.error("[limitPush]", e.message));

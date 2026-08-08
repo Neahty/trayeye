@@ -7,7 +7,10 @@ const db = require("../db");
 const auth = require("../middleware/auth");
 const checkLimit = require("../middleware/checkLimit");
 const rateLimit = require("../middleware/rateLimit");
-const { analyzeImage, analyzeText, modelLabel, VISION_MODEL, TEXT_MODEL } = require("../services/openai");
+const {
+  analyzeImage, analyzeText, modelLabel, VISION_MODEL, TEXT_MODEL,
+  GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ
+} = require("../services/openai");
 const aiUsage = require("../services/aiUsage");
 const { notifyTrainerOfClientScan } = require("../services/notify");
 const channelLog = require("../services/channelLog");
@@ -39,6 +42,33 @@ async function insertScan(userId, dish, mealType, photoPath, source, batchId) {
      dish.confidence || null, source, batchId || null]
   );
   return rows[0];
+}
+
+// Строки про лимиты для лога в канал: сколько сканов осталось человеку и сколько
+// бесплатных запросов осталось у модели, которая посчитала. Второе важно потому,
+// что после исчерпания суточной квоты Gemini фото молча уходят на платный OpenAI.
+async function limitLines(req, model) {
+  const lines = [];
+
+  const lim = req.scanLimit;
+  if (!lim) lines.push("Лимит: —");
+  else if (lim.unlimited) lines.push("Лимит: безлимит (подписка)");
+  else lines.push(`Лимит: осталось ${Math.max(0, lim.left - 1)} из ${lim.limit} сканов на сегодня`);
+
+  if (String(model || "").startsWith("gemini")) {
+    try {
+      // Считаем по своим записям: в ai_usage попадает только победивший провайдер,
+      // поэтому неудачные попытки Google посчитает, а мы нет — цифра идёт с запасом вниз.
+      const { rows } = await db.query(
+        `SELECT COUNT(*)::int AS cnt FROM ai_usage
+         WHERE model = $1 AND (created_at AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date`,
+        [model, GEMINI_QUOTA_TZ]
+      );
+      const used = rows[0]?.cnt || 0;
+      lines.push(`Квота Gemini: ${used} из ${GEMINI_DAILY_LIMIT} за сутки (осталось ${Math.max(0, GEMINI_DAILY_LIMIT - used)})`);
+    } catch { /* квота — справочная строка, лог из-за неё падать не должен */ }
+  }
+  return lines.join("\n");
 }
 
 // Фолбэк-подсказки для новичка, если в базе ещё мало блюд (свежая установка).
@@ -132,7 +162,8 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), async (req
           `Пользователь: ${channelLog.esc(who)}\n` +
           `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
           `Калории: ${totalCal} ккал\n` +
-          `Модель: ${channelLog.esc(modelLabel(result.model))}`;
+          `Модель: ${channelLog.esc(modelLabel(result.model))}\n` +
+          channelLog.esc(await limitLines(req, result.model));
         channelLog.postPhotoFor("scans_photo", req.user.id, photoUrl, caption).catch(() => {});
       }
     } catch { /* канал не критичен для скана */ }
@@ -192,7 +223,8 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
         `Написал: ${channelLog.esc(description.slice(0, 400))}\n` +
         `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
         `Калории: ${totalCal} ккал\n` +
-        `Модель: ${channelLog.esc(modelLabel(result.model))}`;
+        `Модель: ${channelLog.esc(modelLabel(result.model))}\n` +
+        channelLog.esc(await limitLines(req, result.model));
       channelLog.postFor("scans_text", req.user.id, text).catch(() => {});
     } catch { /* канал не критичен для скана */ }
 

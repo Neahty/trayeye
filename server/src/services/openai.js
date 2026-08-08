@@ -21,6 +21,11 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // оценку, только удваивают время ответа. Полноразмерные Flash не годятся: у них лимит 20 фото в сутки.
 const GEMINI_VISION_MODELS = (process.env.GEMINI_VISION_MODELS || "gemini-3.1-flash-lite,gemini-3.5-flash-lite")
   .split(",").map((s) => s.trim()).filter(Boolean);
+// Суточная квота бесплатного тира — на КАЖДУЮ модель отдельно. Когда она кончается,
+// фото молча уходят на платный OpenAI, поэтому остаток видно в логах канала.
+// Обнуляется квота по календарю Google (тихоокеанское время), а не по нашему поясу.
+const GEMINI_DAILY_LIMIT = Number(process.env.GEMINI_DAILY_RPD || 500);
+const GEMINI_QUOTA_TZ = process.env.GEMINI_QUOTA_TZ || "America/Los_Angeles";
 
 // Цепочка провайдеров для фото: бесплатные Gemini → платный OpenAI.
 // Переключение молчаливое: пользователь не замечает, кто именно посчитал его тарелку.
@@ -490,5 +495,5 @@ module.exports = {
   analyzeImage, analyzeText, reconcileMacros, normalizeDish, modelLabel, calibrateConfidence,
   parseDishes, fallbackDish, visionChain, textChain,
   IMAGE_PROMPT_GPT, IMAGE_PROMPT_GEMINI, TEXT_PROMPT_GPT, TEXT_PROMPT_GEMINI,
-  MODEL, VISION_MODEL, TEXT_MODEL, GEMINI_VISION_MODELS
+  MODEL, VISION_MODEL, TEXT_MODEL, GEMINI_VISION_MODELS, GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ
 };
