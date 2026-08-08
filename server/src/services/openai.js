@@ -24,6 +24,11 @@ const GEMINI_VISION_MODELS = (process.env.GEMINI_VISION_MODELS || "gemini-3.1-fl
 // Суточная квота бесплатного тира — на КАЖДУЮ модель отдельно. Когда она кончается,
 // фото молча уходят на платный OpenAI, поэтому остаток видно в логах канала.
 // Обнуляется квота по календарю Google (тихоокеанское время), а не по нашему поясу.
+// Для текста порядок моделей ОБРАТНЫЙ фото-цепочке. Суточная квота считается на модель,
+// а не на ключ: если и фото, и текст пойдут в gemini-3.1-flash-lite, они съедят один
+// счётчик вдвое быстрее. Разведя их, получаем по 500 запросов на каждый канал.
+const GEMINI_TEXT_MODELS = (process.env.GEMINI_TEXT_MODELS || "gemini-3.5-flash-lite,gemini-3.1-flash-lite")
+  .split(",").map((s) => s.trim()).filter(Boolean);
 const GEMINI_DAILY_LIMIT = Number(process.env.GEMINI_DAILY_RPD || 500);
 const GEMINI_QUOTA_TZ = process.env.GEMINI_QUOTA_TZ || "America/Los_Angeles";
 
@@ -41,11 +46,15 @@ function visionChain() {
   return chain;
 }
 
-// Текст пока только на OpenAI: качество Gemini на текстовых описаниях не проверялось,
-// а стоит этот путь копейки (~5% расходов). Промпт для Gemini уже готов — чтобы
-// перевести, достаточно собрать цепочку так же, как в visionChain().
+// Текст идёт по той же логике, что и фото: сначала бесплатный Gemini, OpenAI — резерв.
 function textChain() {
-  return [{ name: "openai", url: OPENAI_URL, apiKey: API_KEY, model: TEXT_MODEL, prompt: () => TEXT_PROMPT_GPT }];
+  const chain = GEMINI_API_KEY
+    ? GEMINI_TEXT_MODELS.map((model) => ({
+      name: "gemini", url: GEMINI_URL, apiKey: GEMINI_API_KEY, model, prompt: () => TEXT_PROMPT_GEMINI
+    }))
+    : [];
+  chain.push({ name: "openai", url: OPENAI_URL, apiKey: API_KEY, model: TEXT_MODEL, prompt: () => TEXT_PROMPT_GPT });
+  return chain;
 }
 
 // Общие блоки промптов. Вынесены отдельно, потому что подставляются во ВСЕ промпты
@@ -205,7 +214,11 @@ const TEXT_PROMPT_GEMINI = `Ты диетолог. Пользователь те
 
 Пройди 4 шага по порядку и кратко запиши их ход в поле "analysis". Только после этого заполняй dishes.
 
-ШАГ 1. ЧТО ЭТО. Определи блюдо. Составное или именованное блюдо — ОДНА запись, не разбивай на ингредиенты («салат Цезарь», «борщ», «плов», «бургер»). Несколько записей — только если пользователь перечислил несколько разных блюд.
+ШАГ 1. ЧТО ЭТО и СКОЛЬКО ЗАПИСЕЙ.
+  ОДНА запись — если названо одно блюдо, даже составное: «салат Цезарь», «борщ», «плов», «бургер», «паста карбонара», «макароны с сыром», «кофе с молоком». Не разбивай такое на ингредиенты.
+  НЕСКОЛЬКО записей — если человек перечислил то, что едят по отдельности: гарнир и мясо, блюдо и хлеб, еда и напиток, основное и добавка. Слова «и», «с», запятая между самостоятельными продуктами — это перечисление, а не одно блюдо.
+  Разбирай так: «борщ с хлебом и сметаной» → ТРИ записи (борщ, хлеб, сметана); «тарелка гречки с котлетой» → ДВЕ (гречка, котлета); «два яйца и тост с маслом» → ДВЕ (яйца, тост с маслом); «чай и печенье» → ДВЕ.
+  Проверь себя: если в названии записи оказалось перечисление через «и» или «с» из разных продуктов — ты слепил лишнее, раздели. Человеку нужно поправить калории одного продукта, не трогая остальные.
 ШАГ 2. СКОЛЬКО. Названа ли масса или количество (г, мл, штуки, «полтарелки»)?
   ДА → бери названное. Если даны КБЖУ с упаковки на 100 г и масса — пересчитай: итог = значения_на_100г × масса ÷ 100.
   НЕТ → оцени реальную массу стандартной порции этого блюда в граммах.
@@ -495,5 +508,6 @@ module.exports = {
   analyzeImage, analyzeText, reconcileMacros, normalizeDish, modelLabel, calibrateConfidence,
   parseDishes, fallbackDish, visionChain, textChain,
   IMAGE_PROMPT_GPT, IMAGE_PROMPT_GEMINI, TEXT_PROMPT_GPT, TEXT_PROMPT_GEMINI,
-  MODEL, VISION_MODEL, TEXT_MODEL, GEMINI_VISION_MODELS, GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ
+  MODEL, VISION_MODEL, TEXT_MODEL, GEMINI_VISION_MODELS, GEMINI_TEXT_MODELS,
+  GEMINI_DAILY_LIMIT, GEMINI_QUOTA_TZ
 };
