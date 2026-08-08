@@ -27,3 +27,28 @@ describe("costUsd", () => {
     }
   });
 });
+
+// Кэшированный ввод считается вчетверо дешевле. Без этого оценка расходов завышала
+// счёт в ~2.5 раза против реальных данных Costs API — промпт у нас длинный и одинаковый.
+describe("costUsd — кэшированный ввод", () => {
+  test("кэш дешевле обычного ввода", () => {
+    const usage = { prompt_tokens: 1_000_000, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 1_000_000 } };
+    expect(costUsd("gpt-4.1", usage)).toBeCloseTo(PRICING["gpt-4.1"].cached, 5);
+  });
+
+  test("кэш входит в prompt_tokens, а не прибавляется сверху", () => {
+    const half = { prompt_tokens: 1_000_000, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 500_000 } };
+    const expected = 0.5 * PRICING["gpt-4.1"].in + 0.5 * PRICING["gpt-4.1"].cached;
+    expect(costUsd("gpt-4.1", half)).toBeCloseTo(expected, 5);
+  });
+
+  test("без поля деталей считаем всё по полной цене", () => {
+    expect(costUsd("gpt-4.1", { prompt_tokens: 1_000_000, completion_tokens: 0 })).toBeCloseTo(PRICING["gpt-4.1"].in, 5);
+  });
+
+  test("кэша не может быть больше, чем всего ввода", () => {
+    const bogus = { prompt_tokens: 1000, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 999_999 } };
+    expect(costUsd("gpt-4.1", bogus)).toBeGreaterThanOrEqual(0);
+    expect(costUsd("gpt-4.1", bogus)).toBeLessThan(costUsd("gpt-4.1", { prompt_tokens: 1000, completion_tokens: 0 }));
+  });
+});

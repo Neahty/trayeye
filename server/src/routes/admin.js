@@ -8,6 +8,8 @@ const settings = require("../utils/settings");
 const broadcast = require("../services/broadcast");
 const { getUsdRub } = require("../services/fx");
 const openaiCosts = require("../services/openaiCosts");
+const { costUsd } = require("../services/cost");
+const { VISION_MODEL } = require("../services/openai");
 const { parseId } = require("../utils/http");
 const { listPaymentsSummary, listRefundsSummary } = require("../services/yukassa");
 const supportBot = require("../services/supportBot");
@@ -97,13 +99,28 @@ router.get("/dashboard", async (req, res, next) => {
 
     // Остаток баланса OpenAI в рублях: баланс (введён вручную) минус расход с момента ввода.
     // Расход берём из Costs API (реальные деньги), иначе — оценка по ai_usage. Курс — ЦБ РФ.
-    let gptBalanceRub = null, gptBalanceIsReal = false, gptBalanceUpdatedAt = null;
+    let gptBalanceRub = null, gptBalanceIsReal = false, gptBalanceUpdatedAt = null, gptBalanceAgeDays = null;
     const balanceUsd = Number(await settings.get("openai_balance_usd")) || 0;
     if (balanceUsd > 0) {
       const balanceAt = await settings.get("openai_balance_at");
       gptBalanceUpdatedAt = balanceAt || null;
       const sinceMs = balanceAt ? new Date(balanceAt).getTime() : Date.now();
-      const [rate, realSpent] = await Promise.all([getUsdRub(), openaiCosts.getSpentUsdSince(sinceMs)]);
+      gptBalanceAgeDays = Math.floor((Date.now() - sinceMs) / 86400000);
+
+      // Costs API считает сутками, поэтому в день ввода баланса в расход попадало и то,
+      // что потрачено ДО ввода. Берём из тех суток только долю после момента ввода —
+      // пропорцию считаем по своим токенам, они привязаны к точному времени.
+      const [dayRow] = await q(
+        `SELECT COALESCE(SUM(cost_usd),0) AS whole,
+                COALESCE(SUM(cost_usd) FILTER (WHERE created_at >= $1),0) AS after
+         FROM ai_usage WHERE created_at >= date_trunc('day', $1::timestamptz)
+                         AND created_at < date_trunc('day', $1::timestamptz) + interval '1 day'`,
+        [new Date(sinceMs)]
+      );
+      const whole = Number(dayRow.whole) || 0;
+      const firstDayShare = whole > 0 ? (Number(dayRow.after) || 0) / whole : 1;
+
+      const [rate, realSpent] = await Promise.all([getUsdRub(), openaiCosts.getSpentUsdSince(sinceMs, firstDayShare)]);
       let spentUsd = realSpent;
       if (spentUsd == null) {
         const [row] = await q("SELECT COALESCE(SUM(cost_usd),0) AS c FROM ai_usage WHERE created_at >= $1", [new Date(sinceMs)]);
@@ -118,6 +135,7 @@ router.get("/dashboard", async (req, res, next) => {
       gpt_balance_rub: gptBalanceRub,             // остаток в рублях (null → карточка скрыта)
       gpt_balance_is_real: gptBalanceIsReal,      // true = расход из OpenAI, false = оценка по токенам
       gpt_balance_updated_at: gptBalanceUpdatedAt,
+      gpt_balance_age_days: gptBalanceAgeDays,    // сколько дней назад баланс вводили руками
       total_users: totals.c,        // активные (подписчик + не в ЧС) — основной счёт
       active_users: totals.c,
       inactive_users: inactive.c,   // отписались/в ЧС, но данные сохранены
@@ -542,7 +560,8 @@ router.get("/ai", async (req, res, next) => {
               COALESCE(AVG(latency_ms),0)::int AS avg_latency,
               COALESCE(SUM(cost_usd),0) AS total_cost,
               COALESCE(SUM(total_tokens),0)::int AS total_tokens,
-              COUNT(*) FILTER (WHERE status='error')::int AS errors
+              COUNT(*) FILTER (WHERE status='error')::int AS errors,
+              MIN(created_at) AS first_at
        FROM ai_usage`
     );
     const [today] = await q(
@@ -561,16 +580,58 @@ router.get("/ai", async (req, res, next) => {
        ORDER BY tokens DESC LIMIT 20`
     );
 
-    // Курс ЦБ РФ + реальные расходы OpenAI (если есть admin-ключ)
-    const [rate, real] = await Promise.all([getUsdRub(), openaiCosts.getCosts(30)]);
+    // Разбивка по провайдерам за 30 дней: сколько сканов посчитал бесплатный Gemini,
+    // сколько ушло на платный OpenAI. Раньше это было видно только запросом в базу.
+    const providers = await q(
+      `SELECT CASE WHEN model LIKE 'gemini%' THEN 'gemini' ELSE 'openai' END AS provider,
+              COUNT(*)::int AS requests,
+              COALESCE(SUM(prompt_tokens),0)::int AS prompt_tokens,
+              COALESCE(SUM(completion_tokens),0)::int AS completion_tokens,
+              COALESCE(SUM(total_tokens),0)::int AS tokens,
+              COALESCE(SUM(cost_usd),0) AS cost,
+              COALESCE(AVG(latency_ms),0)::int AS avg_latency
+       FROM ai_usage WHERE created_at >= NOW() - interval '30 days'
+       GROUP BY 1 ORDER BY requests DESC`
+    );
+
+    // Доля переделок — измеритель точности ИИ: сколько записей человек поправил или удалил.
+    // Считаем по логам действий (пишутся в routes/scan.js) относительно числа сканов за тот же период.
+    const redo = await q(
+      `SELECT details->>'source' AS source,
+              COUNT(*) FILTER (WHERE action='scan_edit')::int AS edits,
+              COUNT(*) FILTER (WHERE action='scan_delete')::int AS deletes
+       FROM system_logs
+       WHERE action IN ('scan_edit','scan_delete') AND created_at >= NOW() - interval '30 days'
+       GROUP BY 1`
+    );
+    const scanTotals = await q(
+      `SELECT source, COUNT(*)::int AS scans FROM scans
+       WHERE scanned_at >= NOW() - interval '30 days' GROUP BY 1`
+    );
+
+    // Курс ЦБ РФ + реальные расходы OpenAI (если есть admin-ключ).
+    // Окно берём от самого первого обращения к ИИ, а не жёсткие 30 дней — иначе карточка
+    // «Потрачено всего» показывала расход за месяц и занижала сумму в разы.
+    const firstAt = stat.first_at ? new Date(stat.first_at).getTime() : Date.now();
+    const lifetimeDays = Math.ceil((Date.now() - firstAt) / 86400000) + 1;
+    const [rate, real] = await Promise.all([getUsdRub(), openaiCosts.getCosts(lifetimeDays)]);
     const rub = (usd) => Math.round((Number(usd) || 0) * rate);
 
     // Расходы по дням для графика: реальные (OpenAI) если доступны, иначе оценка по токенам
-    const byDayUsd = real?.by_day?.length ? real.by_day : byDay.map((r) => ({ day: r.day, cost: Number(r.cost) || 0 }));
+    const byDayUsd = real?.by_day?.length ? real.by_day.slice(-30) : byDay.map((r) => ({ day: r.day, cost: Number(r.cost) || 0 }));
     const chart = byDayUsd.map((r) => ({ day: r.day, cost_rub: rub(r.cost) }));
 
     const estTotalUsd = Math.round(Number(stat.total_cost) * 1e4) / 1e4;
+    // «Сегодня» всегда считаем оценкой по токенам: Costs API отдаёт текущие сутки с задержкой
+    // (в карточке был ноль при десятках запросов), да и бакеты там по UTC, а мы живём по
+    // Asia/Yekaterinburg — как и все остальные карточки админки.
     const estTodayUsd = Math.round(Number(today.cost) * 1e4) / 1e4;
+
+    // Сколько сэкономил бесплатный Gemini: во что обошлись бы его токены на платной vision-модели.
+    const gem = providers.find((p) => p.provider === "gemini");
+    const savedUsd = gem
+      ? costUsd(VISION_MODEL, { prompt_tokens: gem.prompt_tokens, completion_tokens: gem.completion_tokens })
+      : 0;
 
     res.json({
       requests: stat.requests,
@@ -581,11 +642,35 @@ router.get("/ai", async (req, res, next) => {
 
       usd_rub: Math.round(rate * 100) / 100,
       is_real: Boolean(real),                 // true = реальные деньги из OpenAI, false = оценка по токенам
-      // Итоговые суммы в рублях (реальные, если есть ключ; иначе оценка)
       spent_total_rub: real ? rub(real.total_usd) : rub(estTotalUsd),
-      spent_today_rub: real ? rub(real.today_usd) : rub(estTodayUsd),
-      // На всякий случай оценка по токенам отдельно (в рублях)
+      spent_today_rub: rub(estTodayUsd),      // всегда оценка — см. комментарий выше
+      today_is_estimate: true,
       estimate_total_rub: rub(estTotalUsd),
+
+      // Кто считает и почём (30 дней)
+      providers: providers.map((p, _i, all) => ({
+        provider: p.provider,
+        title: p.provider === "gemini" ? "Gemini (бесплатно)" : "ChatGPT (платно)",
+        requests: p.requests,
+        tokens: p.tokens,
+        avg_latency_ms: p.avg_latency,
+        cost_rub: rub(p.cost),
+        share_percent: Math.round((p.requests / Math.max(all.reduce((a, x) => a + x.requests, 0), 1)) * 1000) / 10
+      })),
+      saved_rub: rub(savedUsd),               // во что обошёлся бы Gemini на платной модели
+
+      // Как часто человек переделывает за ИИ (30 дней)
+      accuracy: scanTotals.map((s) => {
+        const r = redo.find((x) => x.source === s.source) || { edits: 0, deletes: 0 };
+        return {
+          source: s.source,
+          title: s.source === "photo" ? "Фото" : "Текст",
+          scans: s.scans,
+          edits: r.edits,
+          deletes: r.deletes,
+          redo_percent: s.scans ? Math.round(((r.edits + r.deletes) / s.scans) * 1000) / 10 : 0
+        };
+      }),
 
       chart, // [{ day, cost_rub }]
       top_users: topUsers.map((r) => ({

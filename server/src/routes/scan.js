@@ -253,6 +253,9 @@ router.patch("/:id", auth, async (req, res, next) => {
     if (Object.values(num).some((v) => Number.isNaN(v))) {
       return res.status(400).json({ error: "bad_number" });
     }
+    // Состояние ДО правки нужно, чтобы записать в лог, что именно человек переделал за ИИ.
+    // Доля правок — единственный честный измеритель точности распознавания.
+    const { rows: before } = await db.query("SELECT * FROM scans WHERE id=$1 AND user_id=$2", [id, req.user.id]);
     const { rows } = await db.query(
       `UPDATE scans SET
          dish_name = COALESCE($3, dish_name),
@@ -269,6 +272,25 @@ router.patch("/:id", auth, async (req, res, next) => {
        MEAL_TYPES.includes(meal_type) ? meal_type : null]
     );
     if (!rows.length) return res.status(404).json({ error: "not_found" });
+
+    const was = before[0];
+    if (was) {
+      const now = rows[0];
+      const fields = ["dish_name", "calories", "protein", "fat", "carbs", "weight_grams", "meal_type"];
+      const changed = fields.filter((f) => String(was[f] ?? "") !== String(now[f] ?? ""));
+      if (changed.length) {
+        await db.logAction(req.user.id, "scan_edit", {
+          scan_id: id,
+          source: was.source,                 // photo / text — чтобы считать точность по каналу
+          ai_confidence: was.ai_confidence,   // сработала ли плашка «проверьте запись»
+          changed,
+          calories_before: was.calories,
+          calories_after: now.calories,
+          weight_before: was.weight_grams != null ? Number(was.weight_grams) : null,
+          weight_after: now.weight_grams != null ? Number(now.weight_grams) : null
+        });
+      }
+    }
     res.json({ scan: rows[0] });
   } catch (err) {
     next(err);
@@ -280,11 +302,22 @@ router.delete("/:id", auth, async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "bad_id" });
-    const { rowCount } = await db.query(
-      "DELETE FROM scans WHERE id = $1 AND user_id = $2",
+    // RETURNING — чтобы записать в лог, что именно удалили: удаление скана это тоже
+    // оценка работы ИИ («посчитал не то»), и без него доля переделок будет занижена.
+    const { rows } = await db.query(
+      "DELETE FROM scans WHERE id = $1 AND user_id = $2 RETURNING *",
       [id, req.user.id]
     );
-    if (!rowCount) return res.status(404).json({ error: "not_found" });
+    if (!rows.length) return res.status(404).json({ error: "not_found" });
+    const was = rows[0];
+    await db.logAction(req.user.id, "scan_delete", {
+      scan_id: id,
+      source: was.source,
+      ai_confidence: was.ai_confidence,
+      is_manual: was.is_manual,
+      dish_name: was.dish_name,
+      calories: was.calories
+    });
     res.json({ ok: true });
   } catch (err) {
     next(err);

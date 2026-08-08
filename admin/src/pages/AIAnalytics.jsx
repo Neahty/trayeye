@@ -11,6 +11,8 @@ export default function AIAnalytics() {
 
   const byDay = (data.chart || []).map((r) => ({ day: fmtDay(r.day), Расход: Number(r.cost_rub) || 0 }));
   const seconds = ((data.avg_latency_ms || 0) / 1000).toFixed(1);
+  const providers = data.providers || [];
+  const accuracy = data.accuracy || [];
 
   return (
     <div>
@@ -20,15 +22,59 @@ export default function AIAnalytics() {
         {data.is_real
           ? `Суммы — реальные расходы из OpenAI, пересчитаны в рубли по курсу ЦБ РФ (${data.usd_rub} ₽ за $1).`
           : `OpenAI admin-ключ не задан — показана примерная оценка по объёму запросов. Курс ЦБ РФ: ${data.usd_rub} ₽ за $1.`}
+        {" "}Расход за сегодня — всегда оценка по токенам: OpenAI отдаёт факт за текущие сутки с задержкой.
       </div>
 
       <div className="grid cols-4">
-        <Stat label="Потрачено всего" value={rub(data.spent_total_rub)} />
-        <Stat label="Потрачено сегодня" value={rub(data.spent_today_rub)} sub={data.requests_today + " обращений за сегодня"} />
+        <Stat label="Потрачено за всё время" value={rub(data.spent_total_rub)} />
+        <Stat label="Потрачено сегодня" value={rub(data.spent_today_rub)}
+          sub={`оценка · ${data.requests_today} обращений за сегодня`} />
+        <Stat label="Сэкономил бесплатный Gemini" value={rub(data.saved_rub)} sub="за 30 дней, если бы считал ChatGPT" />
         <Stat label="Всего обращений к ИИ" value={(data.requests || 0).toLocaleString("ru-RU")} />
         <Stat label="Среднее время ответа" value={seconds + " сек"} />
         <Stat label="Ошибок при обработке" value={data.errors} />
         <Stat label="Курс доллара (ЦБ РФ)" value={data.usd_rub + " ₽"} />
+      </div>
+
+      <div className="section-title">Кто считает еду (за 30 дней)</div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Провайдер</th><th>Обращений</th><th>Доля</th><th>Ответ</th><th>Расход</th></tr></thead>
+          <tbody>
+            {providers.map((p) => (
+              <tr key={p.provider}>
+                <td data-label="Провайдер">{p.title}</td>
+                <td data-label="Обращений">{(p.requests || 0).toLocaleString("ru-RU")}</td>
+                <td data-label="Доля">{p.share_percent}%</td>
+                <td data-label="Ответ">{((p.avg_latency_ms || 0) / 1000).toFixed(1)} сек</td>
+                <td data-label="Расход">{rub(p.cost_rub)}</td>
+              </tr>
+            ))}
+            {!providers.length && <tr><td colSpan={5} className="muted" style={{ textAlign: "center" }}>Пока нет данных</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="section-title">Как часто люди переделывают за ИИ (за 30 дней)</div>
+      <div className="muted" style={{ marginTop: -8, marginBottom: 10, fontSize: 13 }}>
+        Чем ниже доля переделок, тем точнее считает ИИ. Резкий рост после смены модели — повод откатиться.
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Способ</th><th>Сканов</th><th>Поправили</th><th>Удалили</th><th>Доля переделок</th></tr></thead>
+          <tbody>
+            {accuracy.map((a) => (
+              <tr key={a.source}>
+                <td data-label="Способ">{a.title}</td>
+                <td data-label="Сканов">{(a.scans || 0).toLocaleString("ru-RU")}</td>
+                <td data-label="Поправили">{a.edits}</td>
+                <td data-label="Удалили">{a.deletes}</td>
+                <td data-label="Доля переделок">{a.redo_percent}%</td>
+              </tr>
+            ))}
+            {!accuracy.length && <tr><td colSpan={5} className="muted" style={{ textAlign: "center" }}>Пока нет данных</td></tr>}
+          </tbody>
+        </table>
       </div>
 
       <div className="chart-card" style={{ marginTop: 20 }}>
