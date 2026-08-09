@@ -7,6 +7,7 @@ const { backupDatabase } = require("./backup");
 const settings = require("../utils/settings");
 const notify = require("../services/notify");
 const channelLog = require("../services/channelLog");
+const notifyLog = require("../services/notifyLog");
 const channelMembership = require("../services/channelMembership");
 const { subscriptionReminders, _internal: subRem } = require("./subscriptionReminders");
 // Переиспользуем механику подписочных напоминаний: подстановка плейсхолдеров,
@@ -104,6 +105,8 @@ async function mealReminders() {
        AND u.app_opened = TRUE`
   );
   let sent = 0, failed = 0, skipped = 0, blocked = 0;
+  // Разбивка по приёмам пищи — для сводки в канал логов («разослали 128 напоминаний про завтрак»).
+  const byMeal = {};
   for (const r of rows) {
     const meals = hourMeals[r.h];
     if (!meals) { skipped++; continue; }
@@ -144,6 +147,7 @@ async function mealReminders() {
           }
         } else {
           sent++;
+          byMeal[meal] = (byMeal[meal] || 0) + 1;
         }
       } catch (e) {
         failed++;
@@ -152,6 +156,8 @@ async function mealReminders() {
     }
   }
   console.log(`[cron] mealReminders -> sent=${sent} failed=${failed} blocked=${blocked} skipped=${skipped}`);
+  // Сводка в канал логов — общими цифрами, без перечисления людей.
+  await notifyLog.mealRun({ byMeal, failed, blocked }).catch((e) => console.error("[cron] mealReminders log:", e.message));
 }
 
 // Тестовое напоминание о еде самому себе (кнопка «Проверить на себе» в админке):
@@ -177,7 +183,10 @@ async function sendTestMealReminder({ meal, user }) {
   };
   const text = pickTemplate(templates, user.id, Math.floor(Math.random() * 100), data);
   if (!text) return { ok: false, error: "no_templates" };
-  return sendMessage(user.telegram_id, `🧪 Тест — так это увидит пользователь:\n\n${text}`);
+  const res = await sendMessage(user.telegram_id, `🧪 Тест — так это увидит пользователь:\n\n${text}`);
+  // В канал логов — только про реально ушедший тест (в mock-режиме отправки не было).
+  if (res && res.ok !== false) notifyLog.test(user.id, meal).catch(() => {});
+  return res;
 }
 
 // ежедневно 03:00 — удаление фото старше 12 месяцев
@@ -299,6 +308,9 @@ function start() {
   cron.schedule("5 * * * *", () => subscriptionReminders().catch((e) => console.error(e.message)));
   // Детектор окончания подписок — ежечасно на 10-й минуте (не сливается с другими джобами).
   cron.schedule("10 * * * *", () => subscriptionExpiryCheck().catch((e) => console.error(e.message)));
+  // Сводка мелких уведомлений (тренерам, подтверждения оплат) — ежечасно на 50-й минуте,
+  // ближе к концу часа, чтобы в неё попало почти всё, что накопилось.
+  cron.schedule("50 * * * *", () => notifyLog.flushDigest().catch((e) => console.error("[cron] notifyDigest:", e.message)));
   cron.schedule("0 3 * * *", () => cleanOldPhotos().catch((e) => console.error(e.message)));
   cron.schedule("30 3 * * *", () => cleanOldLogRefs().catch((e) => console.error("[cron] cleanOldLogRefs:", e.message)));
   // Сотрудники-пиарщики: проверка рефералов через 24 ч + доатрибуция оплат — ежечасно на :20.

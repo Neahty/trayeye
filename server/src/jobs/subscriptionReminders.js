@@ -11,6 +11,7 @@ const db = require("../db");
 const settings = require("../utils/settings");
 const { sendMessage } = require("../services/telegram");
 const channelMembership = require("../services/channelMembership");
+const notifyLog = require("../services/notifyLog");
 
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "Bytwise_bot";
 
@@ -252,6 +253,9 @@ async function subscriptionReminders({ force = false, blast = false } = {}) {
   );
 
   let sent = 0, failed = 0, skipped = 0, blocked = 0;
+  // Разбивка по поводам (ключи reminders.texts) — для сводки в канал логов.
+  // Именно textsKey, а не plan.kind: в ручной рассылке kind'ы свои (manual_*), а повод тот же.
+  const byKind = {};
   for (const r of rows) {
     // Предохранитель: не больше одного напоминания в сутки на человека
     // (ручная рассылка и вечерний крон не должны приходить в один день).
@@ -307,9 +311,13 @@ async function subscriptionReminders({ force = false, blast = false } = {}) {
       }
     } else {
       sent++;
+      byKind[plan.textsKey] = (byKind[plan.textsKey] || 0) + 1;
     }
   }
   console.log(`[cron] subscriptionReminders${blast ? " (blast)" : ""} -> sent=${sent} failed=${failed} blocked=${blocked} skipped=${skipped} (of ${rows.length})`);
+  // Сводка в канал логов — общими цифрами по поводам, без перечисления людей.
+  await notifyLog.subscriptionRun({ byKind, failed, blocked, blast })
+    .catch((e) => console.error("[cron] subscriptionReminders log:", e.message));
   return { sent, failed, blocked, skipped, total: rows.length };
 }
 
@@ -353,7 +361,7 @@ async function sendTestReminder({ kind, user }) {
     ? (cfg.abandoned_button_text || "Оформить подписку")
     : (cfg.button_text || "Продлить подписку");
 
-  return sendMessage(user.telegram_id, `🧪 Тест — так это увидит пользователь:\n\n${text}`, {
+  const res = await sendMessage(user.telegram_id, `🧪 Тест — так это увидит пользователь:\n\n${text}`, {
     reply_markup: {
       inline_keyboard: [[{
         text: buttonText,
@@ -361,6 +369,9 @@ async function sendTestReminder({ kind, user }) {
       }]]
     }
   });
+  // В канал логов — только про реально ушедший тест (в mock-режиме отправки не было).
+  if (res && res.ok !== false) notifyLog.test(user.id, kind).catch(() => {});
+  return res;
 }
 
 module.exports = {

@@ -2,6 +2,7 @@ const db = require("../db");
 const { sendMessage, getUserProfilePhotoFileId } = require("./telegram");
 const settings = require("../utils/settings");
 const channelLog = require("./channelLog");
+const notifyLog = require("./notifyLog");
 
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "Bytwise_bot";
 
@@ -40,14 +41,17 @@ async function notifyTrainerOfClientScan(clientUser) {
   const trainer = await getTelegramId(rows[0].trainer_id);
   if (!trainer || !trainer.notifications_enabled) return;
   const clientName = clientUser.name || clientUser.username || "Клиент";
-  await sendMessage(trainer.telegram_id, `📋 ${clientName} добавил запись о питании`);
+  const res = await sendMessage(trainer.telegram_id, `📋 ${clientName} добавил запись о питании`);
+  // Такое уходит на каждую запись клиента — в канал попадёт числом в почасовой сводке.
+  if (res && res.ok !== false) notifyLog.counted("trainer_scan");
 }
 
 // Клиенту: тренер оставил комментарий
 async function notifyClientOfComment(clientId) {
   const client = await getTelegramId(clientId);
   if (!client || !client.notifications_enabled) return;
-  await sendMessage(client.telegram_id, "💬 Тренер оставил комментарий к вашей записи");
+  const res = await sendMessage(client.telegram_id, "💬 Тренер оставил комментарий к вашей записи");
+  if (res && res.ok !== false) notifyLog.counted("trainer_comment");
 }
 
 // --- Уведомления по платежам ---
@@ -166,12 +170,15 @@ async function notifyPurchase(userId, { amount, type, renewal = false } = {}) {
   const user = await getTelegramId(userId);
   if (user) {
     try {
-      await sendMessage(
+      const res = await sendMessage(
         user.telegram_id,
         renewal
           ? `✅ Подписка <b>Bytwise ${title}</b> продлена!\nСпасибо, что остаёшься с нами 💜 Доступ ко всем функциям сохранён.`
           : `✅ Подписка <b>Bytwise ${title}</b> успешно оформлена!\nСпасибо за поддержку 💜 Все функции уже доступны — открывай приложение.`
       );
+      // Сам факт оплаты логируется ниже отдельным сообщением, поэтому подтверждение
+      // клиенту идёт числом в почасовую сводку — чтобы не дублировать одно событие дважды.
+      if (res && res.ok !== false) notifyLog.counted(renewal ? "purchase_renew" : "purchase");
     } catch { /* пользователь мог не нажать Start / заблокировать бота */ }
   }
   const who = await userLabel(userId);
@@ -262,9 +269,10 @@ async function sendAbandonedCart(userId, { amount, type, when } = {}) {
   if (!ins.rows.length) return;
 
   const stats = await loadPersonalStats(userId, u.timezone || "Europe/Moscow").catch(() => ({}));
+  const tariff = await tariffTitle(type);
   const text = pickTemplate(cfg.texts.payment_abandoned, userId, 0, {
     name: (u.name || "").trim() || null,
-    tariff: await tariffTitle(type),
+    tariff,
     price: amount ?? null,
     ...stats
   });
@@ -279,6 +287,10 @@ async function sendAbandonedCart(userId, { amount, type, when } = {}) {
     }
   });
   if (res && res.error_code === 403) await channelMembership.markUnreachable(userId);
+  // Догонялка уходит единицам в день — пишем в канал сразу и с именем.
+  if (res && res.ok !== false) {
+    notifyLog.abandonedCart(userId, { tariff, price: amount ?? null }).catch(() => {});
+  }
 }
 
 // Возврат платежа — подробное уведомление админам.
@@ -310,10 +322,11 @@ async function notifyClientConnected(clientId, trainer) {
   const client = await getTelegramId(clientId);
   if (!client) return;
   try {
-    await sendMessage(
+    const res = await sendMessage(
       client.telegram_id,
       `🤝 Вы подключены к тренеру ${labelOf(trainer)}.\nДоступ к Bytwise PRO открыт, пока активна подписка тренера.`
     );
+    if (res && res.ok !== false) notifyLog.counted("trainer_link");
   } catch { /* клиент мог не нажать Start */ }
 }
 
@@ -323,7 +336,8 @@ async function notifyTrainerNewClient(trainerId, clientId) {
   if (!trainer) return;
   const who = await userLabel(clientId);
   try {
-    await sendMessage(trainer.telegram_id, `🙋 К вам подключился новый клиент: ${who}`);
+    const res = await sendMessage(trainer.telegram_id, `🙋 К вам подключился новый клиент: ${who}`);
+    if (res && res.ok !== false) notifyLog.counted("trainer_link");
   } catch { /* тренер мог не нажать Start */ }
 }
 

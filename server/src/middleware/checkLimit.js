@@ -4,6 +4,7 @@ const settings = require("../utils/settings");
 const { userTz } = require("../utils/tz");
 const { countScansToday, trialDaysLeft } = require("../utils/scanUsage");
 const { sendMessage } = require("../services/telegram");
+const notifyLog = require("../services/notifyLog");
 
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "Bytwise_bot";
 
@@ -29,6 +30,11 @@ async function maybeSendLimitPush(user, dailyLimit, tz, daysLeft) {
   // Заблокировал бота / не начинал диалог — помечаем, чтобы не слать впустую (как в broadcast.js).
   if (res && res.error_code === 403) {
     await db.query("UPDATE users SET tg_unreachable = TRUE WHERE id = $1", [user.id]);
+  }
+  // Пуш уходит не чаще раза в сутки на человека — в канал пишем сразу и с именем:
+  // «упёрся в лимит» это сигнал о готовности купить, а не фоновый шум.
+  if (res && res.ok !== false) {
+    notifyLog.limitPush(user.id, { limit: dailyLimit, daysLeft }).catch(() => {});
   }
 }
 

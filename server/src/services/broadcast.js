@@ -1,6 +1,7 @@
 // Массовые рассылки через Telegram-бот с трекингом доставки/кликов.
 const db = require("../db");
 const { sendMessage, sendPhoto } = require("./telegram");
+const notifyLog = require("./notifyLog");
 
 const SERVER_URL = process.env.SERVER_URL || "";
 
@@ -133,6 +134,9 @@ async function runBroadcast(broadcastId) {
     action: "broadcast", broadcast_id: broadcast.id, audience: broadcast.audience,
     sent: users.length, delivered
   });
+  // Итог в канал логов — общими цифрами, без перечисления получателей.
+  await notifyLog.broadcastRun(broadcast, { sent: users.length, delivered })
+    .catch((e) => console.error("[broadcast] log:", e.message));
 }
 
 module.exports = { createBroadcast, runBroadcast, recipients, audienceSql };
