@@ -329,9 +329,10 @@ async function onDmAction(ctx) {
     }
 
     // Переписываем карточку в итог — заодно пропадает клавиатура, повторно не нажать.
+    // Текст сообщения в итог НЕ переносим: админ только что сам его написал, показывать
+    // ему же обратно в канале нечего. Сам текст остаётся в channel_messages.
     await ctx.editMessageText(
       `✉️ Отправлено ${label(res.user)}\n\n` +
-      `<blockquote>${esc(res.draft.text)}</blockquote>\n\n` +
       `Кто: ${actorLabel(ctx.from)} · ${notify.fmtWhen()}`,
       { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
     ).catch((e) => console.error("[logModeration] editMessageText:", e.message));
