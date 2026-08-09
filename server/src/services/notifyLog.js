@@ -2,14 +2,13 @@
 // Раньше в канал попадали только события «что случилось» (оплатил, написал, вышел),
 // а сами рассылки шли молча — владелец узнавал о них только из админки.
 //
-// Три режима, по частоте события:
+// Два режима, по охвату события:
 //   • сводки массовых рассылок (mealRun / subscriptionRun / broadcastRun) — прогон закончился,
 //     пишем одну сводку с цифрами и БЕЗ перечисления людей: «разослали 128 напоминаний про
 //     завтрак», а не 128 сообщений в канал;
-//   • точечные уведомления (abandonedCart / limitPush / test) — одному человеку, таких единицы
-//     в день, поэтому пишем сразу и с именем;
-//   • counted() — мелкие частые уведомления (тренеру о записи клиента, подтверждения оплат):
-//     копим счётчики в памяти и раз в час отдаём одной сводкой, иначе канал станет лентой.
+//   • всё остальное — уведомление одному человеку: пишем в канал в тот же момент, когда оно
+//     ушло получателю, и с именем. Сообщение привязано к тому, КОМУ оно ушло (`postFor`),
+//     поэтому на него работает реплай `.запретить` из logModeration.
 //
 // Ошибки отправки гасит channelLog — лог не должен ронять сами уведомления.
 const channelLog = require("./channelLog");
@@ -190,40 +189,80 @@ async function test(userId, kind) {
   );
 }
 
-// --- Почасовая сводка мелких уведомлений ---
+// --- Мелкие уведомления (тренер ↔ клиент, подтверждения оплат) ---
+// Отдельный тумблер `notify_small`: этих сообщений больше всего, и если станет шумно,
+// их выключают, не теряя догонялку и апселл лимита.
 
-const DIGEST_LABELS = {
-  trainer_scan: "📋 Тренерам — клиент добавил запись",
-  trainer_comment: "💬 Клиентам — тренер оставил комментарий",
-  trainer_link: "🤝 Тренер и клиент подключились",
-  purchase: "✅ Подтверждения оплаты",
-  purchase_renew: "🔁 Подтверждения продления"
-};
-
-let counters = Object.create(null);
-
-// Отметить одно мелкое уведомление. Ничего не отправляет — только копит до сводки.
-// Неизвестные ключи игнорируем: в сводке всё равно нечем их подписать.
-function counted(kind) {
-  if (!DIGEST_LABELS[kind]) return;
-  counters[kind] = (counters[kind] || 0) + 1;
+// Тренеру — клиент добавил запись о питании. Уходит на КАЖДУЮ запись клиента,
+// поэтому текст короткий: длинная карточка тут только мешала бы читать канал.
+async function trainerClientScan(trainerId, clientId) {
+  const [trainerWho, clientWho] = await Promise.all([
+    notify().userLabel(trainerId),
+    notify().userLabel(clientId)
+  ]);
+  await channelLog.postFor(
+    "notify_small",
+    trainerId,
+    `📋 <b>Уведомили тренера о записи клиента</b>\n\n` +
+    `Тренеру ${trainerWho}: клиент ${clientWho} добавил запись о питании.\n` +
+    when()
+  );
 }
 
-// Почасовая сводка. Счётчики живут в памяти процесса: при рестарте теряется хвост
-// текущего часа — это лог для владельца, а не отчётность, пара строк не критична.
-async function flushDigest() {
-  const snapshot = counters;
-  counters = Object.create(null);
-  const lines = Object.entries(DIGEST_LABELS)
-    .filter(([kind]) => snapshot[kind])
-    .map(([kind, label]) => `${label}: ${snapshot[kind]}`);
-  if (!lines.length) return;
-  const total = Object.values(snapshot).reduce((a, b) => a + b, 0);
-  await channelLog.post(
-    "notify_digest",
-    `📨 <b>Мелкие уведомления за час</b>\n\n` +
-    `${lines.join("\n")}\n\n` +
-    `Всего: ${total}\n` +
+// Клиенту — тренер оставил комментарий к его записи.
+async function trainerComment(clientId) {
+  const who = await notify().userLabel(clientId);
+  await channelLog.postFor(
+    "notify_small",
+    clientId,
+    `💬 <b>Уведомили клиента о комментарии тренера</b>\n\n` +
+    `Написали ${who}: тренер прокомментировал его запись.\n` +
+    when()
+  );
+}
+
+// Клиенту — его подключили к тренеру, PRO открыт. trainerId может не приехать
+// (роут отдаёт объект пользователя) — тогда просто не называем тренера.
+async function clientConnected(clientId, trainerId) {
+  const clientWho = await notify().userLabel(clientId);
+  const trainerWho = trainerId ? await notify().userLabel(trainerId) : null;
+  await channelLog.postFor(
+    "notify_small",
+    clientId,
+    `🤝 <b>Уведомили клиента о подключении к тренеру</b>\n\n` +
+    `Написали ${clientWho}: он подключён к тренеру${trainerWho ? ` ${trainerWho}` : ""}, ` +
+    `доступ к PRO открыт.\n` +
+    when()
+  );
+}
+
+// Тренеру — к нему подключился новый клиент.
+async function trainerNewClient(trainerId, clientId) {
+  const [trainerWho, clientWho] = await Promise.all([
+    notify().userLabel(trainerId),
+    notify().userLabel(clientId)
+  ]);
+  await channelLog.postFor(
+    "notify_small",
+    trainerId,
+    `🙋 <b>Уведомили тренера о новом клиенте</b>\n\n` +
+    `Написали тренеру ${trainerWho}: к нему подключился ${clientWho}.\n` +
+    when()
+  );
+}
+
+// Подтверждение оплаты самому покупателю. Сам факт оплаты пишется отдельно (тумблер
+// `payments`) — здесь именно про то, что человек получил сообщение от бота.
+async function purchaseConfirmed(userId, { tariff, renewal = false } = {}) {
+  const who = await notify().userLabel(userId);
+  await channelLog.postFor(
+    "notify_small",
+    userId,
+    (renewal
+      ? `🔁 <b>Отправили подтверждение продления</b>\n\n`
+      : `✅ <b>Отправили подтверждение оплаты</b>\n\n`) +
+    `Написали ${who}: подписка <b>${esc(tariff || "—")}</b> ` +
+    `${renewal ? "продлена" : "оформлена"}, доступ открыт.\n` +
     when()
   );
 }
@@ -235,6 +274,9 @@ module.exports = {
   abandonedCart,
   limitPush,
   test,
-  counted,
-  flushDigest
+  trainerClientScan,
+  trainerComment,
+  clientConnected,
+  trainerNewClient,
+  purchaseConfirmed
 };

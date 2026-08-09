@@ -38,12 +38,12 @@ async function notifyTrainerOfClientScan(clientUser) {
     [clientUser.id]
   );
   if (!rows.length) return;
-  const trainer = await getTelegramId(rows[0].trainer_id);
+  const trainerId = rows[0].trainer_id;
+  const trainer = await getTelegramId(trainerId);
   if (!trainer || !trainer.notifications_enabled) return;
   const clientName = clientUser.name || clientUser.username || "Клиент";
   const res = await sendMessage(trainer.telegram_id, `📋 ${clientName} добавил запись о питании`);
-  // Такое уходит на каждую запись клиента — в канал попадёт числом в почасовой сводке.
-  if (res && res.ok !== false) notifyLog.counted("trainer_scan");
+  if (res && res.ok !== false) notifyLog.trainerClientScan(trainerId, clientUser.id).catch(() => {});
 }
 
 // Клиенту: тренер оставил комментарий
@@ -51,7 +51,7 @@ async function notifyClientOfComment(clientId) {
   const client = await getTelegramId(clientId);
   if (!client || !client.notifications_enabled) return;
   const res = await sendMessage(client.telegram_id, "💬 Тренер оставил комментарий к вашей записи");
-  if (res && res.ok !== false) notifyLog.counted("trainer_comment");
+  if (res && res.ok !== false) notifyLog.trainerComment(clientId).catch(() => {});
 }
 
 // --- Уведомления по платежам ---
@@ -166,7 +166,9 @@ async function userLabel(userId) {
 // Успешная оплата: пользователю — подтверждение, админам — уведомление о покупке.
 // renewal=true — повторная оплата (продление): другой заголовок и отдельный тип лога.
 async function notifyPurchase(userId, { amount, type, renewal = false } = {}) {
-  const title = esc(await tariffTitle(type));
+  // rawTitle — для notifyLog, он экранирует сам; title — уже готовый к вставке в HTML.
+  const rawTitle = await tariffTitle(type);
+  const title = esc(rawTitle);
   const user = await getTelegramId(userId);
   if (user) {
     try {
@@ -176,9 +178,7 @@ async function notifyPurchase(userId, { amount, type, renewal = false } = {}) {
           ? `✅ Подписка <b>Bytwise ${title}</b> продлена!\nСпасибо, что остаёшься с нами 💜 Доступ ко всем функциям сохранён.`
           : `✅ Подписка <b>Bytwise ${title}</b> успешно оформлена!\nСпасибо за поддержку 💜 Все функции уже доступны — открывай приложение.`
       );
-      // Сам факт оплаты логируется ниже отдельным сообщением, поэтому подтверждение
-      // клиенту идёт числом в почасовую сводку — чтобы не дублировать одно событие дважды.
-      if (res && res.ok !== false) notifyLog.counted(renewal ? "purchase_renew" : "purchase");
+      if (res && res.ok !== false) notifyLog.purchaseConfirmed(userId, { tariff: rawTitle, renewal }).catch(() => {});
     } catch { /* пользователь мог не нажать Start / заблокировать бота */ }
   }
   const who = await userLabel(userId);
@@ -326,7 +326,8 @@ async function notifyClientConnected(clientId, trainer) {
       client.telegram_id,
       `🤝 Вы подключены к тренеру ${labelOf(trainer)}.\nДоступ к Bytwise PRO открыт, пока активна подписка тренера.`
     );
-    if (res && res.ok !== false) notifyLog.counted("trainer_link");
+    // trainer приходит объектом пользователя от роутов — id берём аккуратно.
+    if (res && res.ok !== false) notifyLog.clientConnected(clientId, trainer?.id).catch(() => {});
   } catch { /* клиент мог не нажать Start */ }
 }
 
@@ -337,7 +338,7 @@ async function notifyTrainerNewClient(trainerId, clientId) {
   const who = await userLabel(clientId);
   try {
     const res = await sendMessage(trainer.telegram_id, `🙋 К вам подключился новый клиент: ${who}`);
-    if (res && res.ok !== false) notifyLog.counted("trainer_link");
+    if (res && res.ok !== false) notifyLog.trainerNewClient(trainerId, clientId).catch(() => {});
   } catch { /* тренер мог не нажать Start */ }
 }
 

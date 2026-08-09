@@ -308,9 +308,6 @@ function start() {
   cron.schedule("5 * * * *", () => subscriptionReminders().catch((e) => console.error(e.message)));
   // Детектор окончания подписок — ежечасно на 10-й минуте (не сливается с другими джобами).
   cron.schedule("10 * * * *", () => subscriptionExpiryCheck().catch((e) => console.error(e.message)));
-  // Сводка мелких уведомлений (тренерам, подтверждения оплат) — ежечасно на 50-й минуте,
-  // ближе к концу часа, чтобы в неё попало почти всё, что накопилось.
-  cron.schedule("50 * * * *", () => notifyLog.flushDigest().catch((e) => console.error("[cron] notifyDigest:", e.message)));
   cron.schedule("0 3 * * *", () => cleanOldPhotos().catch((e) => console.error(e.message)));
   cron.schedule("30 3 * * *", () => cleanOldLogRefs().catch((e) => console.error("[cron] cleanOldLogRefs:", e.message)));
   // Сотрудники-пиарщики: проверка рефералов через 24 ч + доатрибуция оплат — ежечасно на :20.
