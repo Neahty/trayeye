@@ -21,3 +21,4 @@ claude/
 .deploy-state/
 dist.new/
 dist.old/
+backups/
