@@ -10,6 +10,15 @@ const PERIOD_DAYS = { day: 1, week: 7, month: 30, year: 365 };
 // Гранулярность столбцов графика по периоду: день/неделя — по дням, месяц — по неделям, год — по месяцам.
 const PERIOD_GRAN = { day: "day", week: "day", month: "week", year: "month" };
 
+// Границы периода — КАЛЕНДАРНЫЕ сутки в поясе пользователя.
+// Раньше здесь было скользящее окно `scanned_at >= NOW() - N days`, то есть последние N×24
+// часов от текущего момента, тогда как бакеты графика группировались по календарной дате.
+// Две разные системы отсчёта в одном запросе давали расхождение с экраном «История»: при
+// period=day в статистику попадал ещё и вчерашний вечер, поэтому «сегодня» показывало сумму
+// за двое суток, activeDays равнялся 2, и средние за день с приёмами занижались вдвое.
+// Плейсхолдеры фиксированы во всех запросах ниже: $1 = userId, $2 = days, $3 = tz.
+const PERIOD_WHERE = "(scanned_at AT TIME ZONE $3)::date > (NOW() AT TIME ZONE $3)::date - $2::int";
+
 // Поддерживающий TDEE (без goal-дельты) — для «Баланс калорий».
 function maintenanceTdee(u) {
   if (!u.gender || !u.age || !u.height || !u.weight) return null;
@@ -37,7 +46,7 @@ async function computeStats(user, periodRaw) {
               SUM(fat) AS fat,
               SUM(carbs) AS carbs
        FROM scans
-       WHERE user_id = $1 AND scanned_at >= NOW() - ($2 || ' days')::interval
+       WHERE user_id = $1 AND ${PERIOD_WHERE}
        GROUP BY day ORDER BY day ASC`,
       [userId, days, tz, granularity]
     );
@@ -70,7 +79,7 @@ async function computeStats(user, periodRaw) {
     const activeRows = await db.query(
       `SELECT COUNT(DISTINCT (scanned_at AT TIME ZONE $3)::date)::int AS active_days
        FROM scans
-       WHERE user_id = $1 AND scanned_at >= NOW() - ($2 || ' days')::interval`,
+       WHERE user_id = $1 AND ${PERIOD_WHERE}`,
       [userId, days, tz]
     );
     const activeDays = activeRows.rows[0]?.active_days || 0;
@@ -106,17 +115,17 @@ async function computeStats(user, periodRaw) {
     // Топ частых блюд
     const topFrequent = await db.query(
       `SELECT dish_name, COUNT(*)::int AS count FROM scans
-       WHERE user_id = $1 AND scanned_at >= NOW() - ($2 || ' days')::interval
+       WHERE user_id = $1 AND ${PERIOD_WHERE}
        GROUP BY dish_name ORDER BY count DESC LIMIT 5`,
-      [userId, days]
+      [userId, days, tz]
     );
 
     // Топ калорийных блюд
     const topCalorie = await db.query(
       `SELECT dish_name, calories FROM scans
-       WHERE user_id = $1 AND scanned_at >= NOW() - ($2 || ' days')::interval
-       ORDER BY calories DESC LIMIT 5`,
-      [userId, days]
+       WHERE user_id = $1 AND ${PERIOD_WHERE}
+       ORDER BY calories DESC NULLS LAST LIMIT 5`,
+      [userId, days, tz]
     );
 
     // История веса
@@ -131,9 +140,9 @@ async function computeStats(user, periodRaw) {
       `SELECT meal_type, SUM(calories)::int AS calories,
               SUM(protein) AS protein, SUM(fat) AS fat, SUM(carbs) AS carbs, COUNT(*)::int AS count
        FROM scans
-       WHERE user_id = $1 AND scanned_at >= NOW() - ($2 || ' days')::interval
+       WHERE user_id = $1 AND ${PERIOD_WHERE}
        GROUP BY meal_type`,
-      [userId, days]
+      [userId, days, tz]
     );
     const meal_breakdown = { breakfast: 0, lunch: 0, dinner: 0, snack: 0 };
     for (const r of mealRows.rows) {
@@ -148,8 +157,8 @@ async function computeStats(user, periodRaw) {
               COUNT(*) FILTER (WHERE source = 'photo')::int AS photos,
               COUNT(DISTINCT COALESCE(batch_id, id::text))::int AS meals
        FROM scans
-       WHERE user_id = $1 AND scanned_at >= NOW() - ($2 || ' days')::interval`,
-      [userId, days]
+       WHERE user_id = $1 AND ${PERIOD_WHERE}`,
+      [userId, days, tz]
     );
     const totalMeals = countRows.rows[0]?.meals || 0;
     // Приёмов пищи в день — в среднем по ДНЯМ С ЗАПИСЯМИ (активным), а не по всем календарным:

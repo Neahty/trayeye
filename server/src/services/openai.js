@@ -336,10 +336,31 @@ function normalizeDish(d) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Общий бюджет времени на ОДИН скан — на всю цепочку провайдеров вместе.
+// Без него арифметика была такая: 3 провайдера × 2 попытки разбора × 3 ретрая × 60 с
+// таймаута = до девяти минут на один запрос. Пользователь всё это время видел вечную
+// загрузку, отваливался по своему таймауту и жал «Сканировать» ещё раз, плодя такие же
+// девятиминутные задачи. Теперь цепочка обрывается по исчерпании бюджета и роут честно
+// отвечает ошибкой.
+const AI_TOTAL_BUDGET_MS = Number(process.env.AI_TOTAL_BUDGET_MS || 30000);
+const AI_CALL_TIMEOUT_MS = Number(process.env.AI_CALL_TIMEOUT_MS || 25000);
+
+function budgetLeft(deadline) {
+  return deadline ? deadline - Date.now() : AI_CALL_TIMEOUT_MS;
+}
+
+function deadlineError(model) {
+  const err = new Error("ai_deadline_exceeded");
+  err.status = 504;
+  err.model = model;
+  return err;
+}
+
 // hasNext — есть ли в цепочке следующий провайдер. Если есть, на 429 (кончилась квота)
 // не ретраим: Gemini просит ждать до минуты, а держать пользователя столько нельзя —
 // быстрее молча уйти к следующему провайдеру.
-async function callProvider(provider, messages, maxTokens, hasNext = false) {
+// deadline — общий срок на весь скан (мс, Date.now()-шкала); за него не выходим.
+async function callProvider(provider, messages, maxTokens, hasNext = false, deadline = null) {
   if (!provider.apiKey) {
     const err = new Error(`${provider.name}_not_configured`);
     err.status = 503;
@@ -350,13 +371,16 @@ async function callProvider(provider, messages, maxTokens, hasNext = false) {
   // Из-за них раньше в логах появлялись «Request failed with status code 500».
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
+    const left = budgetLeft(deadline);
+    if (left <= 1000) throw lastErr || deadlineError(provider.model);
     try {
       const { data } = await axios.post(
         provider.url,
         { model: provider.model, messages, max_tokens: maxTokens, temperature: 0.2, response_format: { type: "json_object" } },
         {
           headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
-          timeout: 60000
+          // Таймаут одного вызова не может быть больше остатка общего бюджета.
+          timeout: Math.min(AI_CALL_TIMEOUT_MS, left)
         }
       );
       return data;
@@ -366,6 +390,10 @@ async function callProvider(provider, messages, maxTokens, hasNext = false) {
       lastErr = err;
       const status = err.response?.status;
       if (status === 429 && hasNext) break;
+      // Таймаут ПЛАТНОГО провайдера не ретраим: запрос на его стороне уже выполнен
+      // и оплачен, повтор просто покупает тот же ответ второй раз.
+      const timedOut = err.code === "ECONNABORTED" || /timeout/i.test(err.message || "");
+      if (timedOut && provider.name === "openai") break;
       const retryable = !err.response || status >= 500 || status === 429;
       if (!retryable || attempt === 2) break;
       await sleep(400 * (attempt + 1));
@@ -406,36 +434,84 @@ function fallbackDish(name) {
   });
 }
 
-// Один провайдер: вызов → разбор → повтор (обрезка/пусто).
+// Складываем расход двух вызовов (основного и починки), иначе учёт стоимости занижен:
+// раньше usage перезаписывался ответом повтора, и первый — самый дорогой — вызов пропадал
+// из ai_usage вместе со своей ценой.
+function addUsage(a, b) {
+  if (!b) return a;
+  return {
+    prompt_tokens: (a.prompt_tokens || 0) + (b.prompt_tokens || 0),
+    completion_tokens: (a.completion_tokens || 0) + (b.completion_tokens || 0),
+    total_tokens: (a.total_tokens || 0) + (b.total_tokens || 0),
+    // cached_tokens лежит внутри prompt_tokens_details и участвует в расчёте цены.
+    prompt_tokens_details: {
+      cached_tokens:
+        (a.prompt_tokens_details?.cached_tokens || 0) + (b.prompt_tokens_details?.cached_tokens || 0)
+    }
+  };
+}
+
+// Один провайдер: вызов → разбор → починка ответа.
 // dishes пустой, если модель так и не вернула ни одного блюда.
-async function analyzeWith(provider, buildMessages, maxTokens, hasNext) {
+async function analyzeWith(provider, buildMessages, maxTokens, hasNext, deadline) {
   let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-  let finishReason = null;
-  let tokens = maxTokens;
-  let msgs = buildMessages(provider.prompt());
+  const msgs = buildMessages(provider.prompt());
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const data = await callProvider(provider, msgs, tokens, hasNext);
-    const choice = data.choices?.[0] || {};
-    const content = choice.message?.content || "";
-    finishReason = choice.finish_reason || null;
-    usage = data.usage || usage;
+  const data = await callProvider(provider, msgs, maxTokens, hasNext, deadline);
+  const choice = data.choices?.[0] || {};
+  const content = choice.message?.content || "";
+  const finishReason = choice.finish_reason || null;
+  usage = addUsage(usage, data.usage);
 
-    const dishes = parseDishes(content);
-    if (dishes.length) {
-      const low_confidence = dishes.some((d) => d.confidence === "low");
-      return { dishes, low_confidence, usage, model: provider.model, finish_reason: finishReason, fallback: false };
-    }
+  let dishes = parseDishes(content);
+  if (dishes.length) {
+    return {
+      dishes, low_confidence: dishes.some((d) => d.confidence === "low"),
+      usage, model: provider.model, finish_reason: finishReason, fallback: false
+    };
+  }
 
-    // Блюд нет — готовим повтор: при обрезке даём больше места, иначе жмём вернуть хотя бы одно блюдо.
-    if (finishReason === "length") {
-      tokens = Math.min(tokens * 2, 4000);
-    } else {
-      msgs = msgs.concat([{
+  // Блюд не нашлось. Раньше повтор пересылал ИСХОДНЫЕ сообщения целиком — вместе с
+  // base64-картинкой и полным промптом, — то есть стоил столько же, сколько первый вызов,
+  // а при finish_reason="length" ещё и удваивал max_tokens поверх уже оплаченных токенов.
+  // Теперь повтор — это ПОЧИНКА ФОРМАТА: отправляем только сам неразобранный ответ и просим
+  // переписать его валидным JSON. Картинки в нём нет, поэтому он дешевле в разы.
+  const raw = content.trim();
+  if (!raw) {
+    // Модель не сказала вообще ничего — чинить нечего, пусть отвечает следующий провайдер.
+    return { dishes: [], usage, model: provider.model, finish_reason: finishReason };
+  }
+  if (budgetLeft(deadline) <= 2000) {
+    return { dishes: [], usage, model: provider.model, finish_reason: finishReason };
+  }
+
+  try {
+    const repair = await callProvider(
+      provider,
+      [{
         role: "user",
-        content: 'Верни СТРОГО JSON {"dishes":[...]} минимум с ОДНИМ блюдом и лучшей оценкой КБЖУ. Пустой массив не возвращай.'
-      }]);
+        content:
+          'Ниже — ответ, который не удалось разобрать. Перепиши его СТРОГО как JSON вида ' +
+          '{"dishes":[{"dish_name":"","calories":0,"protein":0,"fat":0,"carbs":0,"weight_grams":0,"confidence":"low"}]} ' +
+          'минимум с ОДНИМ блюдом. Ничего не досчитывай и не выдумывай — только приведи к формату ' +
+          'то, что уже есть. Пустой массив не возвращай.\n\n' + raw.slice(0, 4000)
+      }],
+      // Починке форматирования много места не нужно.
+      Math.min(maxTokens, 1200),
+      hasNext,
+      deadline
+    );
+    usage = addUsage(usage, repair.usage);
+    dishes = parseDishes(repair.choices?.[0]?.message?.content || "");
+    if (dishes.length) {
+      return {
+        dishes, low_confidence: true,
+        usage, model: provider.model, finish_reason: finishReason, fallback: true
+      };
     }
+  } catch (e) {
+    // Починка — необязательный шаг: не вышло, значит идём к следующему провайдеру.
+    console.error(`[ai] починка ответа ${provider.model} не удалась: ${e.message}`);
   }
 
   return { dishes: [], usage, model: provider.model, finish_reason: finishReason };
@@ -448,28 +524,47 @@ async function analyzeWith(provider, buildMessages, maxTokens, hasNext) {
 async function analyze({ providers, buildMessages, maxTokens, fallbackName }) {
   let lastErr = null;
   let lastEmpty = null;
+  // Один срок на всю цепочку: провайдеров несколько, а ждёт пользователь один раз.
+  const deadline = Date.now() + AI_TOTAL_BUDGET_MS;
+  // Платим за КАЖДУЮ попытку, а не только за победившую, поэтому расход копим по всем.
+  let spent = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
   for (let i = 0; i < providers.length; i++) {
     const provider = providers[i];
     const hasNext = i < providers.length - 1;
+    if (budgetLeft(deadline) <= 1000) {
+      console.error("[ai] бюджет времени на скан исчерпан — обрываю цепочку провайдеров");
+      break;
+    }
     try {
-      const result = await analyzeWith(provider, buildMessages, maxTokens, hasNext);
-      if (result.dishes.length) return result;
+      const result = await analyzeWith(provider, buildMessages, maxTokens, hasNext, deadline);
+      spent = addUsage(spent, result.usage);
+      if (result.dishes.length) return { ...result, usage: spent };
       lastEmpty = result;
     } catch (err) {
       lastErr = err;
+      if (err.usage) spent = addUsage(spent, err.usage);
       console.error(`[ai] ${provider.name}/${provider.model} не справился: ${err.message} — пробую следующего`);
     }
   }
 
   // Все провайдеры упали с ошибкой и никто даже не ответил — это ошибка, а не «не распознал».
-  if (!lastEmpty && lastErr) throw lastErr;
+  if (!lastEmpty && lastErr) {
+    lastErr.usage = spent;
+    throw lastErr;
+  }
+  // Никто не ответил и ошибки нет — значит вышел бюджет времени.
+  if (!lastEmpty) {
+    const err = deadlineError(providers[providers.length - 1]?.model);
+    err.usage = spent;
+    throw err;
+  }
 
   // Кто-то ответил, но блюд не нашёл. Запас: еда добавляется всегда (с пометкой низкой уверенности).
   return {
     dishes: [fallbackDish(fallbackName)],
     low_confidence: true,
-    usage: lastEmpty.usage,
+    usage: spent,
     model: lastEmpty.model,
     finish_reason: lastEmpty.finish_reason,
     fallback: true

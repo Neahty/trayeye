@@ -13,9 +13,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Тесты ДО мёржа в master: раньше npm run test:ci не вызывал ни один воркфлоу, и любая
+  # регрессия в подсчёте лимитов, КБЖУ или стоимости уезжала в прод без единой проверки.
+  # Красные тесты теперь просто не пускают ветку в master — деплоя не будет.
+  test:
+    if: contains(github.event.head_commit.message, '[deploy]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Та же мажорная версия, что на проде (v20) — иначе тесты зелёные там, где прод падает.
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Тесты сервера
+        working-directory: server
+        run: |
+          npm ci
+          npm run test:ci
+
   merge:
     # деплоим только по явной команде пользователя ([deploy] в сообщении коммита)
     if: contains(github.event.head_commit.message, '[deploy]')
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write

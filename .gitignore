@@ -17,3 +17,7 @@ uploads/
 # Claude
 .claude/
 claude/
+# состояние деплоя на сервере (хэши lock-файлов)
+.deploy-state/
+dist.new/
+dist.old/
