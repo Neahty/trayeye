@@ -217,8 +217,11 @@ router.post("/buy", auth, async (req, res, next) => {
 // GET /api/subscription/mock-confirm  (только mock-режим)
 router.get("/mock-confirm", async (req, res, next) => {
   try {
-    // Роут активирует подписку без авторизации — допустим только в mock-режиме.
-    if (!isMock()) return res.status(404).send("not_found");
+    // Роут активирует подписку без авторизации — допустим только в mock-режиме и только
+    // вне прода. Защита в глубину: старт в production без ключей ЮKassa уже запрещён
+    // (server/src/index.js:checkConfig), но цена этой строки — ноль, а цена ошибки —
+    // бесплатные подписки любому, кто подберёт ?meta=.
+    if (!isMock() || process.env.NODE_ENV === "production") return res.status(404).send("not_found");
 
     let meta;
     try {
@@ -275,14 +278,41 @@ router.post("/webhook", async (req, res, next) => {
         catch (e) { console.error("[notify] canceled:", e.message); }
       }
     } else if (event === "refund.succeeded" && obj?.payment_id) {
-      // Возврат прошёл — помечаем исходный платёж как возвращённый.
-      const upd = await db.query(
-        "UPDATE payments SET status='refunded' WHERE yukassa_id=$1 AND status='succeeded' RETURNING user_id, amount, sub_type",
-        [obj.payment_id]
-      );
-      if (upd.rows[0]) {
+      // Возврат прошёл — гасим и платёж, и всё, что он оплатил, АТОМАРНО.
+      // Раньше помечался только payments.status: подписка оставалась active до конца
+      // оплаченного срока, то есть человек продолжал пользоваться PRO после возврата денег,
+      // а пользователю при этом уходило письмо «доступ по этой оплате закрыт».
+      const refunded = await db.withTx(async (c) => {
+        const upd = await c.query(
+          "UPDATE payments SET status='refunded' WHERE yukassa_id=$1 AND status='succeeded' RETURNING id, user_id, amount, sub_type",
+          [obj.payment_id]
+        );
+        if (!upd.rows.length) return null;
         const p = upd.rows[0];
-        try { await notify.notifyRefund(p.user_id, { amount: p.amount, type: p.sub_type }); }
+
+        // Забираем доступ, выданный именно этой оплатой. Привязка по yukassa_id, а не по
+        // пользователю: если он успел купить заново, новая подписка гаситься не должна.
+        await c.query(
+          `UPDATE subscriptions SET status='cancelled', auto_renew=FALSE, expires_at=NOW()
+            WHERE yukassa_id=$1 AND status='active'`,
+          [obj.payment_id]
+        );
+
+        // Снимаем начисление пиарщику за возвращённый платёж. Уже выплаченное
+        // (payout_id IS NOT NULL) не трогаем — те деньги ушли, это разбирается вручную.
+        await c.query(
+          "DELETE FROM employee_payments WHERE payment_id=$1 AND payout_id IS NULL",
+          [p.id]
+        );
+
+        await c.query(
+          `INSERT INTO system_logs (user_id, action, details) VALUES ($1,'payment',$2)`,
+          [p.user_id, JSON.stringify({ refund: true, amount: p.amount, type: p.sub_type, yukassaId: obj.payment_id })]
+        );
+        return p;
+      });
+      if (refunded) {
+        try { await notify.notifyRefund(refunded.user_id, { amount: refunded.amount, type: refunded.sub_type }); }
         catch (e) { console.error("[notify] refund:", e.message); }
       }
     }

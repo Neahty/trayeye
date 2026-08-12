@@ -1,5 +1,4 @@
 const express = require("express");
-const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const db = require("../db");
@@ -8,11 +7,14 @@ const { calcDailyNorms, activityLevelFromWorkouts, deriveGoal } = require("../ut
 const { getActiveSubscription, isTrainer, getActiveTrainer } = require("../utils/subscription");
 const { userTz } = require("../utils/tz");
 const { countScansToday } = require("../utils/scanUsage");
+const { imageUpload, extFor, uploadErrors } = require("../utils/imageUpload");
 const settings = require("../utils/settings");
 const notify = require("../services/notify");
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+// Только картинки из белого списка: расширение на диске берётся из него, а не из
+// присланного Content-Type (см. utils/imageUpload.js).
+const upload = imageUpload(5 * 1024 * 1024);
 const UPLOADS_ROOT = path.resolve(__dirname, "../../../uploads");
 
 // Отдаём клиенту профиль без служебных/внутренних полей (их фронтенд не использует):
@@ -211,14 +213,14 @@ router.post("/goals/auto", auth, async (req, res, next) => {
 });
 
 // POST /api/profile/avatar  (multipart: avatar)
-router.post("/avatar", auth, upload.single("avatar"), async (req, res, next) => {
+router.post("/avatar", auth, upload.single("avatar"), uploadErrors, async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "no_file" });
     const dir = path.join(UPLOADS_ROOT, "users", String(req.user.id));
-    fs.mkdirSync(dir, { recursive: true });
-    const ext = (req.file.mimetype.split("/")[1] || "jpg").replace("jpeg", "jpg");
+    await fs.promises.mkdir(dir, { recursive: true });
+    const ext = extFor(req.file.mimetype);
     const filename = `avatar_${Date.now()}.${ext}`;
-    fs.writeFileSync(path.join(dir, filename), req.file.buffer);
+    await fs.promises.writeFile(path.join(dir, filename), req.file.buffer);
     const avatarPath = `uploads/users/${req.user.id}/${filename}`;
     const { rows } = await db.query(
       "UPDATE users SET avatar_path = $2 WHERE id = $1 RETURNING *",

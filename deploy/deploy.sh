@@ -15,35 +15,35 @@ echo "==================================================="
 
 cd "$REPO_DIR"
 
-echo "[1/8] Забираю свежий код из GitHub..."
+echo "[1/9] Забираю свежий код из GitHub..."
 git fetch --all --prune
 # hard reset — рабочая копия точно совпадёт с origin/master.
 # Незатрекованные файлы (.env, support/.env, uploads/) НЕ трогаются.
 git reset --hard "origin/$BRANCH"
 
-echo "[2/8] Зависимости server..."
+echo "[2/9] Зависимости server..."
 cd "$REPO_DIR/server"
 npm ci --omit=dev
 
-echo "[3/8] Зависимости support..."
+echo "[3/9] Зависимости support..."
 cd "$REPO_DIR/support"
 npm ci --omit=dev
 
-echo "[4/8] Миграции БД..."
+echo "[4/9] Миграции БД..."
 cd "$REPO_DIR/server"
 npm run migrate
 
-echo "[5/8] Сборка client..."
+echo "[5/9] Сборка client..."
 cd "$REPO_DIR/client"
 npm ci
 npm run build
 
-echo "[6/8] Сборка admin..."
+echo "[6/9] Сборка admin..."
 cd "$REPO_DIR/admin"
 npm ci
 npm run build
 
-echo "[7/8] Сборка приложения для iPhone..."
+echo "[7/9] Сборка приложения для iPhone..."
 # Внутри .ipa лежит только нативная оболочка, интерфейс она грузит с /app/ —
 # поэтому обновления доезжают до телефона обычным деплоем, без пересборки .ipa.
 #
@@ -57,9 +57,33 @@ npm run build
 rm -rf "$REPO_DIR/client/dist/app"
 cp -r dist "$REPO_DIR/client/dist/app"
 
-echo "[8/8] Перезапуск сервисов..."
+echo "[8/9] Перезапуск сервисов..."
 sudo systemctl restart bytwise-api bytwise-support
 sudo systemctl reload caddy || sudo systemctl restart caddy
+
+echo "[9/9] Проверяю, что API действительно поднялся..."
+# Без этой проверки деплой печатал «Готово ✓» и красил сборку в зелёный даже тогда,
+# когда сервис падал на старте и systemd крутил его в крэш-лупе: о поломке узнавали
+# от пользователей. Теперь неудачный выкат виден сразу в логе GitHub Actions.
+HEALTH_URL="http://127.0.0.1:${PORT:-4000}/api/health"
+API_UP=""
+for _ in $(seq 1 15); do
+  if curl -fsS --max-time 3 "$HEALTH_URL" >/dev/null 2>&1; then
+    API_UP="1"
+    break
+  fi
+  sleep 2
+done
+
+if [ -z "$API_UP" ]; then
+  echo "  ✗ API не отвечает на $HEALTH_URL спустя 30 секунд — выкат считаю неудачным."
+  echo "  --- состояние сервиса ---"
+  sudo systemctl status bytwise-api --no-pager -l | tail -n 20 || true
+  echo "  --- последние строки журнала ---"
+  sudo journalctl -u bytwise-api -n 50 --no-pager || true
+  exit 1
+fi
+echo "  API отвечает ✓"
 
 echo "==================================================="
 echo "  Готово ✓  $(date '+%Y-%m-%d %H:%M:%S')"

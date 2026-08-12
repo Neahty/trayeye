@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS system_logs (
 CREATE INDEX IF NOT EXISTS idx_scans_user_date ON scans (user_id, scanned_at);
 CREATE INDEX IF NOT EXISTS idx_subs_user ON subscriptions (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_logs_action ON system_logs (action, created_at);
+-- Дневной лимит бесплатных сканов считается по этому журналу (utils/scanUsage.js) и выполняется
+-- на каждом скане и на каждой отрисовке пейволла — без индекса это Seq Scan по всей таблице логов.
+CREATE INDEX IF NOT EXISTS idx_logs_user_action ON system_logs (user_id, action, created_at);
 
 -- ============================================================
 --  Расширения и новые таблицы (Bytwise v2: дизайн + админка)

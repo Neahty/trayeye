@@ -1,5 +1,4 @@
 const express = require("express");
-const multer = require("multer");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -15,9 +14,12 @@ const aiUsage = require("../services/aiUsage");
 const { notifyTrainerOfClientScan } = require("../services/notify");
 const channelLog = require("../services/channelLog");
 const { parseId } = require("../utils/http");
+const { imageUpload, extFor, uploadErrors } = require("../utils/imageUpload");
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+// Только картинки из белого списка: расширение на диске берётся из него, а не из
+// присланного Content-Type (см. utils/imageUpload.js).
+const upload = imageUpload(10 * 1024 * 1024);
 
 // Базовый публичный адрес — чтобы Telegram мог скачать фото скана по URL (через Caddy /uploads).
 const SERVER_URL = process.env.SERVER_URL || process.env.CLIENT_URL || "";
@@ -25,11 +27,13 @@ const SERVER_URL = process.env.SERVER_URL || process.env.CLIENT_URL || "";
 const UPLOADS_ROOT = path.resolve(__dirname, "../../../uploads");
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
 
-function savePhoto(userId, buffer, ext) {
+// Запись асинхронная: синхронные mkdirSync/writeFileSync блокировали event loop на всё
+// время записи файла до 10 МБ, то есть каждый скан подвешивал все остальные запросы процесса.
+async function savePhoto(userId, buffer, ext) {
   const dir = path.join(UPLOADS_ROOT, "users", String(userId));
-  fs.mkdirSync(dir, { recursive: true });
+  await fs.promises.mkdir(dir, { recursive: true });
   const filename = `${Date.now()}.${ext}`;
-  fs.writeFileSync(path.join(dir, filename), buffer);
+  await fs.promises.writeFile(path.join(dir, filename), buffer);
   return `uploads/users/${userId}/${filename}`;
 }
 
@@ -120,7 +124,7 @@ router.get("/suggestions", auth, async (req, res, next) => {
 });
 
 // POST /api/scan  (multipart: image + meal_type)
-router.post("/", auth, rateLimit, checkLimit, upload.single("image"), async (req, res, next) => {
+router.post("/", auth, rateLimit, checkLimit, upload.single("image"), uploadErrors, async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "no_image" });
     const mealType = MEAL_TYPES.includes(req.body.meal_type) ? req.body.meal_type : "snack";
@@ -141,8 +145,16 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), async (req
     }
     const latencyMs = Date.now() - startedAt;
 
-    const ext = (req.file.mimetype.split("/")[1] || "jpg").replace("jpeg", "jpg");
-    const photoPath = savePhoto(req.user.id, req.file.buffer, ext);
+    // Фото сохраняем ПОСЛЕ платного вызова AI, поэтому его сбой (нет места на диске, права)
+    // не должен ронять уже оплаченный скан: данные о еде важнее картинки. Без этого каждая
+    // повторная попытка пользователя сжигала бы ещё один платный вызов.
+    let photoPath = null;
+    try {
+      photoPath = await savePhoto(req.user.id, req.file.buffer, extFor(req.file.mimetype));
+    } catch (e) {
+      console.error("[scan] savePhoto failed:", e.message);
+      channelLog.logError("scan_photo_save", e.message).catch(() => {});
+    }
 
     // Один id приёма на всё фото — блюда склеиваются в одну карточку.
     const batchId = crypto.randomUUID();
