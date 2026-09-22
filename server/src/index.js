@@ -23,7 +23,7 @@ function checkConfig() {
 
   // Без ключа Gemini цепочка провайдеров вырождается в один платный OpenAI: ошибки нет,
   // всё работает, но каждый скан начинает стоить деньги. Это должно быть видно сразу.
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEYS) {
     console.warn("[startup] ВНИМАНИЕ: GEMINI_API_KEY не задан — все сканы уйдут на платный OpenAI.");
     require("./services/channelLog")
       .logError("startup", "GEMINI_API_KEY не задан: все сканы идут на платный OpenAI")

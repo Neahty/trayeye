@@ -139,7 +139,12 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), uploadErro
         usage: err.usage, latencyMs: Date.now() - startedAt, status: "error", error: err.message
       });
       await db.logAction(req.user.id, "error", { where: "scan", message: err.message });
-      channelLog.logError("scan", err.message).catch(() => {});
+      // В канал — кто, где, что и почему. «Почему» — разбор всей цепочки: кого
+      // спрашивали, сколько ждали, на чём встали. По голой фразе последнего
+      // провайдера («timeout of 1422ms exceeded») диагностировать было невозможно.
+      channelLog.logError("scan", "Не распознали еду — человек увидел ошибку", {
+        who: channelLog.whoLabel(req.user), why: err.detail || err.message
+      }).catch(() => {});
       const status = err.status || 502;
       return res.status(status).json({ error: "ai_failed" });
     }
@@ -153,7 +158,9 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), uploadErro
       photoPath = await savePhoto(req.user.id, req.file.buffer, extFor(req.file.mimetype));
     } catch (e) {
       console.error("[scan] savePhoto failed:", e.message);
-      channelLog.logError("scan_photo_save", e.message).catch(() => {});
+      channelLog.logError("scan_photo_save", "Фото не сохранилось — еда записана, картинки в истории не будет", {
+        who: channelLog.whoLabel(req.user), why: e.message
+      }).catch(() => {});
     }
 
     // Один id приёма на всё фото — блюда склеиваются в одну карточку.
@@ -213,7 +220,9 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
         usage: err.usage, latencyMs: Date.now() - startedAt, status: "error", error: err.message
       });
       await db.logAction(req.user.id, "error", { where: "scan_text", message: err.message });
-      channelLog.logError("scan_text", err.message).catch(() => {});
+      channelLog.logError("scan_text", "Не распознали еду — человек увидел ошибку", {
+        who: channelLog.whoLabel(req.user), why: err.detail || err.message
+      }).catch(() => {});
       const status = err.status === 422 ? 422 : err.status || 502;
       return res.status(status).json({ error: status === 422 ? "not_recognized" : "ai_failed" });
     }

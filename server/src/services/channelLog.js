@@ -155,17 +155,38 @@ async function userIdByLogMessage(chatId, messageId) {
   }
 }
 
-// Ошибка системы — понятным языком.
-async function logError(where, message) {
-  await post(
-    "errors",
-    `⚠️ <b>Ошибка в системе</b>\n\n` +
-    `Где: <code>${esc(where || "?")}</code>\n` +
-    `Что: ${esc(String(message || "").slice(0, 600))}`
-  );
+// Кто напоролся на ошибку — кликабельная подпись для канала: @username, иначе имя.
+// Без неё алерт не отличить от фонового шума: непонятно, пострадал ли живой человек.
+function whoLabel(u) {
+  if (!u) return null;
+  if (u.username) return `@${esc(u.username)}`;
+  return `<a href="tg://user?id=${u.telegram_id}">${esc(u.name || "Пользователь")}</a>`;
+}
+
+// Человеческие названия мест, где может рвануть. Коды вроде "scan_text" в канале
+// читать некому: там смотрят, ЧТО сломалось у людей, а не где это лежит в коде.
+const WHERE_LABELS = {
+  scan: "Скан еды по фото",
+  scan_text: "Скан еды по описанию",
+  scan_photo_save: "Сохранение фото скана",
+  startup: "Запуск сервера"
+};
+
+// Ошибка системы — четырьмя строками: кто напоролся, где, что случилось и почему.
+// Без «кто» и «почему» алерт бесполезен: видно, что где-то упало, но непонятно,
+// задело ли это живого человека и надо ли бежать чинить прямо сейчас.
+// who приходит УЖЕ готовым HTML (ссылка на пользователя) — его не экранируем.
+async function logError(where, what, extra = {}) {
+  const { who = null, why = null } = extra;
+  const lines = [];
+  if (who) lines.push(`Кто: ${who}`);
+  lines.push(`Где: ${esc(WHERE_LABELS[where] || where || "?")}`);
+  lines.push(`Что: ${esc(String(what || "сбой").slice(0, 300))}`);
+  if (why) lines.push(`Почему: ${esc(String(why).slice(0, 600))}`);
+  await post("errors", `⚠️ <b>Ошибка в системе</b>\n\n${lines.join("\n")}`);
 }
 
 module.exports = {
-  post, postPhoto, editText, editCaption, copyTo, logError, esc,
+  post, postPhoto, editText, editCaption, copyTo, logError, esc, whoLabel,
   postFor, postPhotoFor, copyToFor, userIdByLogMessage
 };

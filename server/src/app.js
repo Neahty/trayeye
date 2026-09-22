@@ -123,7 +123,9 @@ function createApp() {
     if (status >= 500) {
       console.error("[error]", err.message);
       // Дублируем серьёзные ошибки в Telegram-канал (если включено в настройках).
-      channelLog.logError(`${req.method} ${req.originalUrl}`, err.message).catch(() => {});
+      channelLog.logError(`${req.method} ${req.originalUrl}`, "Запрос упал — человек увидел ошибку", {
+        who: channelLog.whoLabel(req.user), why: err.message
+      }).catch(() => {});
       // Не отдаём клиенту внутренний текст 500-ошибки (утечка деталей реализации).
       return res.status(status).json({ error: "internal_error" });
     }

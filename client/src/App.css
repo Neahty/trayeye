@@ -344,6 +344,8 @@ input{font-family:inherit;}
 @keyframes scanmove{0%{top:10%;}50%{top:86%;}100%{top:10%;}}
 .scan-txt{color:#fff; font-size:18px; font-weight:700; display:flex; align-items:center; gap:10px;}
 .scan-dot{width:9px; height:9px; border-radius:50%; background:#fff; animation:scanpulse 1s infinite;}
+.scan-hint{margin-top:12px; max-width:280px; text-align:center; font-size:14px; line-height:1.45; color:rgba(255,255,255,.72); animation:fadeIn .4s ease both;}
+@keyframes fadeIn{from{opacity:0; transform:translateY(4px);}to{opacity:1; transform:none;}}
 @keyframes scanpulse{0%,100%{opacity:.3;}50%{opacity:1;}}
 
 /* bars + animations */

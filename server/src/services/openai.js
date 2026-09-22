@@ -12,7 +12,10 @@ const MODEL = VISION_MODEL;
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 // Gemini отвечает в OpenAI-совместимом формате — тело запроса и разбор ответа общие.
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_API_KEYS = [...new Set([
+  ...(process.env.GEMINI_API_KEYS || "").split(","),
+  process.env.GEMINI_API_KEY || ""
+].map((key) => key.trim()).filter(Boolean))];
 // Фото анализирует бесплатный Gemini, OpenAI остаётся страховкой.
 // Модели перечислены по порядку: суточная квота (500 запросов) считается ОТДЕЛЬНО на каждую,
 // поэтому вторая модель не дублирует первую, а удваивает бесплатный запас.
@@ -34,7 +37,7 @@ const GEMINI_DAILY_LIMIT = Number(process.env.GEMINI_DAILY_RPD || 500);
 // счётчик одной модели прыгал бы вверх-вниз в зависимости от того, кто ответил, и выглядел
 // бы сломанным, хотя каждая цифра по отдельности верна.
 const GEMINI_ALL_MODELS = [...new Set([...GEMINI_VISION_MODELS, ...GEMINI_TEXT_MODELS])];
-const GEMINI_ENABLED = Boolean(GEMINI_API_KEY);
+const GEMINI_ENABLED = GEMINI_API_KEYS.length > 0;
 const GEMINI_QUOTA_TZ = process.env.GEMINI_QUOTA_TZ || "America/Los_Angeles";
 
 // Цепочка провайдеров для фото: бесплатные Gemini → платный OpenAI.
@@ -42,10 +45,10 @@ const GEMINI_QUOTA_TZ = process.env.GEMINI_QUOTA_TZ || "America/Los_Angeles";
 // У каждого провайдера свой промпт: gpt-4.1 хорошо держит связный текст с нюансами,
 // а Gemini Flash-Lite точнее работает по жёсткому чек-листу (см. комментарии у промптов).
 function visionChain() {
-  const chain = GEMINI_API_KEY
-    ? GEMINI_VISION_MODELS.map((model) => ({
-      name: "gemini", url: GEMINI_URL, apiKey: GEMINI_API_KEY, model, prompt: () => IMAGE_PROMPT_GEMINI
-    }))
+  const chain = GEMINI_ENABLED
+    ? GEMINI_API_KEYS.flatMap((apiKey) => GEMINI_VISION_MODELS.map((model) => ({
+      name: "gemini", url: GEMINI_URL, apiKey, model, prompt: () => IMAGE_PROMPT_GEMINI
+    })))
     : [];
   chain.push({ name: "openai", url: OPENAI_URL, apiKey: API_KEY, model: VISION_MODEL, prompt: () => IMAGE_PROMPT_GPT });
   return chain;
@@ -53,10 +56,10 @@ function visionChain() {
 
 // Текст идёт по той же логике, что и фото: сначала бесплатный Gemini, OpenAI — резерв.
 function textChain() {
-  const chain = GEMINI_API_KEY
-    ? GEMINI_TEXT_MODELS.map((model) => ({
-      name: "gemini", url: GEMINI_URL, apiKey: GEMINI_API_KEY, model, prompt: () => TEXT_PROMPT_GEMINI
-    }))
+  const chain = GEMINI_ENABLED
+    ? GEMINI_API_KEYS.flatMap((apiKey) => GEMINI_TEXT_MODELS.map((model) => ({
+      name: "gemini", url: GEMINI_URL, apiKey, model, prompt: () => TEXT_PROMPT_GEMINI
+    })))
     : [];
   chain.push({ name: "openai", url: OPENAI_URL, apiKey: API_KEY, model: TEXT_MODEL, prompt: () => TEXT_PROMPT_GPT });
   return chain;
@@ -340,11 +343,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Без него арифметика была такая: 3 провайдера × 2 попытки разбора × 3 ретрая × 60 с
 // таймаута = до девяти минут на один запрос. Пользователь всё это время видел вечную
 // загрузку, отваливался по своему таймауту и жал «Сканировать» ещё раз, плодя такие же
-// девятиминутные задачи. Теперь цепочка обрывается по исчерпании бюджета и роут честно
-// отвечает ошибкой.
-const AI_TOTAL_BUDGET_MS = Number(process.env.AI_TOTAL_BUDGET_MS || 30000);
+// девятиминутные задачи.
+//
+// Но 30 секунд оказались слишком жёстким сроком. Сразу после массовой рассылки
+// сотни людей сканируют одновременно, очередь к Gemini растёт, и скан не успевал
+// в бюджет — человек получал «не удалось распознать» вместо еды. Подождать лишние
+// полминуты (честно предупредив об этом в приложении) куда лучше, чем не ответить
+// вовсе, поэтому бюджет поднят до 70 с — с запасом под таймаут клиента (90 с).
+const AI_TOTAL_BUDGET_MS = Number(process.env.AI_TOTAL_BUDGET_MS || 70000);
 const AI_CALL_TIMEOUT_MS = Number(process.env.AI_CALL_TIMEOUT_MS || 25000);
+// Минимум остатка, при котором вызов вообще имеет смысл. Без него в самом конце
+// бюджета уходил заведомо провальный запрос с таймаутом в полторы секунды: ответить
+// за это время не успевал никто, зато именно его ошибка («timeout of 1422ms exceeded»)
+// уезжала в канал и прятала настоящую причину сбоя.
+const AI_MIN_CALL_MS = Number(process.env.AI_MIN_CALL_MS || 6000);
 
+const GEMINI_MAX_RPM = Number(process.env.GEMINI_MAX_RPM || 14);
+const GEMINI_MIN_INTERVAL_MS = Math.ceil(60000 / GEMINI_MAX_RPM);
+const geminiNextStartAt = new Map();
 function budgetLeft(deadline) {
   return deadline ? deadline - Date.now() : AI_CALL_TIMEOUT_MS;
 }
@@ -354,6 +370,17 @@ function deadlineError(model) {
   err.status = 504;
   err.model = model;
   return err;
+}
+
+async function waitForGeminiSlot(model, deadline) {
+  const now = Date.now();
+  const nextStartAt = Math.max(now, geminiNextStartAt.get(model) || now);
+  const waitMs = nextStartAt - now;
+  if (deadline && waitMs >= Math.max(0, budgetLeft(deadline) - AI_MIN_CALL_MS)) {
+    throw deadlineError(model);
+  }
+  geminiNextStartAt.set(model, nextStartAt + GEMINI_MIN_INTERVAL_MS);
+  if (waitMs > 0) await sleep(waitMs);
 }
 
 // hasNext — есть ли в цепочке следующий провайдер. Если есть, на 429 (кончилась квота)
@@ -371,8 +398,9 @@ async function callProvider(provider, messages, maxTokens, hasNext = false, dead
   // Из-за них раньше в логах появлялись «Request failed with status code 500».
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
+    if (provider.name === "gemini") await waitForGeminiSlot(provider.model, deadline);
     const left = budgetLeft(deadline);
-    if (left <= 1000) throw lastErr || deadlineError(provider.model);
+    if (left <= AI_MIN_CALL_MS) throw lastErr || deadlineError(provider.model);
     try {
       const { data } = await axios.post(
         provider.url,
@@ -389,11 +417,11 @@ async function callProvider(provider, messages, maxTokens, hasNext = false, dead
       err.provider = provider.name;
       lastErr = err;
       const status = err.response?.status;
-      if (status === 429 && hasNext) break;
+      if (hasNext && (status === 429 || status >= 500)) break;
       // Таймаут ПЛАТНОГО провайдера не ретраим: запрос на его стороне уже выполнен
       // и оплачен, повтор просто покупает тот же ответ второй раз.
       const timedOut = err.code === "ECONNABORTED" || /timeout/i.test(err.message || "");
-      if (timedOut && provider.name === "openai") break;
+      if (timedOut && (provider.name === "openai" || hasNext)) break;
       const retryable = !err.response || status >= 500 || status === 429;
       if (!retryable || attempt === 2) break;
       await sleep(400 * (attempt + 1));
@@ -481,7 +509,7 @@ async function analyzeWith(provider, buildMessages, maxTokens, hasNext, deadline
     // Модель не сказала вообще ничего — чинить нечего, пусть отвечает следующий провайдер.
     return { dishes: [], usage, model: provider.model, finish_reason: finishReason };
   }
-  if (budgetLeft(deadline) <= 2000) {
+  if (budgetLeft(deadline) <= AI_MIN_CALL_MS) {
     return { dishes: [], usage, model: provider.model, finish_reason: finishReason };
   }
 
@@ -517,46 +545,91 @@ async function analyzeWith(provider, buildMessages, maxTokens, hasNext, deadline
   return { dishes: [], usage, model: provider.model, finish_reason: finishReason };
 }
 
+// Как провайдер называется в отчёте об ошибке — по-человечески, а не именем переменной.
+function providerLabel(provider) {
+  const m = String(provider.model || "?");
+  return provider.name === "gemini" ? `Gemini ${m.replace(/^gemini-/, "")}` : `OpenAI ${m}`;
+}
+
+// Почему конкретный провайдер не справился — одной понятной фразой.
+function describeFailure(err) {
+  const status = err.response?.status;
+  if (err.message === "ai_deadline_exceeded") return "не успевал в оставшееся время — пропустили";
+  if (/_not_configured$/.test(err.message || "")) return "не настроен (нет ключа)";
+  if (err.code === "ECONNABORTED" || /timeout/i.test(err.message || "")) return "не ответил вовремя";
+  if (status === 429) return "упёрся в лимит запросов (429)";
+  if (status >= 500) return `сбой на стороне провайдера (${status})`;
+  if (status) return `ответил ошибкой ${status}`;
+  return err.message || "неизвестная ошибка";
+}
+
+// Разбор цепочки для канала: кого спрашивали, сколько ждали и на чём встали.
+// Раньше в канал уезжала ПОСЛЕДНЯЯ ошибка — почти всегда обрубок бюджета вроде
+// «timeout of 1422ms exceeded», по которому нельзя понять вообще ничего: настоящая
+// причина случилась двумя провайдерами раньше.
+function chainDetail(trace, totalMs, skipped) {
+  const total = trace.length + skipped;
+  const head = `ни одна из ${total} моделей не ответила за ${(totalMs / 1000).toFixed(1)} с`;
+  const lines = trace.map((t, i) => `  ${i + 1}) ${t.label} — ${(t.ms / 1000).toFixed(1)} с, ${t.outcome}`);
+  if (skipped > 0) lines.push(`  + ещё ${skipped} не спрашивали: время вышло`);
+  return `${head}\n${lines.join("\n")}`;
+}
+
 // Идём по цепочке: побеждает первый провайдер, вернувший блюда.
 // Упал или отдал пустоту — молча берём следующего. Всегда возвращает непустой
 // { dishes, low_confidence, usage, model, finish_reason, fallback } либо кидает ошибку,
 // если не ответил ВООБЩЕ никто (тогда роут отдаст ai_failed, как и раньше).
 async function analyze({ providers, buildMessages, maxTokens, fallbackName }) {
+  let firstErr = null;
   let lastErr = null;
   let lastEmpty = null;
   // Один срок на всю цепочку: провайдеров несколько, а ждёт пользователь один раз.
   const deadline = Date.now() + AI_TOTAL_BUDGET_MS;
+  const startedAt = Date.now();
+  // Трасса цепочки — чтобы в канал уехал разбор, а не огрызок последней ошибки.
+  const trace = [];
+  let skipped = 0;
   // Платим за КАЖДУЮ попытку, а не только за победившую, поэтому расход копим по всем.
   let spent = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
   for (let i = 0; i < providers.length; i++) {
     const provider = providers[i];
     const hasNext = i < providers.length - 1;
-    if (budgetLeft(deadline) <= 1000) {
+    if (budgetLeft(deadline) <= AI_MIN_CALL_MS) {
+      skipped = providers.length - i;
       console.error("[ai] бюджет времени на скан исчерпан — обрываю цепочку провайдеров");
       break;
     }
+    const attemptAt = Date.now();
     try {
       const result = await analyzeWith(provider, buildMessages, maxTokens, hasNext, deadline);
       spent = addUsage(spent, result.usage);
       if (result.dishes.length) return { ...result, usage: spent };
+      trace.push({ label: providerLabel(provider), ms: Date.now() - attemptAt, outcome: "ответил, но блюд не нашёл" });
       lastEmpty = result;
     } catch (err) {
+      if (!firstErr) firstErr = err;
       lastErr = err;
+      trace.push({ label: providerLabel(provider), ms: Date.now() - attemptAt, outcome: describeFailure(err) });
       if (err.usage) spent = addUsage(spent, err.usage);
       console.error(`[ai] ${provider.name}/${provider.model} не справился: ${err.message} — пробую следующего`);
     }
   }
 
   // Все провайдеры упали с ошибкой и никто даже не ответил — это ошибка, а не «не распознал».
-  if (!lastEmpty && lastErr) {
-    lastErr.usage = spent;
-    throw lastErr;
+  // Наверх отдаём ПЕРВУЮ ошибку цепочки: именно она запустила лавину, а последняя —
+  // как правило лишь её следствие (последнему провайдеру достался огрызок бюджета).
+  if (!lastEmpty && (firstErr || lastErr)) {
+    const err = firstErr || lastErr;
+    err.usage = spent;
+    err.detail = chainDetail(trace, Date.now() - startedAt, skipped);
+    throw err;
   }
   // Никто не ответил и ошибки нет — значит вышел бюджет времени.
   if (!lastEmpty) {
     const err = deadlineError(providers[providers.length - 1]?.model);
     err.usage = spent;
+    err.detail = chainDetail(trace, Date.now() - startedAt, skipped);
     throw err;
   }
 

@@ -25,6 +25,7 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
   const [err, setErr] = useState(null);
   const [chips, setChips] = useState(EXAMPLES.slice(0, 4));
   const [chipKind, setChipKind] = useState("popular"); // "recent" | "popular"
+  const [slow, setSlow] = useState(false);
   const ref = useRef();
 
   useEffect(() => {
@@ -45,6 +46,14 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
     }).catch(() => { /* нет сети — остаёмся на EXAMPLES */ });
     return () => { alive = false; };
   }, []);
+
+  // Долгий ответ — не «зависло», а очередь к AI. Молчать об этом нельзя: человек
+  // закроет форму и наберёт блюдо заново, удлинив очередь ещё сильнее.
+  useEffect(() => {
+    if (stage !== "loading") { setSlow(false); return; }
+    const id = setTimeout(() => setSlow(true), 9000);
+    return () => clearTimeout(id);
+  }, [stage]);
 
   const analyze = async (q) => {
     const query = (q || text).trim();
@@ -82,6 +91,11 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
           <div className="spinner" />
           <div style={{ fontSize: 18, fontWeight: 700 }}>AI анализирует блюдо…</div>
           <div style={{ fontSize: 15, color: "var(--text-2)", textAlign: "center", maxWidth: 260 }}>«{text}»</div>
+          {slow && (
+            <div style={{ fontSize: 14, color: "var(--text-2)", textAlign: "center", maxWidth: 270, lineHeight: 1.45 }}>
+              Bytwise сейчас чуть нагружен — считаем немного дольше обычного.
+            </div>
+          )}
         </div>
       </div>
     );

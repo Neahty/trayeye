@@ -129,6 +129,12 @@ function SheetBody({ cfg, close }) {
   }
 }
 
+// Через сколько молчаливого ожидания предупредить, что идёт дольше обычного.
+// Под нагрузкой (например, сразу после массовой рассылки) очередь к AI растёт, и ответ
+// занимает не пять секунд, а полминуты. Спиннер без единого слова в этот момент читается
+// как «зависло»: человек закрывает приложение и сканирует заново, накидывая очереди ещё.
+const SLOW_HINT_MS = 9000;
+
 export function UIProvider({ children }) {
   const [sheet, setSheet] = useState(null);
   const [shown, setShown] = useState(false);
@@ -161,9 +167,11 @@ export function UIProvider({ children }) {
 
   // Показ оверлея сканирования. Возвращает функцию остановки.
   const showScan = useCallback(() => {
-    setScan({ in: false });
+    setScan({ in: false, slow: false });
     requestAnimationFrame(() => setScan((s) => s && { ...s, in: true }));
+    const slowAt = setTimeout(() => setScan((s) => (s ? { ...s, slow: true } : s)), SLOW_HINT_MS);
     return () => {
+      clearTimeout(slowAt);
       setScan((s) => (s ? { ...s, in: false } : s));
       setTimeout(() => setScan(null), 350);
     };
@@ -207,6 +215,9 @@ export function UIProvider({ children }) {
             <Ic name="camera" size={60} sw={1.3} style={{ color: "rgba(255,255,255,.32)", position: "absolute", inset: 0, margin: "auto" }} />
           </div>
           <div className="scan-txt"><span className="scan-dot" /> Распознаём блюдо…</div>
+          {scan.slow && (
+            <div className="scan-hint">Bytwise сейчас чуть нагружен — считаем немного дольше обычного. Не закрывайте экран.</div>
+          )}
         </div>
       )}
     </UIContext.Provider>
