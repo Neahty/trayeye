@@ -7,11 +7,11 @@ const { sendDocument } = require("../services/bot");
 const { sendMessage } = require("../services/telegram");
 
 // Авто-бэкап базы: pg_dump -> gzip -> файл на диске -> отправка админам в Telegram.
-// Telegram хранит файл в облаке, поэтому копия живёт ОТДЕЛЬНО от сервера —
+// Telegram хранит файл в облаке, поэтому копия живёт ОТДЕЛЬНО от сервера -
 // если сервер удалят, бэкап остаётся в чате у админов.
 //
 // Дамп пишется ПОТОКОМ в файл, а не собирается в памяти. Раньше весь дамп жил в
-// Buffer.concat, а gzipSync делал вторую копию и БЛОКИРОВАЛ event loop — в полночь
+// Buffer.concat, а gzipSync делал вторую копию и БЛОКИРОВАЛ event loop - в полночь
 // все запросы к API вставали, а с ростом базы бэкап грозил уронить прод по памяти.
 //
 // Локальная копия с ретеншеном нужна потому, что Telegram был ЕДИНСТВЕННЫМ местом
@@ -40,7 +40,7 @@ function mskDateStamp() {
 
 // Находит pg_dump: явный PG_DUMP → авто-поиск в стандартных папках PostgreSQL
 // на Windows (берём самую новую версию) → иначе надеемся, что он в PATH.
-// На Linux (боевой сервер) перебор Windows-путей бессмысленен — сразу берём PATH.
+// На Linux (боевой сервер) перебор Windows-путей бессмысленен - сразу берём PATH.
 function resolvePgDump() {
   if (process.env.PG_DUMP) return process.env.PG_DUMP;
   if (process.platform !== "win32") return "pg_dump";
@@ -66,7 +66,7 @@ async function dumpToFile(filePath) {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL не задан");
   const bin = resolvePgDump();
-  // --no-owner/--no-privileges — чтобы дамп восстанавливался под любым пользователем.
+  // --no-owner/--no-privileges - чтобы дамп восстанавливался под любым пользователем.
   const proc = spawn(bin, ["--no-owner", "--no-privileges", url], { windowsHide: true });
 
   const err = [];
@@ -113,7 +113,7 @@ async function pruneOldBackups() {
         await fs.promises.unlink(full);
         removed++;
       }
-    } catch { /* файл уже удалён — не мешает */ }
+    } catch { /* файл уже удалён - не мешает */ }
   }
   return removed;
 }
@@ -129,17 +129,17 @@ async function backupDatabase() {
     await dumpToFile(filePath);
     const { size } = await fs.promises.stat(filePath);
 
-    // Локальная копия уже есть — это главное. Отправка в Telegram отсюда необязательна.
+    // Локальная копия уже есть - это главное. Отправка в Telegram отсюда необязательна.
     const removed = await pruneOldBackups();
     console.log(`[cron] backupDatabase -> ${filePath} (${size} B), удалено старых: ${removed}`);
 
     if (!ids.length) {
-      console.warn("[cron] backupDatabase: нет ADMIN_TELEGRAM_IDS — копия только на диске");
+      console.warn("[cron] backupDatabase: нет ADMIN_TELEGRAM_IDS - копия только на диске");
       return;
     }
 
     const caption =
-      `🗄 Бэкап базы Bytwise — ${stamp} (00:00 МСК)\n` +
+      `🗄 Бэкап базы Bytwise - ${stamp} (00:00 МСК)\n` +
       `Размер: ${(size / 1024).toFixed(0)} КБ\n` +
       `Копия на сервере: ${filePath} (хранится ${RETENTION_DAYS} дн.)\n` +
       `Восстановление: gunzip -c ${filename} | psql -U calorie -h localhost -d calorieyka`;

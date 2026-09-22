@@ -44,7 +44,7 @@ export default function Scans() {
               <tr key={s.id}>
                 <td data-label="Фото">{s.photo_path
                   ? <img src={assetUrl(s.photo_path)} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover" }} />
-                  : <span className="tag">—</span>}</td>
+                  : <span className="tag">-</span>}</td>
                 <td data-label="Пользователь">{s.username || s.telegram_id}</td>
                 <td data-label="Что распознал ИИ">{s.dish_name}</td>
                 <td data-label="Ккал · Б/Ж/У">{s.calories} ккал · {Math.round(s.protein)}/{Math.round(s.fat)}/{Math.round(s.carbs)}</td>

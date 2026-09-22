@@ -62,7 +62,7 @@ export default function Home() {
 
   const user = profile?.user || {};
   const tz = user.timezone || "Europe/Moscow";
-  // Сегодняшняя дата в поясе пользователя. Приоритет — server_today (полный ICU на сервере),
+  // Сегодняшняя дата в поясе пользователя. Приоритет - server_today (полный ICU на сервере),
   // клиентский Intl ненадёжен в Telegram-webview (отсюда были «6 число вместо 5»).
   const date = profile?.server_today
     || new Date().toLocaleDateString("en-CA", { timeZone: tz });
@@ -190,7 +190,7 @@ export default function Home() {
         <span className="ai-spark"><Ic name="sparkles" size={26} sw={1.9} /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>Опишите блюдо текстом</div>
-          <div style={{ color: "var(--text-2)", fontSize: 14, marginTop: 3 }}>Без фото — AI сам посчитает калории и БЖУ</div>
+          <div style={{ color: "var(--text-2)", fontSize: 14, marginTop: 3 }}>Без фото - AI сам посчитает калории и БЖУ</div>
         </div>
         <span className="add-btn" style={{ width: 38, height: 38, borderRadius: "50%", flex: "0 0 38px", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--surface)", color: "var(--primary)" }}>
           <Ic name="plus" size={22} sw={2.4} />
@@ -205,7 +205,7 @@ export default function Home() {
             <Ic name="weight" size={26} sw={1.9} />
           </span>
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", fontWeight: 800, fontSize: 16.5, lineHeight: 1.3 }}>Похудеть без жёстких диет — реально</span>
+            <span style={{ display: "block", fontWeight: 800, fontSize: 16.5, lineHeight: 1.3 }}>Похудеть без жёстких диет - реально</span>
             <span style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--primary)", fontWeight: 800, fontSize: 14.5, marginTop: 6 }}>
               Авторский план тренировок <Ic name="chevronRight" size={16} sw={2.4} />
             </span>
@@ -232,7 +232,7 @@ export default function Home() {
           <EmptyState
             icon="camera"
             title="Пока нет записей"
-            sub="Сфотографируйте еду кнопкой камеры или опишите блюдо текстом — AI посчитает КБЖУ."
+            sub="Сфотографируйте еду кнопкой камеры или опишите блюдо текстом - AI посчитает КБЖУ."
             action="Добавить текстом"
             actionIcon="sparkles"
             onAction={() => openAddByText(ui, onChange, tz, (reason) => navigate("/paywall", { state: { reason } }))}

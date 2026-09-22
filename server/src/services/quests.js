@@ -74,7 +74,7 @@ function buildMessage(user, quest) {
 }
 
 // Получить награду: проверяем выполнение и повтор, шлём ЛС, фиксируем факт (один раз на юзера).
-// Claim фиксируется ТОЛЬКО при успешной доставке в ЛС — если бот не запущен (403),
+// Claim фиксируется ТОЛЬКО при успешной доставке в ЛС - если бот не запущен (403),
 // возвращаем dm_unavailable, чтобы клиент показал тост с ошибкой и юзер мог повторить.
 async function claim(userId, user, code) {
   const { rows } = await db.query("SELECT * FROM quests WHERE code = $1 AND active = TRUE", [code]);
@@ -112,7 +112,7 @@ async function claim(userId, user, code) {
   );
   await db.logAction(userId, "quest_claim", { code, reward: quest.reward_title || null });
 
-  // Дублируем в лог-канал (канал и тумблер события — в админке «Логи в Telegram»).
+  // Дублируем в лог-канал (канал и тумблер события - в админке «Логи в Telegram»).
   const who = user.name ? esc(user.name) : "Пользователь";
   channelLog.post(
     "quest_claim",

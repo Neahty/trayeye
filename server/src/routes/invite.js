@@ -1,6 +1,6 @@
 // Экран «Пригласить друга» в мини-аппе: личная короткая ссылка, своя статистика
-// и подарки за приглашения (за каждые N друзей — M дней PRO).
-// Доступно всем авторизованным (тренерам и сотрудникам тоже — их механики отдельные).
+// и подарки за приглашения (за каждые N друзей - M дней PRO).
+// Доступно всем авторизованным (тренерам и сотрудникам тоже - их механики отдельные).
 const express = require("express");
 const auth = require("../middleware/auth");
 const { ensureInviteCode } = require("../utils/refcode");
@@ -11,10 +11,10 @@ const router = express.Router();
 
 router.use(auth);
 
-// GET /api/invite — ссылка, текст для «Поделиться», цифры и список подарков
+// GET /api/invite - ссылка, текст для «Поделиться», цифры и список подарков
 router.get("/", async (req, res, next) => {
   try {
-    // Код мог не выдаться (аккаунты старше Поправки №47) — генерируем лениво.
+    // Код мог не выдаться (аккаунты старше Поправки №47) - генерируем лениво.
     const code = await ensureInviteCode(req.user.id);
     // Подарки начисляет крон, но пересчитываем и здесь: экран сам себя чинит, если
     // процесс упал между подтверждением друга и начислением ступени. Идемпотентно.
@@ -28,8 +28,8 @@ router.get("/", async (req, res, next) => {
       code,
       link: userInvites.buildLink(code),
       // Без самой ссылки: при «Поделиться» Telegram (t.me/share/url?url=…&text=…) сам
-      // подставит URL из url=. Если оставить её ещё и в тексте — ссылка задвоится.
-      share_text: "Считаю калории по фото в Bytwise — оказалось реально удобно. Попробуй →",
+      // подставит URL из url=. Если оставить её ещё и в тексте - ссылка задвоится.
+      share_text: "Считаю калории по фото в Bytwise - оказалось реально удобно. Попробуй →",
       stats,
       rewards,
       reward_rule: cfg.enabled ? { per: cfg.per, days: cfg.days } : null
@@ -39,7 +39,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// POST /api/invite/rewards/:id/claim — забрать подарок (то же, что кнопка в ЛС бота)
+// POST /api/invite/rewards/:id/claim - забрать подарок (то же, что кнопка в ЛС бота)
 router.post("/rewards/:id/claim", async (req, res, next) => {
   try {
     const result = await inviteRewards.claim(req.user.id, req.params.id);

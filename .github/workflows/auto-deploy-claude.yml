@@ -6,7 +6,7 @@ on:
 
 concurrency:
   # ВАЖНО: группа ДОЛЖНА отличаться от deploy-production в deploy.yml. У переиспользуемого
-  # workflow_call не может быть той же concurrency-группы, что у вызывающего workflow —
+  # workflow_call не может быть той же concurrency-группы, что у вызывающего workflow -
   # иначе вложенный деплой падает (job вообще не создаётся). Реальную сериализацию выката
   # обеспечивает сам deploy.yml (группа deploy-production).
   group: auto-merge-claude
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   # Тесты ДО мёржа в master: раньше npm run test:ci не вызывал ни один воркфлоу, и любая
   # регрессия в подсчёте лимитов, КБЖУ или стоимости уезжала в прод без единой проверки.
-  # Красные тесты теперь просто не пускают ветку в master — деплоя не будет.
+  # Красные тесты теперь просто не пускают ветку в master - деплоя не будет.
   test:
     if: contains(github.event.head_commit.message, '[deploy]')
     runs-on: ubuntu-latest
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          # Та же мажорная версия, что на проде (v20) — иначе тесты зелёные там, где прод падает.
+          # Та же мажорная версия, что на проде (v20) - иначе тесты зелёные там, где прод падает.
           node-version: "20"
           cache: npm
           cache-dependency-path: server/package-lock.json

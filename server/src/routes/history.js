@@ -11,7 +11,7 @@ router.get("/", auth, async (req, res, next) => {
     const tz = userTz(req.user);
     const date = req.query.date || new Date().toLocaleDateString("en-CA", { timeZone: tz });
     // «День» считаем в часовом поясе пользователя, а не в UTC.
-    // time_label — время приёма уже отформатированное на сервере (полный ICU в Node/PG),
+    // time_label - время приёма уже отформатированное на сервере (полный ICU в Node/PG),
     // чтобы не зависеть от урезанного ICU Telegram-webview (там зоны молча уходили в UTC).
     const { rows } = await db.query(
       `SELECT *, to_char(scanned_at AT TIME ZONE $3, 'HH24:MI') AS time_label

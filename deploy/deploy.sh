@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Bytwise — deploy script (запускается на Ubuntu-сервере).
+# Bytwise - deploy script (запускается на Ubuntu-сервере).
 # Вызывается GitHub Actions по SSH при каждом push в master,
 # либо руками:  bash /opt/bytwise/deploy/deploy.sh
 #
@@ -12,11 +12,11 @@ BRANCH="master"
 STATE_DIR="$REPO_DIR/.deploy-state"
 
 echo "==================================================="
-echo "  Bytwise deploy — $(date '+%Y-%m-%d %H:%M:%S')"
+echo "  Bytwise deploy - $(date '+%Y-%m-%d %H:%M:%S')"
 echo "==================================================="
 
 # Ставим зависимости ТОЛЬКО если изменился package-lock.json.
-# Раньше npm ci выполнялся на каждом выкате, а он начинает с rm -rf node_modules —
+# Раньше npm ci выполнялся на каждом выкате, а он начинает с rm -rf node_modules -
 # то есть выдёргивал модули из-под живого процесса API. Всё, что подгружается лениво
 # (require внутри обработчиков), падало с MODULE_NOT_FOUND в окне между установкой
 # и рестартом, под живым трафиком. Обычный выкат зависимости не меняет, поэтому
@@ -44,7 +44,7 @@ install_if_changed() {
 }
 
 # Сборка фронта в ОТДЕЛЬНЫЙ каталог dist.new, а не поверх рабочего dist.
-# Раньше vite build очищал прод-каталог перед записью: упавшая сборка (частая причина —
+# Раньше vite build очищал прод-каталог перед записью: упавшая сборка (частая причина -
 # OOM на маленьком VPS) оставляла сайт с пустым dist, то есть в 404 до следующего
 # успешного выката. Теперь рабочий dist до последнего момента остаётся нетронутым.
 build_front() {
@@ -69,7 +69,7 @@ cd "$REPO_DIR"
 
 echo "[1/7] Забираю свежий код из GitHub..."
 git fetch --all --prune
-# hard reset — рабочая копия точно совпадёт с origin/master.
+# hard reset - рабочая копия точно совпадёт с origin/master.
 # Незатрекованные файлы (.env, support/.env, uploads/) НЕ трогаются.
 git reset --hard "origin/$BRANCH"
 
@@ -88,13 +88,13 @@ install_if_changed "$REPO_DIR/mobile/app" mobile
 echo "[5/7] Сборка фронтов (в отдельные каталоги, прод пока не трогаем)..."
 build_front "$REPO_DIR/client" "client"
 build_front "$REPO_DIR/admin"  "admin"
-# Внутри .ipa лежит только нативная оболочка, интерфейс она грузит с /app/ —
+# Внутри .ipa лежит только нативная оболочка, интерфейс она грузит с /app/ -
 # поэтому обновления доезжают до телефона обычным деплоем, без пересборки .ipa.
 build_front "$REPO_DIR/mobile/app" "приложение для iPhone"
 
 # Сборку приложения кладём внутрь client/dist.new: Caddy уже раздаёт эту папку как
 # статику, так что отдельного маршрута в /etc/caddy/Caddyfile не нужно (а править его
-# деплой всё равно не может — прав нет).
+# деплой всё равно не может - прав нет).
 rm -rf "$REPO_DIR/client/dist.new/app"
 cp -r "$REPO_DIR/mobile/app/dist.new" "$REPO_DIR/client/dist.new/app"
 rm -rf "$REPO_DIR/mobile/app/dist.new"
@@ -123,7 +123,7 @@ for _ in $(seq 1 15); do
 done
 
 if [ -z "$API_UP" ]; then
-  echo "  ✗ API не отвечает на $HEALTH_URL спустя 30 секунд — выкат считаю неудачным."
+  echo "  ✗ API не отвечает на $HEALTH_URL спустя 30 секунд - выкат считаю неудачным."
   echo "  --- состояние сервиса ---"
   sudo systemctl status bytwise-api --no-pager -l | tail -n 20 || true
   echo "  --- последние строки журнала ---"

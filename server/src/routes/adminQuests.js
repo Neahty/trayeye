@@ -1,5 +1,5 @@
 // Раздел «Квесты» в админке: полный CRUD квестов с наградами.
-// criteria хранится как {type, value?} — та же форма, что у достижений; выполнение и прогресс
+// criteria хранится как {type, value?} - та же форма, что у достижений; выполнение и прогресс
 // считает services/achievements (isUnlocked/metricValue). Награда (reward_link + текст) уходит
 // пользователю в ЛС при нажатии «Забрать награду» (services/quests.claim).
 const express = require("express");
@@ -10,7 +10,7 @@ const { parseId } = require("../utils/http");
 const router = express.Router();
 router.use(adminAuth);
 
-// Доступные типы условий: label — подпись в админке, value — нужен ли числовой порог.
+// Доступные типы условий: label - подпись в админке, value - нужен ли числовой порог.
 const CRITERIA = {
   total_scans:          { label: "Сканов еды (всего)",              value: true },
   manual_scans:         { label: "Добавлений вручную/текстом",       value: true },
@@ -52,14 +52,14 @@ function buildCriteria(body) {
   return { criteria: { type } };
 }
 
-// GET /api/admin/quests/meta — справочник типов условий для формы.
+// GET /api/admin/quests/meta - справочник типов условий для формы.
 router.get("/meta", (req, res) => {
   res.json({
     criteria: Object.entries(CRITERIA).map(([type, m]) => ({ type, label: m.label, needsValue: m.value }))
   });
 });
 
-// GET /api/admin/quests — все квесты + число получивших награду.
+// GET /api/admin/quests - все квесты + число получивших награду.
 router.get("/", async (req, res, next) => {
   try {
     const { rows } = await db.query(
@@ -74,7 +74,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// POST /api/admin/quests — создать квест.
+// POST /api/admin/quests - создать квест.
 router.post("/", async (req, res, next) => {
   try {
     const b = req.body || {};
@@ -106,7 +106,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// PATCH /api/admin/quests/:id — обновить квест (частично).
+// PATCH /api/admin/quests/:id - обновить квест (частично).
 router.patch("/:id", async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
@@ -150,7 +150,7 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
-// DELETE /api/admin/quests/:id — удалить квест (вместе с фактами получения — ON DELETE CASCADE).
+// DELETE /api/admin/quests/:id - удалить квест (вместе с фактами получения - ON DELETE CASCADE).
 router.delete("/:id", async (req, res, next) => {
   try {
     const id = parseId(req.params.id);

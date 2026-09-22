@@ -26,7 +26,7 @@ async function getTariff(type) {
       title: t.title || "Bytwise PRO"
     };
   }
-  // Тарифа в списке нет — берём базовую цену из настроек.
+  // Тарифа в списке нет - берём базовую цену из настроек.
   const fallback = Number(await settings.get(type === "trainer" ? "sub_price_trainer" : "sub_price_basic"));
   return {
     price: Number.isFinite(fallback) && fallback > 0 ? fallback : type === "trainer" ? 1799 : 349,
@@ -37,17 +37,17 @@ async function getTariff(type) {
 }
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-// Применяет успешную оплату: подписка + payment — АТОМАРНО.
+// Применяет успешную оплату: подписка + payment - АТОМАРНО.
 // Идемпотентна по yukassaId: повтор вебхука/двойной вызов не создаёт дубликатов
 // (dup-проверка + частичный UNIQUE на payments(yukassa_id) WHERE succeeded → 23505).
-// Все записи в одной транзакции; сетевые побочки (ensureRefCode/notify) — после COMMIT.
+// Все записи в одной транзакции; сетевые побочки (ensureRefCode/notify) - после COMMIT.
 // Возвращает true если оплата применена, false если уже была обработана.
 async function fulfillPayment({ userId, type, amount, yukassaId, durationDays = 30 }) {
   let applied;
   let isRenewal = false;
   try {
     applied = await db.withTx(async (c) => {
-      // Идемпотентность: уже обработанный платёж — выходим без побочных эффектов.
+      // Идемпотентность: уже обработанный платёж - выходим без побочных эффектов.
       if (yukassaId) {
         const dup = await c.query(
           "SELECT 1 FROM payments WHERE yukassa_id = $1 AND status = 'succeeded' LIMIT 1",
@@ -56,7 +56,7 @@ async function fulfillPayment({ userId, type, amount, yukassaId, durationDays = 
         if (dup.rows.length) return false;
       }
 
-      // Была ли у пользователя подписка раньше — значит это продление, а не первая покупка.
+      // Была ли у пользователя подписка раньше - значит это продление, а не первая покупка.
       const prior = await c.query("SELECT 1 FROM subscriptions WHERE user_id = $1 LIMIT 1", [userId]);
       isRenewal = prior.rows.length > 0;
 
@@ -77,7 +77,7 @@ async function fulfillPayment({ userId, type, amount, yukassaId, durationDays = 
       );
 
       // Платёж: переводим существующий pending-заказ (из buy) в succeeded; если его нет
-      // (mock/прямой вызов) — вставляем новую строку. Частичный UNIQUE ловит гонку (23505).
+      // (mock/прямой вызов) - вставляем новую строку. Частичный UNIQUE ловит гонку (23505).
       const upd = yukassaId
         ? await c.query(
             `UPDATE payments SET status='succeeded', amount=$2, method='yukassa', sub_type=$3
@@ -107,17 +107,17 @@ async function fulfillPayment({ userId, type, amount, yukassaId, durationDays = 
 
   if (!applied) return false;
 
-  // Побочные эффекты ВНЕ транзакции (сеть/Telegram) — после успешного COMMIT, чтобы не держать
+  // Побочные эффекты ВНЕ транзакции (сеть/Telegram) - после успешного COMMIT, чтобы не держать
   // транзакцию открытой на медленных вызовах и чтобы вебхук отвечал быстро (меньше повторов ЮKassa).
-  // Тренерская подписка даёт реф-ссылку — гарантируем, что у тренера есть ref_code.
+  // Тренерская подписка даёт реф-ссылку - гарантируем, что у тренера есть ref_code.
   if (type === "trainer") {
     ensureRefCode(userId).catch((e) => console.error("[refcode] trainer:", e.message));
   }
-  // Уведомления: пользователю — успех, админам — о покупке. Сбой не ломает оплату.
+  // Уведомления: пользователю - успех, админам - о покупке. Сбой не ломает оплату.
   notify.notifyPurchase(userId, { amount, type, renewal: isRenewal }).catch((e) => console.error("[notify] purchase:", e.message));
-  // Атрибуция оплаты сотруднику-пиарщику, если покупатель — чей-то реферал.
+  // Атрибуция оплаты сотруднику-пиарщику, если покупатель - чей-то реферал.
   // Идемпотентно (UNIQUE payment_id); пропущенное при падении процесса доловит ежечасный крон.
-  // Окно 2 дня: created_at платежа — момент СОЗДАНИЯ заказа (buy), вебхук может прийти позже.
+  // Окно 2 дня: created_at платежа - момент СОЗДАНИЯ заказа (buy), вебхук может прийти позже.
   employeeReferrals.attributePaymentsSince("2 days").catch((e) => console.error("[empRef] attribute:", e.message));
   return true;
 }
@@ -125,19 +125,19 @@ async function fulfillPayment({ userId, type, amount, yukassaId, durationDays = 
 // POST /api/subscription/buy  { type }
 router.post("/buy", auth, async (req, res, next) => {
   try {
-    // Тип тарифа приходит из приложения; по умолчанию — basic.
+    // Тип тарифа приходит из приложения; по умолчанию - basic.
     const type = req.body?.type || "basic";
     const tariff = await getTariff(type);
 
-    // Тариф выключен в админке — купить нельзя.
+    // Тариф выключен в админке - купить нельзя.
     if (!tariff.enabled) {
       return res.status(400).json({ error: "tariff_disabled" });
     }
 
     // Нельзя купить повторно, пока активна текущая подписка.
-    // Исключение — апгрейд basic → trainer: разрешён за полную цену; при оплате
+    // Исключение - апгрейд basic → trainer: разрешён за полную цену; при оплате
     // fulfillPayment погасит basic и запустит тренерскую с нуля на её срок.
-    // Даунгрейд trainer → basic и повторная покупка того же тарифа — нельзя.
+    // Даунгрейд trainer → basic и повторная покупка того же тарифа - нельзя.
     const active = await getActiveSubscription(req.user.id);
     if (active && !(active.type === "basic" && type === "trainer")) {
       return res.status(409).json({ error: "already_subscribed", expires_at: active.expires_at });
@@ -160,8 +160,8 @@ router.post("/buy", auth, async (req, res, next) => {
     }
 
     // Защита от дублей заказов: если по этой же подписке уже есть незавершённый заказ
-    // моложе 10 минут (пока жива ссылка ЮKassa) — отдаём ту же ссылку, а не плодим новый.
-    // Для другой подписки (другой sub_type) фильтр не сработает — создастся новый заказ.
+    // моложе 10 минут (пока жива ссылка ЮKassa) - отдаём ту же ссылку, а не плодим новый.
+    // Для другой подписки (другой sub_type) фильтр не сработает - создастся новый заказ.
     const recent = await db.query(
       `SELECT yukassa_id, confirmation_url FROM payments
         WHERE user_id = $1 AND sub_type = $2 AND status = 'pending'
@@ -177,7 +177,7 @@ router.post("/buy", auth, async (req, res, next) => {
       if (verified && verified.status === "pending") {
         return res.json({ payment_url: prev.confirmation_url, mock: false, amount, reused: true });
       }
-      // Заказ уже не платёжеспособен — закрываем висящий pending, создадим новый ниже.
+      // Заказ уже не платёжеспособен - закрываем висящий pending, создадим новый ниже.
       if (verified && verified.status !== "pending") {
         await db.query("UPDATE payments SET status='cancelled' WHERE yukassa_id=$1 AND status='pending'", [prev.yukassa_id]);
       }
@@ -195,7 +195,7 @@ router.post("/buy", auth, async (req, res, next) => {
       [req.user.id, amount, payment.payment_id, type, payment.payment_url]
     );
 
-    // Лог «начал оплату» — человек получил ссылку на ЮKassa (воронка оплаты).
+    // Лог «начал оплату» - человек получил ссылку на ЮKassa (воронка оплаты).
     (async () => {
       const who = await notify.userLabel(req.user.id);
       channelLog.post(
@@ -217,9 +217,9 @@ router.post("/buy", auth, async (req, res, next) => {
 // GET /api/subscription/mock-confirm  (только mock-режим)
 router.get("/mock-confirm", async (req, res, next) => {
   try {
-    // Роут активирует подписку без авторизации — допустим только в mock-режиме и только
+    // Роут активирует подписку без авторизации - допустим только в mock-режиме и только
     // вне прода. Защита в глубину: старт в production без ключей ЮKassa уже запрещён
-    // (server/src/index.js:checkConfig), но цена этой строки — ноль, а цена ошибки —
+    // (server/src/index.js:checkConfig), но цена этой строки - ноль, а цена ошибки -
     // бесплатные подписки любому, кто подберёт ?meta=.
     if (!isMock() || process.env.NODE_ENV === "production") return res.status(404).send("not_found");
 
@@ -256,7 +256,7 @@ router.post("/webhook", async (req, res, next) => {
       // Поддельный/чужой id там не подтвердится статусом succeeded.
       const verified = await getPayment(obj.id);
       if (!verified || verified.status !== "succeeded") {
-        return res.json({ ok: true }); // не подтверждён — игнорируем, без побочных эффектов
+        return res.json({ ok: true }); // не подтверждён - игнорируем, без побочных эффектов
       }
       const meta = verified.metadata || obj.metadata;
       await fulfillPayment({
@@ -267,7 +267,7 @@ router.post("/webhook", async (req, res, next) => {
         durationDays: Number(meta.duration_days) || 30
       });
     } else if (event === "payment.canceled" && obj?.id) {
-      // Платёж отменён (не оплачен/отклонён) — обновляем висящий pending, не трогаем succeeded.
+      // Платёж отменён (не оплачен/отклонён) - обновляем висящий pending, не трогаем succeeded.
       const upd = await db.query(
         "UPDATE payments SET status='cancelled' WHERE yukassa_id=$1 AND status='pending' RETURNING user_id, amount, sub_type, created_at",
         [obj.id]
@@ -278,7 +278,7 @@ router.post("/webhook", async (req, res, next) => {
         catch (e) { console.error("[notify] canceled:", e.message); }
       }
     } else if (event === "refund.succeeded" && obj?.payment_id) {
-      // Возврат прошёл — гасим и платёж, и всё, что он оплатил, АТОМАРНО.
+      // Возврат прошёл - гасим и платёж, и всё, что он оплатил, АТОМАРНО.
       // Раньше помечался только payments.status: подписка оставалась active до конца
       // оплаченного срока, то есть человек продолжал пользоваться PRO после возврата денег,
       // а пользователю при этом уходило письмо «доступ по этой оплате закрыт».
@@ -299,7 +299,7 @@ router.post("/webhook", async (req, res, next) => {
         );
 
         // Снимаем начисление пиарщику за возвращённый платёж. Уже выплаченное
-        // (payout_id IS NOT NULL) не трогаем — те деньги ушли, это разбирается вручную.
+        // (payout_id IS NOT NULL) не трогаем - те деньги ушли, это разбирается вручную.
         await c.query(
           "DELETE FROM employee_payments WHERE payment_id=$1 AND payout_id IS NULL",
           [p.id]
@@ -334,7 +334,7 @@ router.get("/status", auth, async (req, res, next) => {
   }
 });
 
-// GET /api/subscription/payments — история платежей пользователя (экран «Управление подпиской»)
+// GET /api/subscription/payments - история платежей пользователя (экран «Управление подпиской»)
 router.get("/payments", auth, async (req, res, next) => {
   try {
     const { rows } = await db.query(

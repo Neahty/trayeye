@@ -1,7 +1,7 @@
 // Раздел «Работники» в админке: сотрудники-пиарщики, их рефералы и выплаты.
-// Деньги переводятся вручную вне системы — здесь только учёт: выплата закрывает
+// Деньги переводятся вручную вне системы - здесь только учёт: выплата закрывает
 // ВСЁ невыплаченное выбранного типа (unit_count × unit_rate), отмена возвращает
-// единицы в «невыплаченные». Подробности механики — в services/employeeReferrals.js.
+// единицы в «невыплаченные». Подробности механики - в services/employeeReferrals.js.
 const express = require("express");
 const db = require("../db");
 const adminAuth = require("../middleware/adminAuth");
@@ -23,7 +23,7 @@ async function getEmployee(id) {
   return rows[0] || null;
 }
 
-// GET /api/admin/employees — список с ключевыми цифрами.
+// GET /api/admin/employees - список с ключевыми цифрами.
 router.get("/", async (req, res, next) => {
   try {
     const { rows } = await db.query(
@@ -47,8 +47,8 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// POST /api/admin/employees { query } — добавить сотрудника по Telegram ID или @username.
-// Человек должен уже существовать в users (нажимал /start) — иначе 404.
+// POST /api/admin/employees { query } - добавить сотрудника по Telegram ID или @username.
+// Человек должен уже существовать в users (нажимал /start) - иначе 404.
 router.post("/", async (req, res, next) => {
   try {
     const query = String(req.body?.query || "").trim();
@@ -61,7 +61,7 @@ router.post("/", async (req, res, next) => {
     const user = found[0];
     if (!user) return res.status(404).json({ error: "user_not_found" });
 
-    // Уже активный сотрудник — не дублируем роль и приветствие.
+    // Уже активный сотрудник - не дублируем роль и приветствие.
     const { rows: existing } = await db.query(
       "SELECT 1 FROM employees WHERE user_id = $1 AND active = TRUE", [user.id]
     );
@@ -87,7 +87,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// DELETE /api/admin/employees/:id — «уволить»: ссылка гаснет, история остаётся.
+// DELETE /api/admin/employees/:id - «уволить»: ссылка гаснет, история остаётся.
 router.delete("/:id", async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
@@ -105,7 +105,7 @@ router.delete("/:id", async (req, res, next) => {
   }
 });
 
-// GET /api/admin/employees/:id — карточка: статистика, рефералы поимённо,
+// GET /api/admin/employees/:id - карточка: статистика, рефералы поимённо,
 // график за 30 дней, история выплат.
 router.get("/:id", async (req, res, next) => {
   try {
@@ -159,7 +159,7 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
-// POST /api/admin/employees/:id/payouts { kind, rate } — отметить выплату.
+// POST /api/admin/employees/:id/payouts { kind, rate } - отметить выплату.
 // kind: referrals (за приведённых людей) | subscriptions (за оплаченные подписки).
 // Закрывает ВСЁ невыплаченное выбранного типа; сумма = кол-во × ставка.
 router.post("/:id/payouts", async (req, res, next) => {
@@ -174,7 +174,7 @@ router.post("/:id/payouts", async (req, res, next) => {
     if (!emp) return res.status(404).json({ error: "not_found" });
 
     // Всё в одной транзакции: создание выплаты и штамп payout_id на невыплаченных
-    // единицах — новый реферал, подтверждённый кроном в этот момент, либо попадёт
+    // единицах - новый реферал, подтверждённый кроном в этот момент, либо попадёт
     // в счёт целиком, либо останется на следующую выплату.
     const payout = await db.withTx(async (c) => {
       const created = await c.query(
@@ -219,7 +219,7 @@ router.post("/:id/payouts", async (req, res, next) => {
   }
 });
 
-// POST /api/admin/employees/:id/payouts/:payoutId/cancel — отменить выплату (ошибся).
+// POST /api/admin/employees/:id/payouts/:payoutId/cancel - отменить выплату (ошибся).
 // Единицы возвращаются в «невыплаченные» и попадут в следующую выплату этого типа.
 router.post("/:id/payouts/:payoutId/cancel", async (req, res, next) => {
   try {

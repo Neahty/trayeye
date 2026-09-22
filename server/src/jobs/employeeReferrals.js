@@ -1,7 +1,7 @@
 // Фоновые проверки по сотрудникам-пиарщикам (запускается ежечасно на :20).
 // Фаза A: pending-рефералы старше 24 часов → confirmed или rejected по правилу
 // «открыл приложение + в канале + не заблокировал бота» (состояние на момент проверки).
-// Фаза B: страховочная атрибуция оплат за последние 2 дня — доловит платежи,
+// Фаза B: страховочная атрибуция оплат за последние 2 дня - доловит платежи,
 // потерянные при падении процесса между COMMIT и хуком, и ручные начисления админом.
 const db = require("../db");
 const employeeReferrals = require("../services/employeeReferrals");
@@ -15,7 +15,7 @@ const REASONS = {
 };
 
 async function runEmployeeReferralChecks() {
-  // Фаза A — решение по рефералам, у которых истекли сутки проверки.
+  // Фаза A - решение по рефералам, у которых истекли сутки проверки.
   const { rows: pending } = await db.query(
     `SELECT r.id, r.employee_id, r.user_id, u.app_opened, u.channel_member, u.tg_unreachable
        FROM employee_referrals r
@@ -32,7 +32,7 @@ async function runEmployeeReferralChecks() {
     else if (r.tg_unreachable) reason = "blocked_bot";
     const status = reason ? "rejected" : "confirmed";
 
-    // Guard по status='pending' — защита от гонки с параллельным запуском.
+    // Guard по status='pending' - защита от гонки с параллельным запуском.
     const upd = await db.query(
       `UPDATE employee_referrals SET status = $2, reject_reason = $3, decided_at = NOW()
         WHERE id = $1 AND status = 'pending' RETURNING id`,
@@ -41,7 +41,7 @@ async function runEmployeeReferralChecks() {
     if (!upd.rows.length) continue;
     if (reason) rejected++; else confirmed++;
 
-    // В лог-канал — итог по каждому (владелец видит имена; сотруднику ЛС не шлём,
+    // В лог-канал - итог по каждому (владелец видит имена; сотруднику ЛС не шлём,
     // он видит результат в /stat).
     try {
       const who = await notify.userLabel(r.user_id);
@@ -61,7 +61,7 @@ async function runEmployeeReferralChecks() {
     console.log(`[cron] employeeReferrals: confirmed=${confirmed} rejected=${rejected}`);
   }
 
-  // Фаза B — reconcile оплат.
+  // Фаза B - reconcile оплат.
   const attributed = await employeeReferrals.attributePaymentsSince("2 days");
   if (attributed) console.log(`[cron] employeeReferrals: attributed=${attributed}`);
 }

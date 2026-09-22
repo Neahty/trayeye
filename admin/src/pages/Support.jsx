@@ -53,7 +53,7 @@ export default function SupportPage() {
                     {t.username && <span className="muted"> @{t.username}</span>}
                   </td>
                   <td data-label="Тема" style={{ maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t.subject || t.last_text || "—"}
+                    {t.subject || t.last_text || "-"}
                   </td>
                   <td data-label="Сообщений">{t.message_count}</td>
                   <td data-label="Обновлён">{fmtDate(t.updated_at)}</td>

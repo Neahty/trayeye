@@ -2,7 +2,7 @@ import { assetUrl } from "../api";
 import { MealIcon } from "./icons";
 
 // Красивый плейсхолдер вместо «пустоты», если фото нет.
-// meal — объект скана (photo_path, meal_type, source). radius/size настраиваются.
+// meal - объект скана (photo_path, meal_type, source). radius/size настраиваются.
 export default function PhotoSlot({ meal, size, width, height, radius = 14, shape = "rounded" }) {
   const w = width ?? size ?? 58;
   const h = height ?? size ?? 58;
@@ -19,7 +19,7 @@ export default function PhotoSlot({ meal, size, width, height, radius = 14, shap
     );
   }
 
-  // нет фото (текст/ручной ввод) — показываем иконку приёма пищи на тинте
+  // нет фото (текст/ручной ввод) - показываем иконку приёма пищи на тинте
   return (
     <div className="photo-slot" style={style}>
       <span className="ph-emoji">

@@ -5,7 +5,7 @@ import { Loader } from "../lib.jsx";
 // Вкладка «Ссылки»: глобальные ссылки для Главной приложения.
 // Пустая ссылка → карточка на Главной прячется.
 const FIELDS = [
-  { key: "nutritionist_url", label: "Задать вопрос нутрициологу", hint: "Ссылка на аккаунт нутрициолога в Telegram — кнопка на Главной ведёт сюда." },
+  { key: "nutritionist_url", label: "Задать вопрос нутрициологу", hint: "Ссылка на аккаунт нутрициолога в Telegram - кнопка на Главной ведёт сюда." },
   { key: "plan_url", label: "Авторский план тренировок", hint: "Промо-карточка «Авторский план» на Главной." },
   { key: "support_url", label: "Поддержка / канал", hint: "Доп. служебная ссылка (необязательно)." },
   { key: "reviews_url", label: "Канал с отзывами", hint: "Карточка «Счастливые пользователи Pro» в Профиле, под подпиской, ведёт сюда." }
@@ -37,7 +37,7 @@ export default function LinksPage() {
     setMsg(null);
     try {
       await Admin.saveSettings(form);
-      setMsg("Ссылки сохранены — применились в приложении");
+      setMsg("Ссылки сохранены - применились в приложении");
     } catch (e) {
       setMsg("Ошибка: " + (e?.response?.data?.error || e.message));
     } finally {
@@ -49,7 +49,7 @@ export default function LinksPage() {
     <div>
       <div className="topbar"><h1 className="page-title">Ссылки</h1></div>
       <p className="muted" style={{ marginBottom: 14, fontSize: 13.5 }}>
-        Глобальные ссылки для Главной приложения. Оставьте поле пустым — соответствующая карточка
+        Глобальные ссылки для Главной приложения. Оставьте поле пустым - соответствующая карточка
         не будет показываться пользователям.
       </p>
 

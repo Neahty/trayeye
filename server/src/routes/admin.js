@@ -21,20 +21,20 @@ const { sendTestMealReminder } = require("../jobs/notifications");
 const router = express.Router();
 router.use(adminAuth);
 
-// Цена тарифа из настроек (как в routes/subscription.js) — для ручной записи платежа.
+// Цена тарифа из настроек (как в routes/subscription.js) - для ручной записи платежа.
 async function getTariffPrice(type) {
   const key = type === "trainer" ? "sub_price_trainer" : "sub_price_basic";
   const val = Number(await settings.get(key));
   return Number.isFinite(val) && val > 0 ? val : type === "trainer" ? 1799 : 349;
 }
 
-// Название тарифа из настроек (динамически) — для понятных сообщений в канал-логах.
+// Название тарифа из настроек (динамически) - для понятных сообщений в канал-логах.
 async function tariffTitleAdmin(type) {
   try {
     const list = await settings.get("tariffs");
     const t = Array.isArray(list) ? list.find((x) => x && x.id === type) : null;
     if (t?.title) return t.title;
-  } catch { /* настроек нет — отдаём дефолт */ }
+  } catch { /* настроек нет - отдаём дефолт */ }
   return type === "trainer" ? "Тренерская" : "PRO";
 }
 
@@ -69,10 +69,10 @@ router.get("/dashboard", async (req, res, next) => {
       // Универсум пользователей = открывавшие приложение (app_opened). Среди них:
       // АКТИВНЫЕ = подписчик канала и бот не в ЧС (channel_member AND NOT tg_unreachable);
       // НЕАКТИВНЫЕ = отписался от канала ИЛИ заблокировал бота (см. ниже). Данные неактивных
-      // НЕ удаляются — только статус. В канале есть читатели новостей: они не взаимодействовали
+      // НЕ удаляются - только статус. В канале есть читатели новостей: они не взаимодействовали
       // с ботом, поэтому не в users и не в счёте вовсе.
       q("SELECT COUNT(*)::int AS c FROM users WHERE app_opened = TRUE AND channel_member = TRUE AND tg_unreachable = FALSE"),
-      // Новые активные за сегодня — по дате подписки на канал.
+      // Новые активные за сегодня - по дате подписки на канал.
       q("SELECT COUNT(*)::int AS c FROM users WHERE app_opened = TRUE AND channel_member = TRUE AND tg_unreachable = FALSE AND (channel_joined_at AT TIME ZONE 'Asia/Yekaterinburg')::date = (NOW() AT TIME ZONE 'Asia/Yekaterinburg')::date"),
       q("SELECT COUNT(DISTINCT user_id)::int AS c FROM system_logs WHERE action='login' AND created_at >= NOW() - interval '1 day'"),
       q("SELECT COUNT(DISTINCT user_id)::int AS c FROM system_logs WHERE action='login' AND created_at >= NOW() - interval '30 days'"),
@@ -98,7 +98,7 @@ router.get("/dashboard", async (req, res, next) => {
     const conversion = totals.c ? Math.round((paidUsers.c / totals.c) * 1000) / 10 : 0;
 
     // Остаток баланса OpenAI в рублях: баланс (введён вручную) минус расход с момента ввода.
-    // Расход берём из Costs API (реальные деньги), иначе — оценка по ai_usage. Курс — ЦБ РФ.
+    // Расход берём из Costs API (реальные деньги), иначе - оценка по ai_usage. Курс - ЦБ РФ.
     let gptBalanceRub = null, gptBalanceIsReal = false, gptBalanceUpdatedAt = null, gptBalanceAgeDays = null;
     const balanceUsd = Number(await settings.get("openai_balance_usd")) || 0;
     if (balanceUsd > 0) {
@@ -108,7 +108,7 @@ router.get("/dashboard", async (req, res, next) => {
       gptBalanceAgeDays = Math.floor((Date.now() - sinceMs) / 86400000);
 
       // Costs API считает сутками, поэтому в день ввода баланса в расход попадало и то,
-      // что потрачено ДО ввода. Берём из тех суток только долю после момента ввода —
+      // что потрачено ДО ввода. Берём из тех суток только долю после момента ввода -
       // пропорцию считаем по своим токенам, они привязаны к точному времени.
       const [dayRow] = await q(
         `SELECT COALESCE(SUM(cost_usd),0) AS whole,
@@ -136,7 +136,7 @@ router.get("/dashboard", async (req, res, next) => {
       gpt_balance_is_real: gptBalanceIsReal,      // true = расход из OpenAI, false = оценка по токенам
       gpt_balance_updated_at: gptBalanceUpdatedAt,
       gpt_balance_age_days: gptBalanceAgeDays,    // сколько дней назад баланс вводили руками
-      total_users: totals.c,        // активные (подписчик + не в ЧС) — основной счёт
+      total_users: totals.c,        // активные (подписчик + не в ЧС) - основной счёт
       active_users: totals.c,
       inactive_users: inactive.c,   // отписались/в ЧС, но данные сохранены
       new_today: newToday.c,
@@ -170,7 +170,7 @@ router.get("/users", async (req, res, next) => {
     }
     if (req.query.blocked === "true") where.push("u.is_blocked = TRUE");
     if (req.query.subscribed === "true") where.push("EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id=u.id AND s.status='active' AND s.expires_at>NOW())");
-    // Активный = открывал приложение, подписан на канал, бот не в ЧС. Неактивный — обратное.
+    // Активный = открывал приложение, подписан на канал, бот не в ЧС. Неактивный - обратное.
     if (req.query.active === "true") where.push("u.app_opened = TRUE AND u.channel_member = TRUE AND u.tg_unreachable = FALSE");
     if (req.query.active === "false") where.push("u.app_opened = TRUE AND (u.channel_member = FALSE OR u.tg_unreachable = TRUE)");
 
@@ -257,7 +257,7 @@ router.get("/users/:id", async (req, res, next) => {
         WHERE r.user_id = $1`,
       [id]
     );
-    // Сколько привёл сам — чтобы победителя конкурса было видно прямо в карточке.
+    // Сколько привёл сам - чтобы победителя конкурса было видно прямо в карточке.
     const invitesSent = await db.query(
       `SELECT COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed,
               COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
@@ -285,7 +285,7 @@ router.get("/users/:id", async (req, res, next) => {
     const n = nutrition.rows[0];
     const avgDayCal = n.days ? Math.round(n.total_cal / n.days) : 0;
 
-    // Конец пробного периода — как в checkLimit.js (trial_started_at + trial_days).
+    // Конец пробного периода - как в checkLimit.js (trial_started_at + trial_days).
     const trialDays = Number(await settings.get("trial_days")) || 3;
     const trialStart = new Date(user.trial_started_at || user.created_at);
     const trialEndsAt = new Date(trialStart.getTime() + trialDays * 24 * 60 * 60 * 1000);
@@ -340,7 +340,7 @@ router.patch("/users/:id/subscription", async (req, res, next) => {
       [id, type, expires]
     );
     // Деньги в выручку добавляем только если админ явно подтвердил (record_payment=true):
-    // например, оплата прошла мимо кассы и её нужно учесть. По умолчанию — без денег.
+    // например, оплата прошла мимо кассы и её нужно учесть. По умолчанию - без денег.
     let recordedAmount = null;
     if (req.body?.record_payment) {
       recordedAmount = await recordManualPayment(id, type, req.body?.amount);
@@ -385,7 +385,7 @@ router.delete("/users/:id/subscription", async (req, res, next) => {
   }
 });
 
-// Аккаунт админа нельзя удалять — защита от удаления самих себя и друг друга.
+// Аккаунт админа нельзя удалять - защита от удаления самих себя и друг друга.
 // Для банов такая же проверка живёт в services/moderation.js (isProtected): тем же
 // кодом банят команды «.запретить»/«.разрешить» из канала логов, правило одно на оба пути.
 async function isAdminUser(id) {
@@ -423,7 +423,7 @@ router.delete("/users/:id", async (req, res, next) => {
     if (id === null) return res.status(400).json({ error: "bad_id" });
     if (id === req.admin.id) return res.status(400).json({ error: "cannot_delete_self" });
     if (await isAdminUser(id)) return res.status(403).json({ error: "cannot_delete_admin" });
-    // Каскадное удаление — в одной транзакции, иначе сбой посередине оставит осиротевшие данные.
+    // Каскадное удаление - в одной транзакции, иначе сбой посередине оставит осиротевшие данные.
     await db.withTx(async (c) => {
       await c.query("DELETE FROM broadcast_clicks WHERE user_id=$1", [id]);
       await c.query("DELETE FROM user_achievements WHERE user_id=$1", [id]);
@@ -494,7 +494,7 @@ router.get("/finance", async (req, res, next) => {
 });
 
 // Деньги по данным API ЮKassa: получено / комиссия / чистыми / возвраты.
-// period = day | week | month | all. «Выведено на счёт» через API недоступно — только в ЛК ЮKassa.
+// period = day | week | month | all. «Выведено на счёт» через API недоступно - только в ЛК ЮKassa.
 router.get("/finance/yukassa", async (req, res, next) => {
   try {
     const period = ["day", "week", "month", "all"].includes(req.query.period) ? req.query.period : "month";
@@ -594,7 +594,7 @@ router.get("/ai", async (req, res, next) => {
        GROUP BY 1 ORDER BY requests DESC`
     );
 
-    // Доля переделок — измеритель точности ИИ: сколько записей человек поправил или удалил.
+    // Доля переделок - измеритель точности ИИ: сколько записей человек поправил или удалил.
     // Считаем по логам действий (пишутся в routes/scan.js) относительно числа сканов за тот же период.
     const redo = await q(
       `SELECT details->>'source' AS source,
@@ -610,7 +610,7 @@ router.get("/ai", async (req, res, next) => {
     );
 
     // Курс ЦБ РФ + реальные расходы OpenAI (если есть admin-ключ).
-    // Окно берём от самого первого обращения к ИИ, а не жёсткие 30 дней — иначе карточка
+    // Окно берём от самого первого обращения к ИИ, а не жёсткие 30 дней - иначе карточка
     // «Потрачено всего» показывала расход за месяц и занижала сумму в разы.
     const firstAt = stat.first_at ? new Date(stat.first_at).getTime() : Date.now();
     const lifetimeDays = Math.ceil((Date.now() - firstAt) / 86400000) + 1;
@@ -624,7 +624,7 @@ router.get("/ai", async (req, res, next) => {
     const estTotalUsd = Math.round(Number(stat.total_cost) * 1e4) / 1e4;
     // «Сегодня» всегда считаем оценкой по токенам: Costs API отдаёт текущие сутки с задержкой
     // (в карточке был ноль при десятках запросов), да и бакеты там по UTC, а мы живём по
-    // Asia/Yekaterinburg — как и все остальные карточки админки.
+    // Asia/Yekaterinburg - как и все остальные карточки админки.
     const estTodayUsd = Math.round(Number(today.cost) * 1e4) / 1e4;
 
     // Сколько сэкономил бесплатный Gemini: во что обошлись бы его токены на платной vision-модели.
@@ -643,7 +643,7 @@ router.get("/ai", async (req, res, next) => {
       usd_rub: Math.round(rate * 100) / 100,
       is_real: Boolean(real),                 // true = реальные деньги из OpenAI, false = оценка по токенам
       spent_total_rub: real ? rub(real.total_usd) : rub(estTotalUsd),
-      spent_today_rub: rub(estTodayUsd),      // всегда оценка — см. комментарий выше
+      spent_today_rub: rub(estTodayUsd),      // всегда оценка - см. комментарий выше
       today_is_estimate: true,
       estimate_total_rub: rub(estTotalUsd),
 
@@ -740,7 +740,7 @@ router.post("/broadcasts", upload.single("photo"), async (req, res, next) => {
     const text = req.body.text || "";
     let buttons = null;
     if (req.body.buttons) {
-      // Кривой JSON — явная ошибка, а не молчаливая рассылка без кнопок.
+      // Кривой JSON - явная ошибка, а не молчаливая рассылка без кнопок.
       try { buttons = JSON.parse(req.body.buttons); }
       catch { return res.status(400).json({ error: "bad_buttons_json" }); }
     }
@@ -763,7 +763,7 @@ router.post("/broadcasts", upload.single("photo"), async (req, res, next) => {
       fs.writeFileSync(path.join(dir, filename), req.file.buffer);
       photoPath = `uploads/broadcasts/${filename}`;
     }
-    // Создаём запись и СРАЗУ отвечаем админу, а отправку гоним в фоне — иначе на большой
+    // Создаём запись и СРАЗУ отвечаем админу, а отправку гоним в фоне - иначе на большой
     // аудитории запрос висел минуты и обрывался по таймауту (админ жал «отправить» повторно → дубль).
     const result = await broadcast.createBroadcast({
       adminId: req.admin.id, audience, kind, text, photoPath, buttons, targetUserIds
@@ -857,7 +857,7 @@ router.put("/settings", async (req, res, next) => {
       if (!allowed.includes(key)) continue;
       await settings.set(key, updates[key], req.admin.id);
     }
-    // Баланс OpenAI: сохраняем сумму и, только если она изменилась, обновляем дату ввода —
+    // Баланс OpenAI: сохраняем сумму и, только если она изменилась, обновляем дату ввода -
     // с неё считается расход. Иначе сохранение других вкладок обнуляло бы «потрачено».
     if (Object.prototype.hasOwnProperty.call(updates, "openai_balance_usd")) {
       const newVal = Math.max(0, Number(updates.openai_balance_usd) || 0);
@@ -865,7 +865,7 @@ router.put("/settings", async (req, res, next) => {
       await settings.set("openai_balance_usd", newVal, req.admin.id);
       if (newVal !== prevVal) await settings.set("openai_balance_at", new Date().toISOString(), req.admin.id);
     }
-    // Зеркалим цену базового тарифа в sub_price_basic — единый источник правды для fallback'ов.
+    // Зеркалим цену базового тарифа в sub_price_basic - единый источник правды для fallback'ов.
     if (Array.isArray(updates.tariffs)) {
       const basic = updates.tariffs.find((t) => t && t.id === "basic");
       const price = Number(basic?.price);
@@ -880,7 +880,7 @@ router.put("/settings", async (req, res, next) => {
 // ===================== НАПОМИНАНИЯ О ПОДПИСКЕ ======================
 // Ручной запуск рассылки (кнопка «Разослать сейчас»): каждому клиенту уходит
 // сообщение по его ТЕКУЩЕЙ ситуации (пробный / последний день / пробный кончился /
-// подписка истекает / истекла — сколько бы дней ни прошло). Защита: не больше
+// подписка истекает / истекла - сколько бы дней ни прошло). Защита: не больше
 // одного напоминания в сутки на человека, повторное нажатие в тот же день не дублит.
 router.post("/reminders/run", async (req, res, next) => {
   try {
@@ -941,7 +941,7 @@ router.post("/reminders/meal-test", async (req, res, next) => {
 
 // ============================ ПОДДЕРЖКА ============================
 // Тикеты создаёт отдельный бот поддержки (папка support/, общая база).
-// Здесь — просмотр, ответ и закрытие из веб-админки через SUPPORT_BOT_TOKEN.
+// Здесь - просмотр, ответ и закрытие из веб-админки через SUPPORT_BOT_TOKEN.
 
 // Список тикетов: ?status=open|closed|all (по умолчанию open)
 router.get("/support/tickets", async (req, res, next) => {
@@ -1056,10 +1056,10 @@ router.post("/support/tickets/:id/close", async (req, res, next) => {
     if (!ticket) return res.status(409).json({ error: "already_closed" });
 
     await db.logAction(req.admin.id, "admin_action", { action: "support_close", ticket_id: id });
-    // Уведомления — fire-and-forget, закрытие не должно падать из-за Telegram.
+    // Уведомления - fire-and-forget, закрытие не должно падать из-за Telegram.
     supportBot.sendMessage(
       ticket.user_id,
-      `✅ Обращение №${ticket.ticket_no ?? id} закрыто. Если проблема осталась — просто напишите снова, мы создадим новое.`
+      `✅ Обращение №${ticket.ticket_no ?? id} закрыто. Если проблема осталась - просто напишите снова, мы создадим новое.`
     ).catch(() => {});
     supportBot.notifyOtherAdmins(
       req.admin.telegram_id,

@@ -1,5 +1,5 @@
 // Логика админа: всё по кнопкам. Карточки тикетов приходят сами,
-// «Ответить» / «Закрыть» — inline-кнопки, меню по /start.
+// «Ответить» / «Закрыть» - inline-кнопки, меню по /start.
 
 const db = require("../db");
 const { ADMIN_IDS } = require("../config");
@@ -7,7 +7,7 @@ const { esc, ticketCard, sendCardToAdmin, sendLong, TG_CAPTION_LIMIT } = require
 const { getAppUser } = require("./user");
 
 // adminTelegramId -> ticketId: кому какой тикет сейчас отвечает админ.
-// Теряется при рестарте — не страшно, админ снова нажмёт «Ответить».
+// Теряется при рестарте - не страшно, админ снова нажмёт «Ответить».
 const pending = new Map();
 
 const REPLY_PREFIX = "💬 Ответ поддержки Bytwise:\n\n";
@@ -70,7 +70,7 @@ async function onList(ctx) {
   }
   const { rows: cnt } = await db.query("SELECT COUNT(*)::int AS c FROM support_tickets WHERE status = 'open'");
   if (cnt[0].c > rows.length) {
-    await ctx.reply(`…и ещё ${cnt[0].c - rows.length}. Полный список — в веб-админке, раздел «Поддержка».`);
+    await ctx.reply(`…и ещё ${cnt[0].c - rows.length}. Полный список - в веб-админке, раздел «Поддержка».`);
   }
 }
 
@@ -84,7 +84,7 @@ async function onReplyBtn(ctx) {
   }
   pending.set(String(ctx.from.id), id);
   await ctx.answerCbQuery();
-  await ctx.reply(`Напишите ответ для тикета №${ticket.ticket_no ?? id} (текст или фото). /cancel — отменить.`);
+  await ctx.reply(`Напишите ответ для тикета №${ticket.ticket_no ?? id} (текст или фото). /cancel - отменить.`);
 }
 
 // Кнопка «Закрыть».
@@ -102,14 +102,14 @@ async function onCloseBtn(ctx) {
     return;
   }
   await ctx.answerCbQuery("Тикет закрыт ✅");
-  // Убираем кнопки у карточки (может не получиться у старых сообщений — не страшно).
+  // Убираем кнопки у карточки (может не получиться у старых сообщений - не страшно).
   try { await ctx.editMessageReplyMarkup(undefined); } catch { /* ок */ }
 
   const no = ticket.ticket_no ?? ticket.id;
   try {
     await ctx.telegram.sendMessage(
       ticket.user_id,
-      `✅ Обращение №${no} закрыто. Если проблема осталась — просто напишите снова, мы создадим новое.`
+      `✅ Обращение №${no} закрыто. Если проблема осталась - просто напишите снова, мы создадим новое.`
     );
   } catch { /* пользователь мог заблокировать бота */ }
 
@@ -117,7 +117,7 @@ async function onCloseBtn(ctx) {
   await ctx.reply(`Тикет №${no} закрыт.`);
 }
 
-// Текст/фото от админа: если ждём ответ — отправляем пользователю.
+// Текст/фото от админа: если ждём ответ - отправляем пользователю.
 async function onMessage(ctx) {
   const adminId = String(ctx.from.id);
   const ticketId = pending.get(adminId);
@@ -141,7 +141,7 @@ async function onMessage(ctx) {
     return;
   }
 
-  // Отправляем пользователю; 403 = заблокировал бота — фиксируем в истории, но предупреждаем.
+  // Отправляем пользователю; 403 = заблокировал бота - фиксируем в истории, но предупреждаем.
   let delivered = true;
   try {
     if (photoFileId) {
@@ -178,7 +178,7 @@ async function onMessage(ctx) {
     await ctx.reply(`✅ Отправлено в тикет №${no}.`);
     await notifyOtherAdmins(ctx.telegram, adminId, `💬 Тикет №${no}: ответил ${esc(adminName(ctx.from))}`);
   } else {
-    await ctx.reply(`🚫 Тикет №${no}: пользователь заблокировал бота — ответ сохранён в истории, но не доставлен.`);
+    await ctx.reply(`🚫 Тикет №${no}: пользователь заблокировал бота - ответ сохранён в истории, но не доставлен.`);
   }
 }
 

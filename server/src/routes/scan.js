@@ -21,7 +21,7 @@ const router = express.Router();
 // присланного Content-Type (см. utils/imageUpload.js).
 const upload = imageUpload(10 * 1024 * 1024);
 
-// Базовый публичный адрес — чтобы Telegram мог скачать фото скана по URL (через Caddy /uploads).
+// Базовый публичный адрес - чтобы Telegram мог скачать фото скана по URL (через Caddy /uploads).
 const SERVER_URL = process.env.SERVER_URL || process.env.CLIENT_URL || "";
 
 const UPLOADS_ROOT = path.resolve(__dirname, "../../../uploads");
@@ -55,18 +55,18 @@ async function limitLines(req) {
   const lines = [];
 
   const lim = req.scanLimit;
-  if (!lim) lines.push("Лимит: —");
+  if (!lim) lines.push("Лимит: -");
   else if (lim.unlimited) lines.push("Лимит: безлимит (подписка)");
   else lines.push(`Лимит: осталось ${Math.max(0, lim.left - 1)} из ${lim.limit} сканов на сегодня`);
 
   // Показываем ВЕСЬ бесплатный запас, а не счётчик ответившей модели: у Google квота
   // считается на каждую модель отдельно, поэтому цифра одной модели скакала бы туда-сюда
-  // (фото ответило одной, текст — другой) и читалась бы как сбой счётчика.
+  // (фото ответило одной, текст - другой) и читалась бы как сбой счётчика.
   // Строку даём всегда, даже когда ответил OpenAI: тогда по ней видно, кончилась квота или нет.
   if (GEMINI_ENABLED && GEMINI_ALL_MODELS.length) {
     try {
       // Считаем по своим записям: в ai_usage попадает только победивший провайдер,
-      // поэтому неудачные попытки Google посчитает, а мы нет — цифра идёт с запасом вниз.
+      // поэтому неудачные попытки Google посчитает, а мы нет - цифра идёт с запасом вниз.
       const { rows } = await db.query(
         `SELECT model, COUNT(*)::int AS cnt FROM ai_usage
          WHERE model = ANY($1) AND (created_at AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date
@@ -80,7 +80,7 @@ async function limitLines(req) {
         .map((m) => `${m.replace(/^gemini-/, "")} ${Math.max(0, GEMINI_DAILY_LIMIT - (usedBy.get(m) || 0))}`)
         .join(" · ");
       lines.push(`Квота Gemini: осталось ${left} из ${total} на сегодня (${detail})`);
-    } catch { /* квота — справочная строка, лог из-за неё падать не должен */ }
+    } catch { /* квота - справочная строка, лог из-за неё падать не должен */ }
   }
   return lines.join("\n");
 }
@@ -88,7 +88,7 @@ async function limitLines(req) {
 // Фолбэк-подсказки для новичка, если в базе ещё мало блюд (свежая установка).
 const FALLBACK_POPULAR = ["Овсянка на молоке", "Куриная грудка с рисом", "Греческий салат", "Гречка с овощами"];
 
-// Кэш глобального топа популярных блюд: тяжёлый GROUP BY по всей таблице — не на каждый запрос.
+// Кэш глобального топа популярных блюд: тяжёлый GROUP BY по всей таблице - не на каждый запрос.
 let popularCache = { at: 0, list: null };
 const POPULAR_TTL = 60 * 60 * 1000; // 1 час
 
@@ -105,8 +105,8 @@ async function getPopular() {
   return result;
 }
 
-// GET /api/scan/suggestions  — подсказки-чипы для ввода текстом.
-// recent — последние уникальные блюда пользователя (любой источник); popular — глобальный топ (для новичка).
+// GET /api/scan/suggestions  - подсказки-чипы для ввода текстом.
+// recent - последние уникальные блюда пользователя (любой источник); popular - глобальный топ (для новичка).
 router.get("/suggestions", auth, async (req, res, next) => {
   try {
     const { rows } = await db.query(
@@ -139,10 +139,10 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), uploadErro
         usage: err.usage, latencyMs: Date.now() - startedAt, status: "error", error: err.message
       });
       await db.logAction(req.user.id, "error", { where: "scan", message: err.message });
-      // В канал — кто, где, что и почему. «Почему» — разбор всей цепочки: кого
+      // В канал - кто, где, что и почему. «Почему» - разбор всей цепочки: кого
       // спрашивали, сколько ждали, на чём встали. По голой фразе последнего
       // провайдера («timeout of 1422ms exceeded») диагностировать было невозможно.
-      channelLog.logError("scan", "Не распознали еду — человек увидел ошибку", {
+      channelLog.logError("scan", "Не распознали еду - человек увидел ошибку", {
         who: channelLog.whoLabel(req.user), why: err.detail || err.message
       }).catch(() => {});
       const status = err.status || 502;
@@ -158,12 +158,12 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), uploadErro
       photoPath = await savePhoto(req.user.id, req.file.buffer, extFor(req.file.mimetype));
     } catch (e) {
       console.error("[scan] savePhoto failed:", e.message);
-      channelLog.logError("scan_photo_save", "Фото не сохранилось — еда записана, картинки в истории не будет", {
+      channelLog.logError("scan_photo_save", "Фото не сохранилось - еда записана, картинки в истории не будет", {
         who: channelLog.whoLabel(req.user), why: e.message
       }).catch(() => {});
     }
 
-    // Один id приёма на всё фото — блюда склеиваются в одну карточку.
+    // Один id приёма на всё фото - блюда склеиваются в одну карточку.
     const batchId = crypto.randomUUID();
     const saved = [];
     for (const dish of result.dishes) {
@@ -189,7 +189,7 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), uploadErro
         const caption =
           `🍽 <b>Фото-скан еды</b>\n` +
           `Пользователь: ${channelLog.esc(who)}\n` +
-          `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
+          `Блюдо: ${channelLog.esc(dishes.join(", ") || "-")}\n` +
           `Калории: ${totalCal} ккал\n` +
           `Модель: ${channelLog.esc(modelLabel(result.model))}\n` +
           channelLog.esc(await limitLines(req));
@@ -203,7 +203,7 @@ router.post("/", auth, rateLimit, checkLimit, upload.single("image"), uploadErro
   }
 });
 
-// POST /api/scan/text  { description, meal_type }  — AI считает КБЖУ по описанию
+// POST /api/scan/text  { description, meal_type }  - AI считает КБЖУ по описанию
 router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
   try {
     const description = String(req.body?.description || "").trim();
@@ -220,7 +220,7 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
         usage: err.usage, latencyMs: Date.now() - startedAt, status: "error", error: err.message
       });
       await db.logAction(req.user.id, "error", { where: "scan_text", message: err.message });
-      channelLog.logError("scan_text", "Не распознали еду — человек увидел ошибку", {
+      channelLog.logError("scan_text", "Не распознали еду - человек увидел ошибку", {
         who: channelLog.whoLabel(req.user), why: err.detail || err.message
       }).catch(() => {});
       const status = err.status === 422 ? 422 : err.status || 502;
@@ -228,7 +228,7 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
     }
     const latencyMs = Date.now() - startedAt;
 
-    // Один id приёма на весь текстовый ввод — несколько блюд = одна карточка.
+    // Один id приёма на весь текстовый ввод - несколько блюд = одна карточка.
     const batchId = crypto.randomUUID();
     const saved = [];
     for (const dish of result.dishes) {
@@ -252,7 +252,7 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
         `✍️ <b>Текстовый скан еды</b>\n` +
         `Пользователь: ${channelLog.esc(who)}\n` +
         `Написал: ${channelLog.esc(description.slice(0, 400))}\n` +
-        `Блюдо: ${channelLog.esc(dishes.join(", ") || "—")}\n` +
+        `Блюдо: ${channelLog.esc(dishes.join(", ") || "-")}\n` +
         `Калории: ${totalCal} ккал\n` +
         `Модель: ${channelLog.esc(modelLabel(result.model))}\n` +
         channelLog.esc(await limitLines(req));
@@ -265,7 +265,7 @@ router.post("/text", auth, rateLimit, checkLimit, async (req, res, next) => {
   }
 });
 
-// POST /api/scan/manual  — ручной ввод КБЖУ без AI
+// POST /api/scan/manual  - ручной ввод КБЖУ без AI
 router.post("/manual", auth, checkLimit, async (req, res, next) => {
   try {
     const { dish_name, calories, protein, fat, carbs, weight_grams, meal_type } = req.body || {};
@@ -290,8 +290,8 @@ router.post("/manual", auth, checkLimit, async (req, res, next) => {
   }
 });
 
-// Число из формы редактирования. Пусто/undefined — поле не меняем (null для COALESCE),
-// мусор или отрицательное — NaN, чтобы ответить 400. calories в схеме INT, поэтому
+// Число из формы редактирования. Пусто/undefined - поле не меняем (null для COALESCE),
+// мусор или отрицательное - NaN, чтобы ответить 400. calories в схеме INT, поэтому
 // дробное значение округляем: иначе Postgres валит запрос в 500.
 function numOrNull(v, round = false) {
   if (v === undefined || v === null || v === "") return null;
@@ -317,7 +317,7 @@ router.patch("/:id", auth, async (req, res, next) => {
       return res.status(400).json({ error: "bad_number" });
     }
     // Состояние ДО правки нужно, чтобы записать в лог, что именно человек переделал за ИИ.
-    // Доля правок — единственный честный измеритель точности распознавания.
+    // Доля правок - единственный честный измеритель точности распознавания.
     const { rows: before } = await db.query("SELECT * FROM scans WHERE id=$1 AND user_id=$2", [id, req.user.id]);
     const { rows } = await db.query(
       `UPDATE scans SET
@@ -344,7 +344,7 @@ router.patch("/:id", auth, async (req, res, next) => {
       if (changed.length) {
         await db.logAction(req.user.id, "scan_edit", {
           scan_id: id,
-          source: was.source,                 // photo / text — чтобы считать точность по каналу
+          source: was.source,                 // photo / text - чтобы считать точность по каналу
           ai_confidence: was.ai_confidence,   // сработала ли плашка «проверьте запись»
           changed,
           calories_before: was.calories,
@@ -365,7 +365,7 @@ router.delete("/:id", auth, async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "bad_id" });
-    // RETURNING — чтобы записать в лог, что именно удалили: удаление скана это тоже
+    // RETURNING - чтобы записать в лог, что именно удалили: удаление скана это тоже
     // оценка работы ИИ («посчитал не то»), и без него доля переделок будет занижена.
     const { rows } = await db.query(
       "DELETE FROM scans WHERE id = $1 AND user_id = $2 RETURNING *",

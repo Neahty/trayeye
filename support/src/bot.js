@@ -55,7 +55,7 @@ function createBot() {
   const route = (ctx) => (config.isAdmin(ctx.from.id) ? admin.onMessage(ctx) : user.onMessage(ctx));
   bot.on(message("photo"), route);
   bot.on(message("text"), route);
-  // Прочие типы (voice, стикеры, документы) — вежливый отказ пользователю.
+  // Прочие типы (voice, стикеры, документы) - вежливый отказ пользователю.
   bot.on("message", (ctx) => {
     if (config.isAdmin(ctx.from.id)) {
       return ctx.reply("Поддерживаются текст и фото.");

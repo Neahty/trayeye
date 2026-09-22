@@ -40,7 +40,7 @@ export default function Dashboard() {
         {data.gpt_balance_rub != null && (
           <Stat label="Баланс GPT API" value={money(data.gpt_balance_rub)}
             sub={data.gpt_balance_age_days > 14
-              ? `баланс вводили ${data.gpt_balance_age_days} дн. назад — обновите в настройках`
+              ? `баланс вводили ${data.gpt_balance_age_days} дн. назад - обновите в настройках`
               : (data.gpt_balance_is_real ? "осталось (данные OpenAI)" : "осталось (оценка)")} />
         )}
       </div>

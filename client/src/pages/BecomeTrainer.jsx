@@ -15,7 +15,7 @@ export default function BecomeTrainer() {
 
   useEffect(() => { Settings.public().then(setCfg).catch(() => setCfg(null)); }, []);
 
-  // Тренерский тариф из настроек (если выключен админом — покажем заглушку).
+  // Тренерский тариф из настроек (если выключен админом - покажем заглушку).
   const plan = cfg?.tariffs?.find((t) => t.id === "trainer");
 
   async function buy() {
@@ -70,7 +70,7 @@ export default function BecomeTrainer() {
         <div className="row-between">
           <div style={{ fontWeight: 800, fontSize: 19 }}>{plan?.title || "Тренер"}</div>
           <div>
-            <span style={{ fontSize: 24, fontWeight: 800, color: "var(--primary)" }}>{plan?.price ?? "—"} ₽</span>
+            <span style={{ fontSize: 24, fontWeight: 800, color: "var(--primary)" }}>{plan?.price ?? "-"} ₽</span>
             <span style={{ color: "var(--text-2)", fontWeight: 600 }}>/{plan?.period || "мес"}</span>
           </div>
         </div>

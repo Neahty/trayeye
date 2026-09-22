@@ -27,13 +27,13 @@ async function userIdByTg(telegramId) {
   return rows[0]?.id || null;
 }
 
-// Пометка типа для нетекстовых сообщений — сам файл уходит в канал копией следом.
+// Пометка типа для нетекстовых сообщений - сам файл уходит в канал копией следом.
 const MEDIA_LABELS = {
   photo: "[фото]", voice: "[голосовое]", video: "[видео]", video_note: "[кружок]",
   audio: "[аудио]", document: "[файл]", sticker: "[стикер]", animation: "[гифка]",
   location: "[геолокация]", contact: "[контакт]", poll: "[опрос]", dice: "[кубик]"
 };
-// Лимит сообщения Telegram — 4096 символов; оставляем запас на шапку лога.
+// Лимит сообщения Telegram - 4096 символов; оставляем запас на шапку лога.
 const LOG_TEXT_LIMIT = 3500;
 
 // Что человек прислал: текст как есть либо пометка типа + подпись к вложению.
@@ -73,15 +73,15 @@ async function sendLoginCode(tgId, uid) {
     tgId,
     `📱 <b>Код входа в приложение</b>\n\n` +
     `<code>${code}</code>\n\n` +
-    `Введи его на экране входа в приложении на телефоне — это нужно один раз.\n\n` +
-    `⏳ Код одноразовый и живёт 15 минут. Протух — пришли /pwa ещё раз.`,
+    `Введи его на экране входа в приложении на телефоне - это нужно один раз.\n\n` +
+    `⏳ Код одноразовый и живёт 15 минут. Протух - пришли /pwa ещё раз.`,
     { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
   );
 }
 
 // Заявка на доступ уходит каждому админу личным сообщением с кнопками.
 // Нажатие обрабатывает тот, кто успел первым, остальным копиям ответит
-// «уже обработана» — заявка гасится при первом нажатии.
+// «уже обработана» - заявка гасится при первом нажатии.
 async function askAdminsToApprove(reqId, who) {
   const b = getBot();
   if (!b) return;
@@ -97,7 +97,7 @@ async function askAdminsToApprove(reqId, who) {
   };
   for (const id of adminIds()) {
     await b.telegram.sendMessage(id, text, { parse_mode: "HTML", reply_markup })
-      .catch(() => { /* один админ недоступен — не роняем заявку */ });
+      .catch(() => { /* один админ недоступен - не роняем заявку */ });
   }
 }
 
@@ -116,7 +116,7 @@ function openAppKeyboard() {
 }
 
 // Заносит пользователя в базу при нажатии /start. Новая запись помечается
-// app_opened=FALSE (в админке — «не открыл приложение»). Существующих не трогаем.
+// app_opened=FALSE (в админке - «не открыл приложение»). Существующих не трогаем.
 async function registerStartUser(from) {
   if (!from || !from.id) return;
   const telegramId = String(from.id);
@@ -141,14 +141,14 @@ function getBot() {
 
   bot = new Telegraf(BOT_TOKEN);
 
-  // Гейт заблокированных — ПЕРВЫМ, до всех хендлеров: забаненному бот не отвечает ни на
+  // Гейт заблокированных - ПЕРВЫМ, до всех хендлеров: забаненному бот не отвечает ни на
   // /start, ни на /ref, и его сообщения больше не уходят в канал логов (next() не зовём).
   // Только личка: посты канала (команды модерации) и chat_member сюда не попадают.
   bot.use(async (ctx, next) => {
     try {
       if (ctx.chat?.type !== "private" || !ctx.from?.id) return next();
       if (!(await moderation.isBlockedByTelegramId(ctx.from.id))) return next();
-      // Про бан не говорим — легенда про страну. Не чаще раза в 10 минут на человека,
+      // Про бан не говорим - легенда про страну. Не чаще раза в 10 минут на человека,
       // чтобы спамом в бота нельзя было раскачать отправку.
       const last = blockedNoticeAt.get(ctx.from.id) || 0;
       if (Date.now() - last > BLOCKED_NOTICE_MS) {
@@ -156,31 +156,31 @@ function getBot() {
         await ctx.reply(moderation.BLOCKED_TEXT).catch(() => {});
       }
     } catch (e) {
-      // Сбой проверки не должен ронять бота для всех остальных — пропускаем дальше.
+      // Сбой проверки не должен ронять бота для всех остальных - пропускаем дальше.
       console.error("[bot] blocked gate:", e.message);
       return next();
     }
   });
 
   // Модерация из канала логов: «.запретить» / «.разрешить» / «.баны» реплаем на лог.
-  // Текст только показывает карточку с кнопкой; сам бан — в mod:-колбэке, где
+  // Текст только показывает карточку с кнопкой; сам бан - в mod:-колбэке, где
   // Telegram отдаёт настоящий from.id нажавшего (в постах канала его нет).
-  // Там же: «.любой текст» реплаем на лог — личное сообщение человеку от лица бота.
+  // Там же: «.любой текст» реплаем на лог - личное сообщение человеку от лица бота.
   bot.on("channel_post", (ctx) => logModeration.onChannelPost(ctx));
   bot.action(/^mod:/, (ctx) => logModeration.onModAction(ctx));
   bot.action(/^dm:/, (ctx) => logModeration.onDmAction(ctx));
 
   bot.start(async (ctx) => {
     // Заводим пользователя в базе уже на /start (app_opened=FALSE по умолчанию).
-    // Если он позже откроет приложение — auth выставит app_opened=TRUE.
+    // Если он позже откроет приложение - auth выставит app_opened=TRUE.
     // На конфликте по telegram_id обновляем лишь username/name, app_opened не трогаем.
     const user = await registerStartUser(ctx.from).catch((e) => {
       console.error("[bot] registerStartUser:", e.message);
       return null;
     });
     // Ссылка сотрудника-пиарщика: /start emp_<code>. Фиксируем переход/реферала
-    // ДО проверки подписки на канал (подписка — условие подтверждения через 24 ч,
-    // а не условие привязки). Fire-and-forget — /start не должен ждать.
+    // ДО проверки подписки на канал (подписка - условие подтверждения через 24 ч,
+    // а не условие привязки). Fire-and-forget - /start не должен ждать.
     const payload = String(ctx.payload || "").trim();
     const empLink = /^emp_([0-9a-f]+)$/i.exec(payload);
     if (empLink && user) {
@@ -188,7 +188,7 @@ function getBot() {
         .catch((e) => console.error("[bot] emp link:", e.message));
     } else if (user) {
       // Пользовательская ссылка «Пригласи друга»: /start <invite_code>, короткий код без
-      // префикса. Ветка «иначе» — префиксные коды уже забрал блок выше, а регексом без «_»
+      // префикса. Ветка «иначе» - префиксные коды уже забрал блок выше, а регексом без «_»
       // сюда не пролезут ни emp_, ни tr_ (последний вообще приходит через startapp).
       const invLink = /^[a-z0-9]{4,12}$/i.exec(payload);
       if (invLink) {
@@ -212,7 +212,7 @@ function getBot() {
       return;
     }
     await ctx.reply(
-      "🥗 Добро пожаловать в Bytwise!\nФотографируй еду — узнавай КБЖУ.",
+      "🥗 Добро пожаловать в Bytwise!\nФотографируй еду - узнавай КБЖУ.",
       { reply_markup: openAppKeyboard() }
     );
   });
@@ -220,7 +220,7 @@ function getBot() {
   bot.action("check_sub", async (ctx) => {
     const member = await isChannelMember(ctx.from.id, { force: true });
     if (member) {
-      // Подписка подтверждена — фиксируем членство и (если впервые) логируем нового пользователя.
+      // Подписка подтверждена - фиксируем членство и (если впервые) логируем нового пользователя.
       const uid = await userIdByTg(ctx.from.id).catch(() => null);
       if (uid) {
         channelMembership.markChannelJoined(uid, "channel").catch((e) =>
@@ -251,19 +251,19 @@ function getBot() {
           await ctx.editMessageText("🎁 Этот подарок уже получен.", { parse_mode: "HTML" }).catch(() => {});
           return ctx.answerCbQuery("Уже получено");
         }
-        return ctx.answerCbQuery("Не получилось — попробуй ещё раз", { show_alert: true });
+        return ctx.answerCbQuery("Не получилось - попробуй ещё раз", { show_alert: true });
       }
       const until = new Date(res.expires_at).toLocaleDateString("ru-RU");
       await ctx.editMessageText(
         `✅ <b>Подарок получен!</b>\n\n` +
         `${res.extended ? "Подписка продлена" : "PRO активирован"} на ${res.days} ` +
-        `${inviteRewards.plural(res.days, "день", "дня", "дней")} — до ${until}.`,
+        `${inviteRewards.plural(res.days, "день", "дня", "дней")} - до ${until}.`,
         { parse_mode: "HTML" }
       ).catch(() => {});
       return ctx.answerCbQuery("Готово! 🎉");
     } catch (e) {
       console.error("[bot] invref:", e.message);
-      return ctx.answerCbQuery("Не получилось — попробуй ещё раз", { show_alert: true }).catch(() => {});
+      return ctx.answerCbQuery("Не получилось - попробуй ещё раз", { show_alert: true }).catch(() => {});
     }
   });
 
@@ -273,13 +273,13 @@ function getBot() {
     try {
       const upd = ctx.update?.chat_member;
       if (!upd) return;
-      // Берём чат из самого апдейта (не из геттера ctx.chat) — надёжнее для chat_member.
+      // Берём чат из самого апдейта (не из геттера ctx.chat) - надёжнее для chat_member.
       if (!REQUIRED_CHANNEL_ID || String(upd.chat?.id) !== String(REQUIRED_CHANNEL_ID)) return;
       const tgId = upd.new_chat_member?.user?.id;
       const status = upd.new_chat_member?.status;
       if (!tgId || !status) return;
       const uid = await userIdByTg(tgId);
-      if (!uid) return; // в канале есть, но в боте не регистрировался — пропускаем
+      if (!uid) return; // в канале есть, но в боте не регистрировался - пропускаем
       if (["member", "administrator", "creator"].includes(status)) {
         await channelMembership.markChannelJoined(uid, "channel");
       } else if (["left", "kicked"].includes(status)) {
@@ -295,7 +295,7 @@ function getBot() {
   );
 
   // --- Команды сотрудников-пиарщиков. Отвечаем ТОЛЬКО активным сотрудникам:
-  // всем остальным — тишина (как на любую неизвестную команду), фича не светится.
+  // всем остальным - тишина (как на любую неизвестную команду), фича не светится.
 
   bot.command("ref", async (ctx) => {
     try {
@@ -306,8 +306,8 @@ function getBot() {
         `<b>Как засчитываются рефералы:</b>\n` +
         `• только НОВЫЕ люди, которых ещё не было в боте;\n` +
         `• человек должен открыть приложение и подписаться на канал;\n` +
-        `• проверка через 24 часа: если он не заблокировал бота и не вышел из канала — реферал засчитан.\n\n` +
-        `Статистика — /stat`,
+        `• проверка через 24 часа: если он не заблокировал бота и не вышел из канала - реферал засчитан.\n\n` +
+        `Статистика - /stat`,
         { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
       );
     } catch (e) {
@@ -317,11 +317,11 @@ function getBot() {
 
   // Код входа в приложение на телефоне: снаружи Telegram initData взять неоткуда.
   //
-  // Команда доступна всем, но нигде не объявлена — ни в /help, ни в меню команд.
+  // Команда доступна всем, но нигде не объявлена - ни в /help, ни в меню команд.
   // О ней узнают только с экрана входа в самом приложении, а значит спрашивает
   // код лишь тот, кому приложение уже дали.
   //
-  // Админ получает код сразу, остальные — после подтверждения админом.
+  // Админ получает код сразу, остальные - после подтверждения админом.
   // Админом считаем и по списку в окружении, и по флагу в базе: права выдаются
   // и так, и так.
   bot.command("pwa", async (ctx) => {
@@ -333,7 +333,7 @@ function getBot() {
       );
       const user = rows[0];
       if (!user) {
-        await ctx.reply("Сначала открой Bytwise кнопкой в боте — тебя ещё нет в базе.");
+        await ctx.reply("Сначала открой Bytwise кнопкой в боте - тебя ещё нет в базе.");
         return;
       }
 
@@ -343,7 +343,7 @@ function getBot() {
       }
 
       if (appLoginCodes.pendingFor(user.id)) {
-        await ctx.reply("Запрос уже отправлен администратору. Как подтвердит — пришлю код сюда.");
+        await ctx.reply("Запрос уже отправлен администратору. Как подтвердит - пришлю код сюда.");
         return;
       }
 
@@ -352,14 +352,14 @@ function getBot() {
       await askAdminsToApprove(reqId, who);
       await ctx.reply(
         "🔐 Запрос на доступ отправлен администратору.\n\n" +
-        "Как подтвердит — код придёт сюда же, в этот чат."
+        "Как подтвердит - код придёт сюда же, в этот чат."
       );
     } catch (e) {
       console.error("[bot] /pwa:", e.message);
     }
   });
 
-  // Кнопки под заявкой. Как и в модерации логов, ctx.from.id здесь настоящий —
+  // Кнопки под заявкой. Как и в модерации логов, ctx.from.id здесь настоящий -
   // по нему и проверяем права нажавшего.
   bot.action(/^pwa:(ok|no):(\d+)$/, async (ctx) => {
     try {
@@ -387,7 +387,7 @@ function getBot() {
       return ctx.answerCbQuery("Код отправлен");
     } catch (e) {
       console.error("[bot] pwa action:", e.message);
-      return ctx.answerCbQuery("Не получилось — попробуйте ещё раз", { show_alert: true }).catch(() => {});
+      return ctx.answerCbQuery("Не получилось - попробуйте ещё раз", { show_alert: true }).catch(() => {});
     }
   });
 
@@ -405,8 +405,8 @@ function getBot() {
         `💳 Оплаты подписок: ${row(s.payments)}\n\n` +
         `⏳ На проверке сейчас: ${s.referrals.pending}\n\n` +
         `<b>Всего:</b>\n` +
-        `👥 Рефералов: ${s.referrals.confirmed} — выплачено за ${s.referrals.paid}, ждут выплаты ${s.referrals.unpaid}\n` +
-        `💳 Оплат подписок: ${s.payments.total} — выплачено за ${s.payments.paid}, ждут выплаты ${s.payments.unpaid}\n` +
+        `👥 Рефералов: ${s.referrals.confirmed} - выплачено за ${s.referrals.paid}, ждут выплаты ${s.referrals.unpaid}\n` +
+        `💳 Оплат подписок: ${s.payments.total} - выплачено за ${s.payments.paid}, ждут выплаты ${s.payments.unpaid}\n` +
         `💰 Выплачено тебе всего: ${s.payouts.paid_total} ₽`,
         { parse_mode: "HTML" }
       );
@@ -418,7 +418,7 @@ function getBot() {
   // Всё, что люди пишут боту, дублируем в канал логов. Хендлер идёт ПОСЛЕДНИМ:
   // команды выше по цепочке забирают свои апдейты (Telegraf не вызывает next()),
   // поэтому /start, /help, /ref и /stat сюда не доходят и канал не засоряют.
-  // Пользователю в ответ — подсказка с кнопкой: многие шлют фото прямо в бота
+  // Пользователю в ответ - подсказка с кнопкой: многие шлют фото прямо в бота
   // вместо мини-аппа, поэтому объясняем, что распознавание еды живёт в приложении.
   bot.on("message", async (ctx) => {
     try {
@@ -427,23 +427,23 @@ function getBot() {
       const uid = await userIdByTg(ctx.from.id).catch(() => null);
       const who = uid ? await notify.userLabel(uid) : labelFromTg(ctx.from);
       const { text, media } = describeMessage(ctx.message);
-      // postFor/copyToFor запоминают, о ком сообщение, — чтобы на него можно было
+      // postFor/copyToFor запоминают, о ком сообщение, - чтобы на него можно было
       // ответить в канале «.запретить» (см. onLogChannelPost ниже).
       await channelLog.postFor(
         "user_messages",
         uid,
         `💬 <b>Сообщение боту</b>\n\n` +
         `Клиент ${who} написал боту сообщение:\n` +
-        // Для медиа не пишем пометку «[фото]» — сам файл уходит копией следом, он и есть содержимое.
+        // Для медиа не пишем пометку «[фото]» - сам файл уходит копией следом, он и есть содержимое.
         (media ? "" : `${channelLog.esc(text)}\n`) +
         `Время: ${notify.fmtWhen()}`
       );
-      // Фото/голосовое/кружок и прочее — копией следом, чтобы в логах был сам файл, а не «[фото]».
+      // Фото/голосовое/кружок и прочее - копией следом, чтобы в логах был сам файл, а не «[фото]».
       if (media) await channelLog.copyToFor("user_messages", uid, ctx.chat.id, ctx.message.message_id);
       // Подсказка пользователю: сам бот еду не распознаёт, всё это делается в мини-аппе.
       await ctx.reply(
         "🤔 Я не понимаю это сообщение.\n\n" +
-        "Я не распознаю фото и текст прямо в чате — вся магия происходит в приложении. " +
+        "Я не распознаю фото и текст прямо в чате - вся магия происходит в приложении. " +
         "Нажми кнопку ниже, открой Bytwise и отправляй фото еды уже там 👇",
         { reply_markup: openAppKeyboard() }
       ).catch((e) => console.error("[bot] reply hint:", e.message));
@@ -456,7 +456,7 @@ function getBot() {
 }
 
 // Отправка файла-документа (используется для авто-бэкапа БД админам).
-// source — Buffer или путь к файлу. Отправка работает без launch(), нужен лишь токен.
+// source - Buffer или путь к файлу. Отправка работает без launch(), нужен лишь токен.
 async function sendDocument(chatId, source, filename, caption = "") {
   const b = getBot();
   if (!b) {
@@ -474,12 +474,12 @@ async function sendDocument(chatId, source, filename, caption = "") {
 async function launchBot() {
   const b = getBot();
   if (!b) {
-    console.log("[bot] TELEGRAM_BOT_TOKEN не задан — бот не запущен");
+    console.log("[bot] TELEGRAM_BOT_TOKEN не задан - бот не запущен");
     return null;
   }
   // allowedUpdates обязателен, чтобы Telegram присылал chat_member (по умолчанию он их НЕ шлёт).
   // Указав список явно, нужно перечислить и обычные апдейты, иначе они перестанут приходить.
-  // channel_post — команды модерации из канала логов (см. services/logModeration.js).
+  // channel_post - команды модерации из канала логов (см. services/logModeration.js).
   b.launch({ allowedUpdates: ["message", "edited_message", "channel_post", "callback_query", "my_chat_member", "chat_member"] })
     .then(() => console.log("[bot] launched")).catch((e) => console.error("[bot] launch error:", e.message));
   process.once("SIGINT", () => b.stop("SIGINT"));

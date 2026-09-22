@@ -56,7 +56,7 @@ function createApp() {
   );
 
   // Нативное приложение (Capacitor, iOS) грузит свои файлы с локальной схемы,
-  // а не с нашего домена, поэтому его origin надо разрешать всегда — иначе
+  // а не с нашего домена, поэтому его origin надо разрешать всегда - иначе
   // браузерный движок внутри приложения зарубит все запросы к API.
   const NATIVE_ORIGINS = ["capacitor://localhost", "ionic://localhost", "http://localhost"];
 
@@ -81,7 +81,7 @@ function createApp() {
   }
 
   // Раздача загруженных фото.
-  // Через /api/uploads — чтобы работало за reverse-proxy (Caddy проксирует /api/*).
+  // Через /api/uploads - чтобы работало за reverse-proxy (Caddy проксирует /api/*).
   // /uploads оставлен для обратной совместимости / прямого доступа.
   const uploadsDir = path.resolve(__dirname, "../../uploads");
   app.use("/uploads", express.static(uploadsDir));
@@ -103,7 +103,7 @@ function createApp() {
   app.use("/api/settings", settingsPublicRouter);
   app.use("/api/track", trackRouter);
   app.use("/api/admin/auth", adminAuthRouter);
-  // Разделы «Работники», «Приглашения» и «Квесты» — до общего adminRouter, чтобы путь не перехватился им.
+  // Разделы «Работники», «Приглашения» и «Квесты» - до общего adminRouter, чтобы путь не перехватился им.
   app.use("/api/admin/employees", adminEmployeesRouter);
   app.use("/api/admin/invites", adminInvitesRouter);
   app.use("/api/admin/quests", adminQuestsRouter);
@@ -123,7 +123,7 @@ function createApp() {
     if (status >= 500) {
       console.error("[error]", err.message);
       // Дублируем серьёзные ошибки в Telegram-канал (если включено в настройках).
-      channelLog.logError(`${req.method} ${req.originalUrl}`, "Запрос упал — человек увидел ошибку", {
+      channelLog.logError(`${req.method} ${req.originalUrl}`, "Запрос упал - человек увидел ошибку", {
         who: channelLog.whoLabel(req.user), why: err.message
       }).catch(() => {});
       // Не отдаём клиенту внутренний текст 500-ошибки (утечка деталей реализации).

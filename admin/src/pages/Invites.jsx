@@ -4,11 +4,11 @@ import { Invites } from "../api";
 import { useFetch, useLive, Stat, Loader, fmtDate, fmtDay } from "../lib.jsx";
 import { AvatarDot, CopyButton } from "./Employees.jsx";
 
-// Раздел «Приглашения»: пользовательская программа «Пригласи друга». Сверху — период
-// конкурса (фильтр по датам), топ приглашающих для выбора победителя, ниже — сквозная
+// Раздел «Приглашения»: пользовательская программа «Пригласи друга». Сверху - период
+// конкурса (фильтр по датам), топ приглашающих для выбора победителя, ниже - сквозная
 // лента всех приглашений. Награда выдаётся вручную в карточке приглашающего.
 
-// Статусы и причины отказа — те же, что у сотрудников (см. EmployeeCard.jsx):
+// Статусы и причины отказа - те же, что у сотрудников (см. EmployeeCard.jsx):
 // механика проверки 24 ч общая, поэтому и словари одинаковые.
 export const INVITE_STATUS = {
   pending: { label: "на проверке", cls: "amber" },
@@ -24,7 +24,7 @@ export const REJECT_REASONS = {
 
 // Имя пользователя одной строкой: имя, иначе @username, иначе telegram_id.
 export function personName(p) {
-  return p?.name || (p?.username ? "@" + p.username : String(p?.telegram_id ?? "—"));
+  return p?.name || (p?.username ? "@" + p.username : String(p?.telegram_id ?? "-"));
 }
 
 const FEED_FILTERS = [
@@ -89,7 +89,7 @@ export default function InvitesPage() {
 
       {(range.from || range.to) && (
         <p className="muted" style={{ marginTop: -8, marginBottom: 14, fontSize: 13 }}>
-          Период конкурса: {range.from || "с самого начала"} — {range.to || "по сегодня"} (по Москве).
+          Период конкурса: {range.from || "с самого начала"} - {range.to || "по сегодня"} (по Москве).
           Считаются приглашения, созданные внутри периода.
         </p>
       )}
@@ -117,7 +117,7 @@ export default function InvitesPage() {
                 {top.map((r, i) => (
                   <tr key={r.id} onClick={() => navigate(`/invites/${r.id}`)} style={{ cursor: "pointer" }}>
                     <td data-label="#">
-                      {/* Первые три места подсвечиваем — победителя конкурса видно сразу. */}
+                      {/* Первые три места подсвечиваем - победителя конкурса видно сразу. */}
                       {i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}
                     </td>
                     <td data-label="Кто приглашает">
@@ -131,14 +131,14 @@ export default function InvitesPage() {
                       </span>
                     </td>
                     <td data-label="Ссылка" onClick={(ev) => ev.stopPropagation()}>
-                      {r.link ? <CopyButton text={r.link} /> : <span className="muted">—</span>}
+                      {r.link ? <CopyButton text={r.link} /> : <span className="muted">-</span>}
                     </td>
                     <td data-label="Переходы">{r.clicks}</td>
                     <td data-label="Засчитано"><b>{r.confirmed}</b></td>
                     <td data-label="На проверке">
-                      {r.pending > 0 ? <span className="pill amber">{r.pending}</span> : <span className="muted">—</span>}
+                      {r.pending > 0 ? <span className="pill amber">{r.pending}</span> : <span className="muted">-</span>}
                     </td>
-                    <td data-label="Отклонено">{r.rejected || <span className="muted">—</span>}</td>
+                    <td data-label="Отклонено">{r.rejected || <span className="muted">-</span>}</td>
                     <td data-label="Последнее">{fmtDay(r.last_invite_at)}</td>
                   </tr>
                 ))}
@@ -183,7 +183,7 @@ export default function InvitesPage() {
                       </td>
                       <td data-label="Статус">
                         <span className={"pill " + st.cls}>
-                          {st.label}{r.reject_reason ? ` — ${REJECT_REASONS[r.reject_reason] || r.reject_reason}` : ""}
+                          {st.label}{r.reject_reason ? ` - ${REJECT_REASONS[r.reject_reason] || r.reject_reason}` : ""}
                         </span>
                       </td>
                       {/* Текущее состояние приглашённого: по нему крон и решает через 24 ч. */}
@@ -192,7 +192,7 @@ export default function InvitesPage() {
                         {" · "}{r.channel_member ? "в канале" : "не в канале"}
                         {r.tg_unreachable ? " · заблокировал бота" : ""}
                       </td>
-                      <td data-label="Купил PRO">{r.user_paid ? "✅" : <span className="muted">—</span>}</td>
+                      <td data-label="Купил PRO">{r.user_paid ? "✅" : <span className="muted">-</span>}</td>
                     </tr>
                   );
                 })}

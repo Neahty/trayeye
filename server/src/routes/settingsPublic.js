@@ -3,7 +3,7 @@ const settings = require("../utils/settings");
 
 const router = express.Router();
 
-// GET /api/settings/public — публичные настройки для paywall/онбординга
+// GET /api/settings/public - публичные настройки для paywall/онбординга
 router.get("/public", async (req, res, next) => {
   try {
     const s = await settings.getMany([

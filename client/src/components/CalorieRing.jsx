@@ -27,7 +27,7 @@ export default function CalorieRing({ consumed = 0, goal = 0 }) {
           {consumed}
         </text>
         <text x="50%" y="60%" textAnchor="middle" fill="var(--text-secondary)" fontSize="12">
-          из {goal || "—"} ккал
+          из {goal || "-"} ккал
         </text>
       </svg>
       <div className="ring-sub">{goal > 0 ? `Осталось ${left} ккал` : "Заполни профиль для расчёта нормы"}</div>

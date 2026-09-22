@@ -4,11 +4,11 @@
 export async function downscaleImage(file, maxSize = 1536, quality = 0.82) {
   try {
     if (!file || !file.type?.startsWith("image/")) return file;
-    // imageOrientation: "from-image" — применяем EXIF-поворот при декодировании, иначе
+    // imageOrientation: "from-image" - применяем EXIF-поворот при декодировании, иначе
     // вертикальные фото с телефона уходили на сервер повёрнутыми на 90° и AI видел еду боком.
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
     const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
-    // Уже маленькое — не трогаем
+    // Уже маленькое - не трогаем
     if (scale >= 1 && file.size < 1.5 * 1024 * 1024) {
       bitmap.close?.();
       return file;

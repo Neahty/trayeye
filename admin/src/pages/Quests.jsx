@@ -3,7 +3,7 @@ import { Quests } from "../api";
 import { useFetch, useLive, Loader } from "../lib.jsx";
 
 // Раздел «Квесты»: квесты с наградами. Пользователь выполняет условие → «Забрать награду» →
-// бот присылает ему в ЛС сообщение со ссылкой. Здесь — полный CRUD: создать/изменить/удалить,
+// бот присылает ему в ЛС сообщение со ссылкой. Здесь - полный CRUD: создать/изменить/удалить,
 // в т.ч. поменять ссылку-награду и текст.
 
 const EMPTY = {
@@ -107,10 +107,10 @@ function QuestModal({ quest, criteria, onClose, onSaved }) {
         <div className="field">
           <label>Текст в ЛС (необязательно)</label>
           <textarea className="input" rows={4} value={form.reward_message}
-            placeholder="Оставьте пустым — уйдёт красивый шаблон по умолчанию."
+            placeholder="Оставьте пустым - уйдёт красивый шаблон по умолчанию."
             onChange={(e) => set("reward_message", e.target.value)} />
           <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
-            Переменные: {"{name}"} — имя, {"{quest_title}"} — название квеста, {"{reward_title}"} — награда, {"{link}"} — ссылка.
+            Переменные: {"{name}"} - имя, {"{quest_title}"} - название квеста, {"{reward_title}"} - награда, {"{link}"} - ссылка.
             Ссылка также добавляется кнопкой под сообщением. Поддерживается HTML (&lt;b&gt;, &lt;i&gt;).
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function QuestsPage() {
                   <td data-label="Условие">
                     {critLabel(q.criteria?.type)}{q.criteria?.value != null ? `: ${q.criteria.value}` : ""}
                   </td>
-                  <td data-label="Награда">{q.reward_title || <span className="muted">—</span>}</td>
+                  <td data-label="Награда">{q.reward_title || <span className="muted">-</span>}</td>
                   <td data-label="Ссылка">
                     {q.reward_link
                       ? <a href={q.reward_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>ссылка ↗</a>

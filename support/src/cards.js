@@ -23,10 +23,10 @@ function userLabel(ticket) {
   return `<a href="tg://user?id=${ticket.user_id}">${nm}</a>`;
 }
 
-// Текст карточки тикета для админа. appUser — строка из общей таблицы users (или null).
+// Текст карточки тикета для админа. appUser - строка из общей таблицы users (или null).
 function ticketCard(ticket, appUser, lastText) {
   const lines = [];
-  lines.push(`🎫 <b>Тикет №${ticket.ticket_no ?? ticket.id}</b> — ${ticket.status === "open" ? "открыт" : "закрыт"}`);
+  lines.push(`🎫 <b>Тикет №${ticket.ticket_no ?? ticket.id}</b> - ${ticket.status === "open" ? "открыт" : "закрыт"}`);
   lines.push(`От: ${esc(ticket.user_name || "Без имени")} (${userLabel(ticket)})`);
   if (appUser) {
     const opened = appUser.app_opened ? "открывал ✅" : "не открывал ❌";
@@ -55,17 +55,17 @@ function ticketKeyboard(ticketId) {
   };
 }
 
-// Шлёт длинный текст частями (лимит Telegram — 4096 символов).
+// Шлёт длинный текст частями (лимит Telegram - 4096 символов).
 async function sendLong(telegram, chatId, text, extra = {}) {
   for (let i = 0; i < text.length; i += TG_TEXT_LIMIT) {
     const chunk = text.slice(i, i + TG_TEXT_LIMIT);
-    // Кнопки (если есть) — только на последней части, чтобы не дублировать.
+    // Кнопки (если есть) - только на последней части, чтобы не дублировать.
     const isLast = i + TG_TEXT_LIMIT >= text.length;
     await telegram.sendMessage(chatId, chunk, isLast ? extra : { parse_mode: extra.parse_mode });
   }
 }
 
-// Карточка админу: с фото — sendPhoto (caption ≤ 1024, остаток отдельно), без — sendMessage.
+// Карточка админу: с фото - sendPhoto (caption ≤ 1024, остаток отдельно), без - sendMessage.
 async function sendCardToAdmin(telegram, adminId, card, photoFileId, ticketId) {
   const extra = { parse_mode: "HTML", reply_markup: ticketKeyboard(ticketId) };
   if (photoFileId) {

@@ -55,7 +55,7 @@ export default function Notifications() {
       if (kind === "photo" && photo) fd.append("photo", photo);
       if (kind === "buttons") fd.append("buttons", JSON.stringify(buttons.filter((b) => b.text)));
       await Admin.sendBroadcast(fd);
-      setMsg("Рассылка запущена — идёт отправка в фоне. Обновите историю через минуту, чтобы увидеть доставку.");
+      setMsg("Рассылка запущена - идёт отправка в фоне. Обновите историю через минуту, чтобы увидеть доставку.");
       setText(""); setPhoto(null);
       reload();
     } catch (e2) {

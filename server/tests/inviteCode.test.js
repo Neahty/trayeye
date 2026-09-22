@@ -5,12 +5,12 @@ const userInvites = require("../src/services/userInvites");
 // перепечатывают руками, поэтому важны две вещи: отсутствие визуально похожих
 // символов и совместимость с парсером /start в services/bot.js.
 describe("genInviteCode", () => {
-  test("длина по умолчанию — 5 символов", () => {
+  test("длина по умолчанию - 5 символов", () => {
     expect(genInviteCode()).toHaveLength(5);
     expect(genInviteCode(7)).toHaveLength(7);
   });
 
-  test("в алфавите нет 0/o и 1/l/i — их путают при перепечатке", () => {
+  test("в алфавите нет 0/o и 1/l/i - их путают при перепечатке", () => {
     const codes = Array.from({ length: 500 }, () => genInviteCode(7)).join("");
     expect(codes).not.toMatch(/[01oli]/);
     expect(codes).toMatch(/^[23456789abcdefghjkmnpqrstuvwxyz]+$/);
@@ -28,7 +28,7 @@ describe("genInviteCode", () => {
 });
 
 describe("userInvites.buildLink", () => {
-  test("ссылка без префикса — в этом отличие от сотрудничьей emp_<code>", () => {
+  test("ссылка без префикса - в этом отличие от сотрудничьей emp_<code>", () => {
     expect(userInvites.buildLink("k7m2q")).toMatch(/^https:\/\/t\.me\/[^?]+\?start=k7m2q$/);
   });
 });
@@ -50,7 +50,7 @@ describe("formatRaffle", () => {
     const lines = formatRaffle(rows).split("\n");
     expect(lines[0]).toBe("На данный момент следующие ТОП-5 участников");
     expect(lines[2]).toBe("🔫 Топ-3 (приглашено / зачтено):");
-    expect(lines[3]).toBe('1. <a href="https://t.me/Chel798">Мафия</a> · ID <code>6850462093</code> — 47 / 39');
+    expect(lines[3]).toBe('1. <a href="https://t.me/Chel798">Мафия</a> · ID <code>6850462093</code> - 47 / 39');
     expect(lines[6]).toBe("_________________________________");
     expect(lines[7]).toMatch(/^4\. /);
     expect(lines[8]).toMatch(/^5\. /);
@@ -69,7 +69,7 @@ describe("formatRaffle", () => {
   });
 });
 
-describe("CMD_RE — команды из канала логов", () => {
+describe("CMD_RE - команды из канала логов", () => {
   test("ловит .розыгрыш с аргументом и без, не задевая обычный текст", () => {
     expect(CMD_RE.exec(".розыгрыш")[1]).toBe("розыгрыш");
     expect(CMD_RE.exec(".розыгрыш 10")[2]).toBe("10");
@@ -89,7 +89,7 @@ describe("adminInvites.parseRange", () => {
     expect(to.toISOString()).toBe("2026-07-31T20:59:59.999Z");   // 31 июля 23:59:59 МСК
   });
 
-  test("пустые и мусорные значения дают null — условие в SQL пропускает всё", () => {
+  test("пустые и мусорные значения дают null - условие в SQL пропускает всё", () => {
     expect(parseRange({}).from).toBeNull();
     expect(parseRange({ from: "", to: "  " }).to).toBeNull();
     expect(parseRange({ from: "не дата" }).from).toBeNull();

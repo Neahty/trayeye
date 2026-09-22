@@ -99,7 +99,7 @@ export const Employees = {
   cancelPayout: (id, payoutId) => api.post(`/admin/employees/${id}/payouts/${payoutId}/cancel`).then((r) => r.data)
 };
 
-// Раздел «Приглашения»: пользовательская программа «Пригласи друга». Только просмотр —
+// Раздел «Приглашения»: пользовательская программа «Пригласи друга». Только просмотр -
 // награда победителю конкурса выдаётся через Admin.grantSub.
 export const Invites = {
   summary: (params) => api.get("/admin/invites", { params }).then((r) => r.data),
@@ -116,12 +116,12 @@ export const Quests = {
   remove: (id) => api.delete(`/admin/quests/${id}`).then((r) => r.data)
 };
 
-// Раздел «Поддержка»: тикеты создаёт отдельный бот (папка support/), здесь — просмотр и ответы.
+// Раздел «Поддержка»: тикеты создаёт отдельный бот (папка support/), здесь - просмотр и ответы.
 export const Support = {
   tickets: (params) => api.get("/admin/support/tickets", { params }).then((r) => r.data),
   ticket: (id) => api.get(`/admin/support/tickets/${id}`).then((r) => r.data),
   reply: (id, text) => api.post(`/admin/support/tickets/${id}/reply`, { text }).then((r) => r.data),
   close: (id) => api.post(`/admin/support/tickets/${id}/close`).then((r) => r.data),
-  // Фото из Telegram качаем blob'ом через axios — <img src> не передаст Bearer-токен.
+  // Фото из Telegram качаем blob'ом через axios - <img src> не передаст Bearer-токен.
   photoBlob: (fileId) => api.get(`/admin/support/photo/${fileId}`, { responseType: "blob" }).then((r) => r.data)
 };

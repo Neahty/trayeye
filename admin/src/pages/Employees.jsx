@@ -5,7 +5,7 @@ import { useFetch, useLive, Stat, Loader, money, fmtDay } from "../lib.jsx";
 
 // Раздел «Работники»: сотрудники-пиарщики. Добавление по Telegram ID или @username
 // (человек должен уже нажимать /start в боте), сводка сверху, список с ключевыми
-// цифрами, клик по строке — карточка с деталями и выплатами.
+// цифрами, клик по строке - карточка с деталями и выплатами.
 
 // Кружок-аватар с первой буквой имени (единый стиль с карточкой сотрудника).
 export function AvatarDot({ name, size = 34 }) {
@@ -39,7 +39,7 @@ export function CopyButton({ text, label = "Копировать", small = true 
 
 const ADD_ERRORS = {
   user_not_found: "Этот человек ещё не запускал бота. Попроси его нажать /start в боте и добавь снова.",
-  already_employee: "Этот человек уже сотрудник — он есть в списке ниже."
+  already_employee: "Этот человек уже сотрудник - он есть в списке ниже."
 };
 
 export default function EmployeesPage() {
@@ -53,7 +53,7 @@ export default function EmployeesPage() {
 
   const list = data?.employees || [];
   const active = list.filter((e) => e.active);
-  // Сводка по всем сотрудникам — видно состояние «конторы» одним взглядом.
+  // Сводка по всем сотрудникам - видно состояние «конторы» одним взглядом.
   const sum = (f) => list.reduce((a, e) => a + (Number(f(e)) || 0), 0);
   const totals = {
     refs: sum((e) => e.refs_confirmed),
@@ -73,7 +73,7 @@ export default function EmployeesPage() {
     try {
       const d = await Employees.add(query.trim());
       const u = d?.employee;
-      setOk(`Сотрудник добавлен${u?.username ? ` — @${u.username}` : ""}. Бот прислал ему команды /ref и /stat.`);
+      setOk(`Сотрудник добавлен${u?.username ? ` - @${u.username}` : ""}. Бот прислал ему команды /ref и /stat.`);
       setQuery("");
       reload();
     } catch (ex) {
@@ -183,7 +183,7 @@ export default function EmployeesPage() {
                       <td data-label="Не выплачено">
                         {unpaid > 0
                           ? <span className="pill amber">{e.refs_unpaid} чел. / {e.payments_unpaid} подп.</span>
-                          : <span className="muted">—</span>}
+                          : <span className="muted">-</span>}
                       </td>
                       <td data-label="Статус">
                         <span className={"pill " + (e.active ? "green" : "red")}>{e.active ? "активен" : "отключён"}</span>

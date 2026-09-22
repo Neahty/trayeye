@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { Admin } from "./api";
 
-// useFetch(fn, deps, { intervalMs }) — загрузка данных + опциональное тихое автообновление.
+// useFetch(fn, deps, { intervalMs }) - загрузка данных + опциональное тихое автообновление.
 // «Тихий» reload не трогает loading, поэтому данные обновляются без мигания спиннера.
 export function useFetch(fn, deps = [], opts = {}) {
   const { intervalMs = 0 } = opts;
@@ -44,7 +44,7 @@ export function LiveProvider({ children }) {
       })
       .catch(() => setRefreshSec(10));
   }, []);
-  // Минимум 3 секунды, чтобы не молотить сервер; 0 в настройках — автообновление выключено.
+  // Минимум 3 секунды, чтобы не молотить сервер; 0 в настройках - автообновление выключено.
   const intervalMs = paused || !refreshSec ? 0 : Math.max(3, refreshSec) * 1000;
   const value = { intervalMs, paused, refreshSec, togglePaused: () => setPaused((p) => !p) };
   return <LiveCtx.Provider value={value}>{children}</LiveCtx.Provider>;
@@ -68,7 +68,7 @@ export function money(n) {
   return (Number(n) || 0).toLocaleString("ru-RU") + " ₽";
 }
 
-// Загружает тарифы из настроек и отдаёт карту { id: тариф } — для названий и цен
+// Загружает тарифы из настроек и отдаёт карту { id: тариф } - для названий и цен
 // в списках/диалогах. Грузится один раз на странице.
 export function useTariffMap() {
   const [map, setMap] = useState({});
@@ -85,30 +85,30 @@ export function useTariffMap() {
   return map;
 }
 
-// Название тарифа. Сначала — реальное название из настроек (динамически), затем запасные
+// Название тарифа. Сначала - реальное название из настроек (динамически), затем запасные
 // варианты для встроенных типов, если настройки ещё не загрузились.
 export function subLabel(type, map) {
   const title = map && map[type] && map[type].title;
   if (title) return title;
   if (type === "trainer") return "Тренерская";
   if (type === "basic" || type === "pro") return "PRO";
-  return type || "—";
+  return type || "-";
 }
 
 // Спрашивает админа, добавлять ли деньги в выручку при ручной выдаче подписки.
 // Возвращает тело для Admin.grantSub: { type, days, record_payment, amount? }.
-// Если выдачу отменили (Esc на первом вопросе) — вернёт null.
+// Если выдачу отменили (Esc на первом вопросе) - вернёт null.
 export function askGrantBody(type, days = 30, priceHint) {
-  // Цена-подсказка берётся из тарифа (динамически); запасной вариант — если настройки недоступны.
+  // Цена-подсказка берётся из тарифа (динамически); запасной вариант - если настройки недоступны.
   const defaultPrice = Number(priceHint) > 0 ? Math.round(Number(priceHint)) : (type === "trainer" ? 1799 : 349);
   const add = window.confirm(
     "Добавить деньги в выручку (создать платёж)?\n\n" +
-    "OK — да, оплата пришла мимо кассы, учесть её.\n" +
-    "Отмена — нет, выдать бесплатно."
+    "OK - да, оплата пришла мимо кассы, учесть её.\n" +
+    "Отмена - нет, выдать бесплатно."
   );
   if (!add) return { type, days, record_payment: false };
   const raw = window.prompt("Сумма платежа, ₽", String(defaultPrice));
-  if (raw === null) return { type, days, record_payment: false }; // передумал про деньги — выдаём без денег
+  if (raw === null) return { type, days, record_payment: false }; // передумал про деньги - выдаём без денег
   const amount = Math.round(Number(raw)) || defaultPrice;
   return { type, days, record_payment: true, amount };
 }
@@ -135,13 +135,13 @@ export function periodLabel(days) {
 const ADMIN_TZ = "Asia/Yekaterinburg";
 
 export function fmtDate(d) {
-  if (!d) return "—";
+  if (!d) return "-";
   try { return new Date(d).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short", timeZone: ADMIN_TZ }); }
   catch { return String(d); }
 }
 
 export function fmtDay(d) {
-  if (!d) return "—";
+  if (!d) return "-";
   try { return new Date(d).toLocaleDateString("ru-RU", { day: "2-digit", month: "short", timeZone: ADMIN_TZ }); }
   catch { return String(d); }
 }

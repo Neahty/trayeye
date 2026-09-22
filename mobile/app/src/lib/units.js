@@ -1,4 +1,4 @@
-// Полная конвертация единиц измерения. В БД всё хранится в метрике (вес — кг, рост — см);
+// Полная конвертация единиц измерения. В БД всё хранится в метрике (вес - кг, рост - см);
 // конвертация и форматирование выполняются только на границе UI по предпочтению user.units.
 const LB_PER_KG = 2.20462262;
 
@@ -42,12 +42,12 @@ export function heightFromDisplay(val, units) {
 
 // Форматирование с единицей: "70 кг" / "154 фунт".
 export function fmtWeight(kg, units) {
-  if (kg == null || kg === "") return "—";
+  if (kg == null || kg === "") return "-";
   return `${weightToDisplay(kg, units)} ${weightUnit(units)}`;
 }
 // Форматирование роста: "175 см" / "5′9″".
 export function fmtHeight(cm, units) {
-  if (cm == null || cm === "") return "—";
+  if (cm == null || cm === "") return "-";
   if (isImperial(units)) { const { ft, in: i } = cmToFtIn(cm); return `${ft}′${i}″`; }
   return `${Math.round(cm)} см`;
 }

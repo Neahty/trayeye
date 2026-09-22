@@ -29,8 +29,8 @@ describe("costUsd", () => {
 });
 
 // Кэшированный ввод считается вчетверо дешевле. Без этого оценка расходов завышала
-// счёт в ~2.5 раза против реальных данных Costs API — промпт у нас длинный и одинаковый.
-describe("costUsd — кэшированный ввод", () => {
+// счёт в ~2.5 раза против реальных данных Costs API - промпт у нас длинный и одинаковый.
+describe("costUsd - кэшированный ввод", () => {
   test("кэш дешевле обычного ввода", () => {
     const usage = { prompt_tokens: 1_000_000, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 1_000_000 } };
     expect(costUsd("gpt-4.1", usage)).toBeCloseTo(PRICING["gpt-4.1"].cached, 5);

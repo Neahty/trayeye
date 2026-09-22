@@ -1,6 +1,6 @@
 // Расчёт суточной нормы КБЖУ по формуле Миффлина-Сан Жеора.
 // Норма считается от ЦЕЛЕВОГО веса (метод целевого веса): организму даётся столько калорий,
-// сколько нужно человеку с желаемым весом — так норма реагирует на смену цели по весу.
+// сколько нужно человеку с желаемым весом - так норма реагирует на смену цели по весу.
 
 // 5-уровневая шкала активности (стандартные множители TDEE).
 const ACTIVITY_FACTORS = {
@@ -22,7 +22,7 @@ function paceFactor(pace) {
   return PACE_FACTORS[pace] != null ? PACE_FACTORS[pace] : PACE_FACTORS.mid;
 }
 
-// Уровень активности из числа тренировок в неделю — единый источник правды.
+// Уровень активности из числа тренировок в неделю - единый источник правды.
 function activityLevelFromWorkouts(n) {
   const w = Number(n);
   if (!Number.isFinite(w) || w <= 0) return "sedentary";
@@ -55,7 +55,7 @@ function deriveGoal(weight, targetWeight) {
 function calcDailyNorms({ gender, age, height, weight, target_weight, workouts_per_week, activity, pace }) {
   if (!gender || !age || !height || !weight) return null;
 
-  // BMR считаем от целевого веса (fallback на текущий — для совместимости со старыми профилями).
+  // BMR считаем от целевого веса (fallback на текущий - для совместимости со старыми профилями).
   const w = Number(target_weight) || Number(weight);
   const h = Number(height);
   const a = Number(age);

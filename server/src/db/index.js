@@ -56,7 +56,7 @@ async function init() {
       );
     }
   }
-  console.log("[db] schema applied, admins synced:", adminIds.join(", ") || "—");
+  console.log("[db] schema applied, admins synced:", adminIds.join(", ") || "-");
 
   await bootstrapAdminCredentials(adminIds);
 }
@@ -70,7 +70,7 @@ async function bootstrapAdminCredentials(adminIds) {
   try {
     bcrypt = require("bcryptjs");
   } catch {
-    console.warn("[db] bcryptjs не установлен — пропускаю bootstrap пароля админа");
+    console.warn("[db] bcryptjs не установлен - пропускаю bootstrap пароля админа");
     return;
   }
   const hash = await bcrypt.hash(bootstrapPwd, 12);

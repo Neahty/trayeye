@@ -7,10 +7,10 @@ const { userTz, localToday, addDays } = require("../utils/tz");
 const router = express.Router();
 
 const PERIOD_DAYS = { day: 1, week: 7, month: 30, year: 365 };
-// Гранулярность столбцов графика по периоду: день/неделя — по дням, месяц — по неделям, год — по месяцам.
+// Гранулярность столбцов графика по периоду: день/неделя - по дням, месяц - по неделям, год - по месяцам.
 const PERIOD_GRAN = { day: "day", week: "day", month: "week", year: "month" };
 
-// Границы периода — КАЛЕНДАРНЫЕ сутки в поясе пользователя.
+// Границы периода - КАЛЕНДАРНЫЕ сутки в поясе пользователя.
 // Раньше здесь было скользящее окно `scanned_at >= NOW() - N days`, то есть последние N×24
 // часов от текущего момента, тогда как бакеты графика группировались по календарной дате.
 // Две разные системы отсчёта в одном запросе давали расхождение с экраном «История»: при
@@ -19,7 +19,7 @@ const PERIOD_GRAN = { day: "day", week: "day", month: "week", year: "month" };
 // Плейсхолдеры фиксированы во всех запросах ниже: $1 = userId, $2 = days, $3 = tz.
 const PERIOD_WHERE = "(scanned_at AT TIME ZONE $3)::date > (NOW() AT TIME ZONE $3)::date - $2::int";
 
-// Поддерживающий TDEE (без goal-дельты) — для «Баланс калорий».
+// Поддерживающий TDEE (без goal-дельты) - для «Баланс калорий».
 function maintenanceTdee(u) {
   if (!u.gender || !u.age || !u.height || !u.weight) return null;
   let bmr = 10 * Number(u.weight) + 6.25 * Number(u.height) - 5 * Number(u.age);
@@ -30,7 +30,7 @@ function maintenanceTdee(u) {
 
 // Считает полную статистику для произвольного пользователя (строка users).
 // Вынесено в функцию, чтобы переиспользовать в кабинете тренера (статистика клиента)
-// — расчёт идёт в часовом поясе ИМЕННО этого пользователя.
+// - расчёт идёт в часовом поясе ИМЕННО этого пользователя.
 async function computeStats(user, periodRaw) {
   const period = PERIOD_DAYS[periodRaw] ? periodRaw : "week";
   const days = PERIOD_DAYS[period];
@@ -38,7 +38,7 @@ async function computeStats(user, periodRaw) {
   const userId = user.id;
   const tz = userTz(user);
 
-    // Суммы по бакетам графика (день/неделя/месяц — в часовом поясе пользователя)
+    // Суммы по бакетам графика (день/неделя/месяц - в часовом поясе пользователя)
     const daily = await db.query(
       `SELECT date_trunc($4, scanned_at AT TIME ZONE $3)::date AS day,
               SUM(calories)::int AS calories,
@@ -74,7 +74,7 @@ async function computeStats(user, periodRaw) {
     totals.protein = Math.round(totals.protein * 10) / 10;
     totals.fat = Math.round(totals.fat * 10) / 10;
     totals.carbs = Math.round(totals.carbs * 10) / 10;
-    // Число дней с записями в периоде — для реалистичных средних «на день»
+    // Число дней с записями в периоде - для реалистичных средних «на день»
     // (не зависит от гранулярности бакетов графика).
     const activeRows = await db.query(
       `SELECT COUNT(DISTINCT (scanned_at AT TIME ZONE $3)::date)::int AS active_days
@@ -96,7 +96,7 @@ async function computeStats(user, periodRaw) {
     const balance = norm ? averages.calories - norm : null;
 
     // Streak: сколько дней подряд (включая сегодня назад) есть записи.
-    // Дни — строкой в поясе пользователя, чтобы стрик совпадал с достижениями и не плыл у полуночи.
+    // Дни - строкой в поясе пользователя, чтобы стрик совпадал с достижениями и не плыл у полуночи.
     const streakRows = await db.query(
       `SELECT DISTINCT to_char(scanned_at AT TIME ZONE $2, 'YYYY-MM-DD') AS day FROM scans
        WHERE user_id = $1`,
@@ -105,7 +105,7 @@ async function computeStats(user, periodRaw) {
     let streak = 0;
     const daySet = new Set(streakRows.rows.map((r) => r.day));
     let cursor = localToday(tz);
-    // допускаем что сегодня может быть без записи — стартуем со вчера если нужно
+    // допускаем что сегодня может быть без записи - стартуем со вчера если нужно
     if (!daySet.has(cursor)) cursor = addDays(cursor, -1);
     while (daySet.has(cursor)) {
       streak++;
@@ -150,7 +150,7 @@ async function computeStats(user, periodRaw) {
     }
 
     // Кол-во фото-сканов, всего записей и ПРИЁМОВ за период.
-    // Приём пищи = одно фото/текст (общий batch_id), а не отдельное блюдо: фото из 3 блюд — это
+    // Приём пищи = одно фото/текст (общий batch_id), а не отдельное блюдо: фото из 3 блюд - это
     // один приём, а не три. Старые строки без batch_id считаем по id.
     const countRows = await db.query(
       `SELECT COUNT(*)::int AS total,
@@ -161,9 +161,9 @@ async function computeStats(user, periodRaw) {
       [userId, days, tz]
     );
     const totalMeals = countRows.rows[0]?.meals || 0;
-    // Приёмов пищи в день — в среднем по ДНЯМ С ЗАПИСЯМИ (активным), а не по всем календарным:
+    // Приёмов пищи в день - в среднем по ДНЯМ С ЗАПИСЯМИ (активным), а не по всем календарным:
     // иначе при редком логе за месяц выходило бессмысленное «0.1 приёмов в день».
-    // Округляем до ЦЕЛОГО: «в среднем 3 приёма в день» понятнее, чем «2.9» (приёмы — штучные).
+    // Округляем до ЦЕЛОГО: «в среднем 3 приёма в день» понятнее, чем «2.9» (приёмы - штучные).
     const mealsPerDay = Math.round(totalMeals / nDays);
 
     // Баланс: поступление vs расход (TDEE поддержания × дни)

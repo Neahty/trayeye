@@ -4,7 +4,7 @@ const { isChannelMember } = require("../services/telegram");
 
 const router = express.Router();
 
-// GET /api/membership — подписан ли текущий пользователь на обязательный канал.
+// GET /api/membership - подписан ли текущий пользователь на обязательный канал.
 router.get("/", auth, async (req, res, next) => {
   try {
     const force = req.query.force === "1" || req.query.force === "true";

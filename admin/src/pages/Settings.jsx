@@ -93,7 +93,7 @@ function TariffCard({ t, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLa
           <input className="input" type="number" value={t.price ?? ""} onChange={(e) => set("price", Number(e.target.value))} /></div>
       </div>
 
-      {/* Период: быстрые кнопки задают срок и подпись сразу; ниже — точная ручная настройка. */}
+      {/* Период: быстрые кнопки задают срок и подпись сразу; ниже - точная ручная настройка. */}
       <div className="field" style={{ marginTop: 14, marginBottom: 0 }}>
         <label>Период подписки</label>
         <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
@@ -108,7 +108,7 @@ function TariffCard({ t, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLa
           })}
         </div>
         <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-          Кнопка ставит срок. Для нестандартного — впишите число дней ниже; подпись подставится сама.
+          Кнопка ставит срок. Для нестандартного - впишите число дней ниже; подпись подставится сама.
         </div>
       </div>
 
@@ -117,7 +117,7 @@ function TariffCard({ t, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLa
         <input className="input" type="number" value={t.duration_days ?? 30}
           onChange={(e) => { const days = Number(e.target.value); onChange({ ...t, duration_days: days, period: periodLabel(days) }); }} />
         <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-          Подпись на ценнике: «{periodLabel(t.duration_days ?? 30)}» — формируется автоматически из срока.
+          Подпись на ценнике: «{periodLabel(t.duration_days ?? 30)}» - формируется автоматически из срока.
         </div>
       </div>
 
@@ -135,7 +135,7 @@ function TariffCard({ t, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLa
   );
 }
 
-// Вкладки страницы настроек — вместо одной длинной портянки.
+// Вкладки страницы настроек - вместо одной длинной портянки.
 const TABS = [
   { key: "tariffs", label: "Тарифы и цены" },
   { key: "limits", label: "Пробный период и лимиты" },
@@ -156,8 +156,8 @@ const PERIOD_PRESETS = [
 // События, которые можно дублировать в Telegram-канал (тумблеры на вкладке «Логи в Telegram»).
 const TG_LOG_EVENTS = [
   { key: "users", label: "Новые пользователи", hint: "Когда человек подписался на обязательный канал и открыл бота. С аватаркой; после онбординга в это же сообщение дописываются пол, рост и вес." },
-  { key: "user_messages", label: "Сообщения боту", hint: "Всё, что люди пишут боту: текст, а фото и голосовые — самими файлами. Может быть много сообщений." },
-  { key: "deploy", label: "Анонсы обновлений", hint: "При выкате обновы — свежий блок из CHANGELOG.md. Один раз на анонс, перезапуск сервера ничего не дублирует." },
+  { key: "user_messages", label: "Сообщения боту", hint: "Всё, что люди пишут боту: текст, а фото и голосовые - самими файлами. Может быть много сообщений." },
+  { key: "deploy", label: "Анонсы обновлений", hint: "При выкате обновы - свежий блок из CHANGELOG.md. Один раз на анонс, перезапуск сервера ничего не дублирует." },
   { key: "channel_left", label: "Вышли из канала", hint: "Когда человек отписался от обязательного канала. Нужны права админа бота в канале." },
   { key: "blocked_bot", label: "Заблокировали бота", hint: "Когда сообщение не дошло (403): человек заблокировал бота или не начинал диалог." },
   { key: "reactivation", label: "Вернулись после паузы", hint: "Когда человек снова зашёл после долгого перерыва (от 14 дней)." },
@@ -178,27 +178,27 @@ const TG_LOG_EVENTS = [
   { key: "notify_subscription", label: "Разослали напоминания про подписку", hint: "Общей сводкой: скольким ушло про пробный период, окончание подписки и т.д. И по расписанию, и по кнопке «Разослать сейчас». Без имён." },
   { key: "notify_broadcast", label: "Рассылки из админки", hint: "Итог ручной рассылки: кому, каким форматом, сколько получателей и сколько дошло, плюс кусок текста." },
   { key: "notify_personal", label: "Точечные уведомления людям", hint: "По одному сообщению с именем: догонялка тому, кто не завершил оплату; предложение купить PRO тому, у кого кончились бесплатные сканы; тесты «Проверить на себе»." },
-  { key: "notify_small", label: "Мелкие уведомления людям", hint: "В момент отправки, с именем получателя: тренеру о записи клиента, клиенту о комментарии тренера, подключение тренер ↔ клиент, подтверждения оплаты и продления. Таких сообщений больше всего — если станет шумно, выключается отдельно." }
+  { key: "notify_small", label: "Мелкие уведомления людям", hint: "В момент отправки, с именем получателя: тренеру о записи клиента, клиенту о комментарии тренера, подключение тренер ↔ клиент, подтверждения оплаты и продления. Таких сообщений больше всего - если станет шумно, выключается отдельно." }
 ];
 
-// Человеческие названия контекстов напоминаний (ключи — как в настройке reminders.texts).
+// Человеческие названия контекстов напоминаний (ключи - как в настройке reminders.texts).
 const REMINDER_GROUPS = [
-  { key: "paid_pre", title: "Перед окончанием платной подписки", hint: "Уходят за N дней до конца (список дней — в расписании выше)." },
+  { key: "paid_pre", title: "Перед окончанием платной подписки", hint: "Уходят за N дней до конца (список дней - в расписании выше)." },
   { key: "paid_post", title: "После окончания платной подписки", hint: "Серия после истечения: в день окончания и далее по расписанию." },
-  { key: "trial_start", title: "Первый день пробного периода", hint: "Приветствие новичку — что доступно и сколько дней бесплатно." },
+  { key: "trial_start", title: "Первый день пробного периода", hint: "Приветствие новичку - что доступно и сколько дней бесплатно." },
   { key: "trial_end", title: "Последний день пробного периода", hint: "Уходит в последний день бесплатного доступа." },
   { key: "trial_post", title: "После окончания пробного периода", hint: "Серия для тех, кто попробовал бесплатно и не купил." },
   { key: "payment_abandoned", title: "Не завершил оплату", hint: "Уходит тому, кто открыл окно оплаты и не купил (через 1–2 ч, когда ЮKassa сообщит об отмене). Один раз на заказ и не чаще раза в 3 дня." }
 ];
 
-// Приёмы пищи для напоминаний (ключи — как в настройке meal_reminders.texts).
+// Приёмы пищи для напоминаний (ключи - как в настройке meal_reminders.texts).
 const MEAL_GROUPS = [
   { key: "breakfast", title: "Завтрак 🍳", hint: "Утреннее напоминание, если завтрак за сегодня ещё не записан." },
   { key: "lunch", title: "Обед 🥗", hint: "Дневное напоминание, если обед за сегодня ещё не записан." },
   { key: "dinner", title: "Ужин 🍽", hint: "Вечернее напоминание, если ужин за сегодня ещё не записан." }
 ];
 
-// Редактор списка дней «7, 3, 1» — строка в форме, числа при сохранении.
+// Редактор списка дней «7, 3, 1» - строка в форме, числа при сохранении.
 function daysToString(v) {
   return Array.isArray(v) ? v.join(", ") : (v ?? "");
 }
@@ -218,14 +218,14 @@ function RemindersActions({ setMsg }) {
       "Разослать напоминания прямо сейчас?\n\n" +
       "Каждому клиенту уйдёт сообщение по его текущей ситуации: пробный период идёт / последний день / " +
       "пробный закончился / подписка скоро истечёт / подписка истекла (даже если это было давно).\n\n" +
-      "Защита: не больше одного напоминания в сутки на человека — повторное нажатие сегодня никого не задвоит.\n" +
-      "Несохранённые изменения на этой странице не учитываются — сначала сохраните."
+      "Защита: не больше одного напоминания в сутки на человека - повторное нажатие сегодня никого не задвоит.\n" +
+      "Несохранённые изменения на этой странице не учитываются - сначала сохраните."
     );
     if (!ok) return;
     setRunBusy(true); setMsg(null);
     try {
       const res = await Admin.runReminders();
-      if (res?.disabled) setMsg("Напоминания выключены в настройках — включите и сохраните.");
+      if (res?.disabled) setMsg("Напоминания выключены в настройках - включите и сохраните.");
       else setMsg(`Готово: отправлено ${res?.sent ?? 0}, недоступны ${res?.blocked ?? 0}${res?.failed ? `, ошибок отправки ${res.failed}` : ""}, пропущено ${res?.skipped ?? 0} (уже получали сегодня, активная подписка не скоро кончится или клиент тренера).`);
     } catch (e) {
       setMsg("Ошибка рассылки: " + (e?.response?.data?.error || e.message));
@@ -238,10 +238,10 @@ function RemindersActions({ setMsg }) {
     setTestBusy(true); setMsg(null);
     try {
       const res = await Admin.testReminder(testKind);
-      if (res?.ok) setMsg("Тест отправлен вам в Telegram — проверьте бота. Каждый клик показывает другой вариант текста.");
+      if (res?.ok) setMsg("Тест отправлен вам в Telegram - проверьте бота. Каждый клик показывает другой вариант текста.");
       else if (res?.error === "bot_not_started") setMsg("Не получилось: откройте бота и нажмите Start, затем повторите.");
-      else if (res?.error === "no_templates") setMsg("Для этого типа нет ни одного текста — добавьте варианты ниже и сохраните.");
-      else if (res?.error === "mock_mode") setMsg("Сервер без токена бота (mock-режим) — реальная отправка невозможна.");
+      else if (res?.error === "no_templates") setMsg("Для этого типа нет ни одного текста - добавьте варианты ниже и сохраните.");
+      else if (res?.error === "mock_mode") setMsg("Сервер без токена бота (mock-режим) - реальная отправка невозможна.");
       else setMsg("Не удалось отправить тест.");
     } catch (e) {
       setMsg("Ошибка теста: " + (e?.response?.data?.error || e.message));
@@ -254,13 +254,13 @@ function RemindersActions({ setMsg }) {
     <div className="card" style={{ marginBottom: 14 }}>
       <div style={{ fontWeight: 800, marginBottom: 12 }}>Действия</div>
 
-      {/* Блок 1: боевая рассылка всем — одна кнопка, ничего выбирать не нужно */}
+      {/* Блок 1: боевая рассылка всем - одна кнопка, ничего выбирать не нужно */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Рассылка всем клиентам</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Одна кнопка — каждому уйдёт сообщение по его ситуации: пробный период / пробный закончился /
+          Одна кнопка - каждому уйдёт сообщение по его ситуации: пробный период / пробный закончился /
           подписка скоро истечёт / подписка истекла. Не чаще одного напоминания в сутки на человека.
-          Обычно рассылка уходит сама по вечерам — кнопка нужна, чтобы не ждать.
+          Обычно рассылка уходит сама по вечерам - кнопка нужна, чтобы не ждать.
         </p>
         <button className="btn sm" disabled={runBusy} onClick={runNow}>
           {runBusy ? "Рассылаем…" : "📨 Разослать всем сейчас"}
@@ -268,10 +268,10 @@ function RemindersActions({ setMsg }) {
       </div>
 
       <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-        {/* Блок 2: тест только себе — выбор типа относится ТОЛЬКО к тесту */}
+        {/* Блок 2: тест только себе - выбор типа относится ТОЛЬКО к тесту */}
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Проверка на себе</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Пришлёт пример выбранного типа сообщения только вам в Telegram — пользователи ничего не получат.
+          Пришлёт пример выбранного типа сообщения только вам в Telegram - пользователи ничего не получат.
           На рассылку всем этот выбор не влияет.
         </p>
         <div className="row" style={{ flexWrap: "wrap", alignItems: "center" }}>
@@ -303,7 +303,7 @@ function RemindersEditor({ rem, onChange }) {
         </p>
         <div className="kv"><span>Напоминания работают</span>
           <button className="btn ghost sm" onClick={() => set("enabled", rem.enabled === false)}>
-            {rem.enabled === false ? <span className="pill red">выключены — включить</span> : <span className="pill green">включены — выключить</span>}
+            {rem.enabled === false ? <span className="pill red">выключены - включить</span> : <span className="pill green">включены - выключить</span>}
           </button>
         </div>
         <div className="grid cols-3" style={{ marginTop: 10 }}>
@@ -322,11 +322,11 @@ function RemindersEditor({ rem, onChange }) {
         <div style={{ fontWeight: 800, marginBottom: 4 }}>Не завершил оплату</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
           Догоняющее сообщение тому, кто открыл окно оплаты и не купил. Уходит один раз на брошенный
-          заказ и не чаще раза в 3 дня. Тексты — в блоке ниже, пункт «Не завершил оплату».
+          заказ и не чаще раза в 3 дня. Тексты - в блоке ниже, пункт «Не завершил оплату».
         </p>
         <div className="kv"><span>Догонять тех, кто не оплатил</span>
           <button className="btn ghost sm" onClick={() => set("abandoned_enabled", rem.abandoned_enabled === false)}>
-            {rem.abandoned_enabled === false ? <span className="pill red">выключено — включить</span> : <span className="pill green">включено — выключить</span>}
+            {rem.abandoned_enabled === false ? <span className="pill red">выключено - включить</span> : <span className="pill green">включено - выключить</span>}
           </button>
         </div>
         <div className="field" style={{ marginTop: 14, marginBottom: 0 }}><label>Текст кнопки под этим сообщением</label>
@@ -336,11 +336,11 @@ function RemindersEditor({ rem, onChange }) {
       <div className="card" style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 800, marginBottom: 4 }}>Тексты сообщений</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-          Бот чередует варианты, чтобы не повторяться. Подстановки: {"{name}"} — имя, {"{meals_count}"} — записано приёмов пищи,
-          {" {days_tracked}"} — дней с дневником, {"{weight_delta}"} — изменение веса, {"{days_left}"} — дней до конца,
-          {" {expires_date}"} — дата окончания, {"{trial_days}"} — длина пробного периода,
-          {" {tariff}"} и {"{price}"} — название и цена тарифа (только в «Не завершил оплату»).
-          Если у человека нет данных для подстановки (например, не записывал вес) — такой вариант пропускается.
+          Бот чередует варианты, чтобы не повторяться. Подстановки: {"{name}"} - имя, {"{meals_count}"} - записано приёмов пищи,
+          {" {days_tracked}"} - дней с дневником, {"{weight_delta}"} - изменение веса, {"{days_left}"} - дней до конца,
+          {" {expires_date}"} - дата окончания, {"{trial_days}"} - длина пробного периода,
+          {" {tariff}"} и {"{price}"} - название и цена тарифа (только в «Не завершил оплату»).
+          Если у человека нет данных для подстановки (например, не записывал вес) - такой вариант пропускается.
         </p>
         {REMINDER_GROUPS.map((g) => {
           const list = Array.isArray(texts[g.key]) ? texts[g.key] : [];
@@ -373,7 +373,7 @@ function RemindersEditor({ rem, onChange }) {
   );
 }
 
-// Кнопка «Проверить на себе» для напоминаний о еде (без боевой рассылки — они уходят сами по часам).
+// Кнопка «Проверить на себе» для напоминаний о еде (без боевой рассылки - они уходят сами по часам).
 function MealRemindersActions({ setMsg }) {
   const [busy, setBusy] = useState(false);
   const [meal, setMeal] = useState("breakfast");
@@ -381,10 +381,10 @@ function MealRemindersActions({ setMsg }) {
     setBusy(true); setMsg(null);
     try {
       const res = await Admin.testMealReminder(meal);
-      if (res?.ok) setMsg("Тест отправлен вам в Telegram — проверьте бота. Каждый клик показывает другой вариант текста.");
+      if (res?.ok) setMsg("Тест отправлен вам в Telegram - проверьте бота. Каждый клик показывает другой вариант текста.");
       else if (res?.error === "bot_not_started") setMsg("Не получилось: откройте бота и нажмите Start, затем повторите.");
-      else if (res?.error === "no_templates") setMsg("Для этого приёма нет ни одного текста — добавьте варианты ниже и сохраните.");
-      else if (res?.error === "mock_mode") setMsg("Сервер без токена бота (mock-режим) — реальная отправка невозможна.");
+      else if (res?.error === "no_templates") setMsg("Для этого приёма нет ни одного текста - добавьте варианты ниже и сохраните.");
+      else if (res?.error === "mock_mode") setMsg("Сервер без токена бота (mock-режим) - реальная отправка невозможна.");
       else setMsg("Не удалось отправить тест.");
     } catch (e) {
       setMsg("Ошибка теста: " + (e?.response?.data?.error || e.message));
@@ -396,7 +396,7 @@ function MealRemindersActions({ setMsg }) {
     <div className="card" style={{ marginBottom: 14 }}>
       <div style={{ fontWeight: 800, marginBottom: 4 }}>Проверка на себе</div>
       <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-        Пришлёт пример выбранного приёма только вам в Telegram — пользователи ничего не получат.
+        Пришлёт пример выбранного приёма только вам в Telegram - пользователи ничего не получат.
         Сами напоминания уходят по часам ниже, если приём за день не записан.
       </p>
       <div className="row" style={{ flexWrap: "wrap", alignItems: "center" }}>
@@ -423,11 +423,11 @@ function MealRemindersEditor({ rem, onChange }) {
       <div className="card" style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 800, marginBottom: 4 }}>Расписание</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-          Часы — по местному времени каждого пользователя. Напоминание уходит, только если приём за сегодня ещё не записан.
+          Часы - по местному времени каждого пользователя. Напоминание уходит, только если приём за сегодня ещё не записан.
         </p>
         <div className="kv"><span>Напоминания о еде</span>
           <button className="btn ghost sm" onClick={() => set("enabled", rem.enabled === false)}>
-            {rem.enabled === false ? <span className="pill red">выключены — включить</span> : <span className="pill green">включены — выключить</span>}
+            {rem.enabled === false ? <span className="pill red">выключены - включить</span> : <span className="pill green">включены - выключить</span>}
           </button>
         </div>
         <div className="grid cols-3" style={{ marginTop: 10 }}>
@@ -443,10 +443,10 @@ function MealRemindersEditor({ rem, onChange }) {
       <div className="card" style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 800, marginBottom: 4 }}>Тексты сообщений</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-          Бот чередует варианты, чтобы не повторяться. Подстановки: {"{name}"} — имя, {"{daily_calories}"} — дневная цель,
-          {" {calories_today}"} — съедено за сегодня, {"{calories_left}"} — осталось до цели, {"{streak}"} — дней подряд,
-          {" {days_tracked}"} — дней с дневником, {"{meals_count}"} — всего приёмов, {"{weight_delta}"} — изменение веса.
-          Если у человека нет данных для подстановки — такой вариант пропускается, поэтому оставляйте и тексты без подстановок.
+          Бот чередует варианты, чтобы не повторяться. Подстановки: {"{name}"} - имя, {"{daily_calories}"} - дневная цель,
+          {" {calories_today}"} - съедено за сегодня, {"{calories_left}"} - осталось до цели, {"{streak}"} - дней подряд,
+          {" {days_tracked}"} - дней с дневником, {"{meals_count}"} - всего приёмов, {"{weight_delta}"} - изменение веса.
+          Если у человека нет данных для подстановки - такой вариант пропускается, поэтому оставляйте и тексты без подстановок.
         </p>
         {MEAL_GROUPS.map((g) => {
           const list = Array.isArray(texts[g.key]) ? texts[g.key] : [];
@@ -490,11 +490,11 @@ function TgLogEditor({ form, setVal }) {
         <div style={{ fontWeight: 800, marginBottom: 4 }}>Куда дублировать</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
           Бот шлёт копии событий в Telegram-канал. Основной бот (Bytwise) должен быть админом этого канала.
-          ID канала — вида <code>-100…</code>.
+          ID канала - вида <code>-100…</code>.
         </p>
         <div className="kv"><span>Дублирование в канал</span>
           <button className="btn ghost sm" onClick={() => setVal("tg_log_enabled", !enabled)}>
-            {enabled ? <span className="pill green">включено — выключить</span> : <span className="pill red">выключено — включить</span>}
+            {enabled ? <span className="pill green">включено - выключить</span> : <span className="pill red">выключено - включить</span>}
           </button>
         </div>
         <div className="field" style={{ marginTop: 12, marginBottom: 0 }}>
@@ -526,7 +526,7 @@ function TgLogEditor({ form, setVal }) {
       <div className="card" style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 800, marginBottom: 4 }}>Автообновление админки</div>
         <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Как часто страницы админки сами подтягивают свежие данные (в секундах). 0 — выключить автообновление.
+          Как часто страницы админки сами подтягивают свежие данные (в секундах). 0 - выключить автообновление.
         </p>
         <div className="field" style={{ marginBottom: 0, maxWidth: 220 }}>
           <label>Интервал, сек</label>
@@ -566,7 +566,7 @@ export default function SettingsPage() {
   const setTariffs = (list) => setVal("tariffs", list);
   const updateTariff = (i, next) => setTariffs(tariffs.map((t, idx) => (idx === i ? next : t)));
   const removeTariff = (i) => setTariffs(tariffs.filter((_, idx) => idx !== i));
-  // Перестановка: меняет порядок в массиве — он же порядок показа на экране оплаты.
+  // Перестановка: меняет порядок в массиве - он же порядок показа на экране оплаты.
   const moveTariff = (i, dir) => {
     const j = i + dir;
     if (j < 0 || j >= tariffs.length) return;
@@ -598,7 +598,7 @@ export default function SettingsPage() {
       for (const g of REMINDER_GROUPS) {
         cleanTexts[g.key] = (Array.isArray(remTexts[g.key]) ? remTexts[g.key] : []).map((t) => String(t).trim()).filter(Boolean);
       }
-      // Час: 0 (полночь) — валидное значение, поэтому без `|| 19` (0 — falsy).
+      // Час: 0 (полночь) - валидное значение, поэтому без `|| 19` (0 - falsy).
       const hourRaw = String(rem.send_hour ?? "").trim();
       const hour = Number(hourRaw);
       const cleanReminders = {
@@ -661,7 +661,7 @@ export default function SettingsPage() {
         reminders: res.settings.reminders && typeof res.settings.reminders === "object" ? res.settings.reminders : {},
         meal_reminders: res.settings.meal_reminders && typeof res.settings.meal_reminders === "object" ? res.settings.meal_reminders : {}
       });
-      setMsg("Настройки сохранены — цены и подписки обновлены в приложении");
+      setMsg("Настройки сохранены - цены и подписки обновлены в приложении");
     } catch (e) {
       setMsg("Ошибка: " + (e?.response?.data?.error || e.message));
     } finally {
@@ -677,17 +677,17 @@ export default function SettingsPage() {
     <div className="field"><label>{label}</label>
       <textarea className="input" rows={2} value={form[k] ?? ""} onChange={(e) => setVal(k, e.target.value)} /></div>
   );
-  // support_links — объект { help, privacy, terms }. Редактируем как обычные ссылки.
+  // support_links - объект { help, privacy, terms }. Редактируем как обычные ссылки.
   const links = (form.support_links && typeof form.support_links === "object") ? form.support_links : {};
   const setLink = (k, v) => setVal("support_links", { ...links, [k]: v });
   const linkField = (k, label) => (
     <div className="field"><label>{label}</label>
       <input className="input" value={links[k] ?? ""} onChange={(e) => setLink(k, e.target.value)} placeholder="https://…" /></div>
   );
-  // paywall_features — список буллетов оффера на экране оплаты.
+  // paywall_features - список буллетов оффера на экране оплаты.
   const features = Array.isArray(form.paywall_features) ? form.paywall_features : [];
   const setFeatures = (list) => setVal("paywall_features", list);
-  // limit_push — апселл-пуш от бота при исчерпании дневного лимита сканов.
+  // limit_push - апселл-пуш от бота при исчерпании дневного лимита сканов.
   const limitPush = (form.limit_push && typeof form.limit_push === "object") ? form.limit_push : {};
   const setLimitPush = (k, v) => setVal("limit_push", { ...limitPush, [k]: v });
 
@@ -715,7 +715,7 @@ export default function SettingsPage() {
       {tab === "tariffs" && (
         <>
           <p className="muted" style={{ marginBottom: 14, fontSize: 13.5 }}>
-            Цена, срок и состав подписок. Изменения применяются сразу — и в приложении, и при оплате.
+            Цена, срок и состав подписок. Изменения применяются сразу - и в приложении, и при оплате.
             Выключенный тариф пропадает из приложения, но активные подписки не отменяются.
           </p>
           {tariffs.map((t, i) => (
@@ -746,7 +746,7 @@ export default function SettingsPage() {
             <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
               Впишите текущий баланс из личного кабинета OpenAI <b>в долларах $</b> (например, 25).
               На Главной будет видно, сколько осталось <b>в рублях</b> по курсу ЦБ РФ: от введённой суммы
-              автоматически вычитается расход с момента ввода. После пополнения впишите новую сумму — счёт начнётся заново.
+              автоматически вычитается расход с момента ввода. После пополнения впишите новую сумму - счёт начнётся заново.
             </p>
             <div className="field" style={{ marginBottom: 0, maxWidth: 260 }}>
               <label>Баланс OpenAI, $</label>
@@ -767,7 +767,7 @@ export default function SettingsPage() {
         <>
           <div className="card" style={{ marginBottom: 16 }}>
             {textField("welcome_text", "Приветственное сообщение")}
-            {textField("paywall_text", "Текст на экране оплаты — обычный оффер")}
+            {textField("paywall_text", "Текст на экране оплаты - обычный оффер")}
             <p className="muted" style={{ margin: "-6px 0 12px", fontSize: 12.5 }}>
               Виден тому, у кого пробный период идёт и сканы на сегодня ещё остались.
             </p>
@@ -775,8 +775,8 @@ export default function SettingsPage() {
             {textField("paywall_text_trial_over", "…когда пробный период закончился")}
             {textField("paywall_text_sub_over", "…когда закончилась платная подписка")}
             <p className="muted" style={{ margin: "-6px 0 12px", fontSize: 12.5 }}>
-              Плейсхолдеры: <code>{"{limit}"}</code> — бесплатных сканов в день, <code>{"{days_left}"}</code> — сколько
-              дней пробного осталось, <code>{"{trial_days}"}</code> — вся длина пробного периода.
+              Плейсхолдеры: <code>{"{limit}"}</code> - бесплатных сканов в день, <code>{"{days_left}"}</code> - сколько
+              дней пробного осталось, <code>{"{trial_days}"}</code> - вся длина пробного периода.
             </p>
 
             <div className="field">
@@ -807,7 +807,7 @@ export default function SettingsPage() {
               </label>
             </div>
             <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-              Когда у пробного пользователя закончились сканы за день — бот один раз в сутки шлёт апселл Pro с кнопкой на экран оплаты. Плейсхолдеры: <code>{"{limit}"}</code> — дневной лимит, <code>{"{days_left}"}</code> — сколько дней пробного осталось.
+              Когда у пробного пользователя закончились сканы за день - бот один раз в сутки шлёт апселл Pro с кнопкой на экран оплаты. Плейсхолдеры: <code>{"{limit}"}</code> - дневной лимит, <code>{"{days_left}"}</code> - сколько дней пробного осталось.
             </p>
             <div className="field">
               <label>Текст сообщения</label>
@@ -834,7 +834,7 @@ export default function SettingsPage() {
           <div style={{ height: 1, background: "var(--border)", margin: "22px 0" }} />
           <h3 style={{ fontWeight: 800, marginBottom: 6 }}>Напоминания о еде</h3>
           <p className="muted" style={{ marginBottom: 14, fontSize: 13.5 }}>
-            Бот напоминает записать завтрак, обед и ужин по часам ниже — только если приём за день ещё не отмечен.
+            Бот напоминает записать завтрак, обед и ужин по часам ниже - только если приём за день ещё не отмечен.
             Эти сообщения уважают переключатель обычных уведомлений у пользователя.
           </p>
           <MealRemindersActions setMsg={setMsg} />

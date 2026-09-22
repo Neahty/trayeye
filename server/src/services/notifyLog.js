@@ -1,19 +1,19 @@
 // Логи ИСХОДЯЩИХ уведомлений в Telegram-канал: что бот только что разослал людям.
 // Раньше в канал попадали только события «что случилось» (оплатил, написал, вышел),
-// а сами рассылки шли молча — владелец узнавал о них только из админки.
+// а сами рассылки шли молча - владелец узнавал о них только из админки.
 //
 // Два режима, по охвату события:
-//   • сводки массовых рассылок (mealRun / subscriptionRun / broadcastRun) — прогон закончился,
+//   • сводки массовых рассылок (mealRun / subscriptionRun / broadcastRun) - прогон закончился,
 //     пишем одну сводку с цифрами и БЕЗ перечисления людей: «разослали 128 напоминаний про
 //     завтрак», а не 128 сообщений в канал;
-//   • всё остальное — уведомление одному человеку: пишем в канал в тот же момент, когда оно
+//   • всё остальное - уведомление одному человеку: пишем в канал в тот же момент, когда оно
 //     ушло получателю, и с именем. Сообщение привязано к тому, КОМУ оно ушло (`postFor`),
 //     поэтому на него работает реплай `.запретить` из logModeration.
 //
-// Ошибки отправки гасит channelLog — лог не должен ронять сами уведомления.
+// Ошибки отправки гасит channelLog - лог не должен ронять сами уведомления.
 const channelLog = require("./channelLog");
 
-// notify сам зовёт notifyLog, поэтому тянем его по месту — на верхнем уровне был бы цикл require.
+// notify сам зовёт notifyLog, поэтому тянем его по месту - на верхнем уровне был бы цикл require.
 function notify() {
   return require("./notify");
 }
@@ -34,13 +34,13 @@ function people(n) {
   return `${n} ${plural(n, "человек", "человека", "человек")}`;
 }
 
-// Строка про недошедшие сообщения — только когда есть о чём сказать.
+// Строка про недошедшие сообщения - только когда есть о чём сказать.
 function undelivered(failed = 0, blocked = 0) {
   if (!failed) return "";
-  return `⚠️ Не дошло: ${failed}${blocked ? ` (${blocked} — бот у них в чёрном списке)` : ""}\n`;
+  return `⚠️ Не дошло: ${failed}${blocked ? ` (${blocked} - бот у них в чёрном списке)` : ""}\n`;
 }
 
-// Итоговая строка со временем — одинаковый хвост у всех сообщений раздела.
+// Итоговая строка со временем - одинаковый хвост у всех сообщений раздела.
 function when() {
   return `Время: ${notify().fmtWhen()}`;
 }
@@ -54,7 +54,7 @@ const MEAL_LABELS = {
 };
 
 // Итог прогона напоминаний о еде. Пустые прогоны молчат: крон ходит каждый час, а час
-// отправки у каждого свой — иначе канал получал бы два десятка пустых сводок в сутки.
+// отправки у каждого свой - иначе канал получал бы два десятка пустых сводок в сутки.
 async function mealRun({ byMeal = {}, failed = 0, blocked = 0 } = {}) {
   const total = Object.values(byMeal).reduce((a, b) => a + b, 0);
   if (!total) return;
@@ -71,17 +71,17 @@ async function mealRun({ byMeal = {}, failed = 0, blocked = 0 } = {}) {
   );
 }
 
-// Ключи — как в reminders.texts, чтобы сводка одинаково читалась и для крона, и для
+// Ключи - как в reminders.texts, чтобы сводка одинаково читалась и для крона, и для
 // ручной рассылки («Разослать сейчас»), где внутренние kind'ы другие.
 const SUB_LABELS = {
   trial_start: "🎁 Пробный период начался",
   trial_end: "⏳ Последний день пробного",
-  trial_post: "🚪 Пробный кончился — зовём купить",
-  paid_pre: "📅 Подписка скоро кончится — зовём продлить",
-  paid_post: "🔒 Подписка кончилась — зовём вернуться"
+  trial_post: "🚪 Пробный кончился - зовём купить",
+  paid_pre: "📅 Подписка скоро кончится - зовём продлить",
+  paid_post: "🔒 Подписка кончилась - зовём вернуться"
 };
 
-// Итог прогона напоминаний о подписке/пробном. blast — ручная рассылка из админки.
+// Итог прогона напоминаний о подписке/пробном. blast - ручная рассылка из админки.
 async function subscriptionRun({ byKind = {}, failed = 0, blocked = 0, blast = false } = {}) {
   const total = Object.values(byKind).reduce((a, b) => a + b, 0);
   if (!total) return;
@@ -100,7 +100,7 @@ async function subscriptionRun({ byKind = {}, failed = 0, blocked = 0, blast = f
   );
 }
 
-// Подписи аудиторий и форматов — те же, что видит админ в разделе «Уведомления».
+// Подписи аудиторий и форматов - те же, что видит админ в разделе «Уведомления».
 const AUDIENCE_LABELS = {
   all: "все пользователи",
   subscribed: "с подпиской",
@@ -118,7 +118,7 @@ const BROADCAST_KIND_LABELS = { text: "текст", photo: "фото с подп
 
 const PREVIEW_LIMIT = 200;
 
-// Итог ручной рассылки из админки: кому, чем и сколько дошло. Текст даём куском —
+// Итог ручной рассылки из админки: кому, чем и сколько дошло. Текст даём куском -
 // по нему сразу видно, что именно ушло людям.
 async function broadcastRun(broadcast, { sent = 0, delivered = 0 } = {}) {
   const raw = String(broadcast.text || "").trim().replace(/\s+/g, " ");
@@ -143,8 +143,8 @@ async function abandonedCart(userId, { tariff, price } = {}) {
     "notify_personal",
     userId,
     `🛒 <b>Отправили догонялку по брошенной оплате</b>\n\n` +
-    `${who} открыл оплату и не купил — написали ему с кнопкой «Оформить подписку».\n` +
-    `Тариф: <b>${esc(tariff || "—")}</b>${price != null ? ` · ${price} ₽` : ""}\n` +
+    `${who} открыл оплату и не купил - написали ему с кнопкой «Оформить подписку».\n` +
+    `Тариф: <b>${esc(tariff || "-")}</b>${price != null ? ` · ${price} ₽` : ""}\n` +
     when()
   );
 }
@@ -157,13 +157,13 @@ async function limitPush(userId, { limit, daysLeft } = {}) {
     userId,
     `🚀 <b>Отправили предложение оформить PRO</b>\n\n` +
     `У ${who} кончились бесплатные сканы на сегодня (${limit} в день)` +
-    `${daysLeft != null ? `, пробного осталось ${daysLeft} дн.` : ""} — ` +
+    `${daysLeft != null ? `, пробного осталось ${daysLeft} дн.` : ""} - ` +
     `написали ему с кнопкой оплаты.\n` +
     when()
   );
 }
 
-// Названия для лога тестовых отправок — те же формулировки, что в админке.
+// Названия для лога тестовых отправок - те же формулировки, что в админке.
 const TEST_LABELS = {
   trial_start: "Первый день пробного периода",
   trial_end: "Последний день пробного периода",
@@ -176,7 +176,7 @@ const TEST_LABELS = {
   dinner: "Напоминание про ужин"
 };
 
-// «Проверить на себе» из админки: сообщение ушло только админу, людям — нет.
+// «Проверить на себе» из админки: сообщение ушло только админу, людям - нет.
 async function test(userId, kind) {
   const who = await notify().userLabel(userId);
   await channelLog.postFor(
@@ -193,7 +193,7 @@ async function test(userId, kind) {
 // Отдельный тумблер `notify_small`: этих сообщений больше всего, и если станет шумно,
 // их выключают, не теряя догонялку и апселл лимита.
 
-// Тренеру — клиент добавил запись о питании. Уходит на КАЖДУЮ запись клиента,
+// Тренеру - клиент добавил запись о питании. Уходит на КАЖДУЮ запись клиента,
 // поэтому текст короткий: длинная карточка тут только мешала бы читать канал.
 async function trainerClientScan(trainerId, clientId) {
   const [trainerWho, clientWho] = await Promise.all([
@@ -209,7 +209,7 @@ async function trainerClientScan(trainerId, clientId) {
   );
 }
 
-// Клиенту — тренер оставил комментарий к его записи.
+// Клиенту - тренер оставил комментарий к его записи.
 async function trainerComment(clientId) {
   const who = await notify().userLabel(clientId);
   await channelLog.postFor(
@@ -221,8 +221,8 @@ async function trainerComment(clientId) {
   );
 }
 
-// Клиенту — его подключили к тренеру, PRO открыт. trainerId может не приехать
-// (роут отдаёт объект пользователя) — тогда просто не называем тренера.
+// Клиенту - его подключили к тренеру, PRO открыт. trainerId может не приехать
+// (роут отдаёт объект пользователя) - тогда просто не называем тренера.
 async function clientConnected(clientId, trainerId) {
   const clientWho = await notify().userLabel(clientId);
   const trainerWho = trainerId ? await notify().userLabel(trainerId) : null;
@@ -236,7 +236,7 @@ async function clientConnected(clientId, trainerId) {
   );
 }
 
-// Тренеру — к нему подключился новый клиент.
+// Тренеру - к нему подключился новый клиент.
 async function trainerNewClient(trainerId, clientId) {
   const [trainerWho, clientWho] = await Promise.all([
     notify().userLabel(trainerId),
@@ -252,7 +252,7 @@ async function trainerNewClient(trainerId, clientId) {
 }
 
 // Подтверждение оплаты самому покупателю. Сам факт оплаты пишется отдельно (тумблер
-// `payments`) — здесь именно про то, что человек получил сообщение от бота.
+// `payments`) - здесь именно про то, что человек получил сообщение от бота.
 async function purchaseConfirmed(userId, { tariff, renewal = false } = {}) {
   const who = await notify().userLabel(userId);
   await channelLog.postFor(
@@ -261,7 +261,7 @@ async function purchaseConfirmed(userId, { tariff, renewal = false } = {}) {
     (renewal
       ? `🔁 <b>Отправили подтверждение продления</b>\n\n`
       : `✅ <b>Отправили подтверждение оплаты</b>\n\n`) +
-    `Написали ${who}: подписка <b>${esc(tariff || "—")}</b> ` +
+    `Написали ${who}: подписка <b>${esc(tariff || "-")}</b> ` +
     `${renewal ? "продлена" : "оформлена"}, доступ открыт.\n` +
     when()
   );

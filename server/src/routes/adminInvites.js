@@ -1,7 +1,7 @@
 // Раздел «Приглашения» в админке: пользовательская программа «Пригласи друга».
-// Только просмотр — награда победителю конкурса выдаётся существующей кнопкой
+// Только просмотр - награда победителю конкурса выдаётся существующей кнопкой
 // «выдать N дней PRO» (PATCH /api/admin/users/:id/subscription).
-// Механика учёта — в services/userInvites.js и jobs/userInvites.js.
+// Механика учёта - в services/userInvites.js и jobs/userInvites.js.
 const express = require("express");
 const db = require("../db");
 const adminAuth = require("../middleware/adminAuth");
@@ -16,7 +16,7 @@ router.use(adminAuth);
 // «to» разворачивается в конец дня, иначе последний день акции терялся бы целиком.
 // Пустые значения → NULL, и SQL-условие ($n IS NULL OR ...) пропускает всё.
 //
-// Даты трактуем ПО МОСКВЕ — как и вся остальная статистика приглашений. Иначе
+// Даты трактуем ПО МОСКВЕ - как и вся остальная статистика приглашений. Иначе
 // new Date("2026-07-01") дало бы полночь UTC (= 03:00 МСК) и первые три часа первого дня
 // акции выпали бы из подсчёта, а конец дня уехал бы по таймзоне сервера. Смещение
 // зашито как +03:00: в России нет перехода на летнее время с 2014 года.
@@ -26,7 +26,7 @@ function parseRange(q) {
   const norm = (v, endOfDay) => {
     const s = String(v || "").trim();
     if (!s) return null;
-    // Голая дата YYYY-MM-DD — достраиваем до момента по Москве; всё остальное
+    // Голая дата YYYY-MM-DD - достраиваем до момента по Москве; всё остальное
     // (полный ISO с зоной) отдаём Date как есть.
     const iso = /^\d{4}-\d{2}-\d{2}$/.test(s)
       ? `${s}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}${MSK_OFFSET}`
@@ -37,8 +37,8 @@ function parseRange(q) {
   return { from: norm(q.from, false), to: norm(q.to, true) };
 }
 
-// GET /api/admin/invites?from=&to= — сводка за период + топ приглашающих.
-// Победитель конкурса — первая строка топа: сортировка по засчитанным, при равенстве
+// GET /api/admin/invites?from=&to= - сводка за период + топ приглашающих.
+// Победитель конкурса - первая строка топа: сортировка по засчитанным, при равенстве
 // приоритет у того, кто привёл больше людей всего.
 router.get("/", async (req, res, next) => {
   try {
@@ -84,7 +84,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// GET /api/admin/invites/feed?status=&page=&limit= — сквозная лента всех приглашений.
+// GET /api/admin/invites/feed?status=&page=&limit= - сквозная лента всех приглашений.
 // Объявлен ДО /:userId, иначе «feed» уехал бы в парсер id.
 router.get("/feed", async (req, res, next) => {
   try {
@@ -122,7 +122,7 @@ router.get("/feed", async (req, res, next) => {
   }
 });
 
-// GET /api/admin/invites/:userId — карточка приглашающего: его ссылка, цифры,
+// GET /api/admin/invites/:userId - карточка приглашающего: его ссылка, цифры,
 // график за 30 дней и все приведённые поимённо.
 router.get("/:userId", async (req, res, next) => {
   try {
@@ -176,5 +176,5 @@ router.get("/:userId", async (req, res, next) => {
 });
 
 module.exports = router;
-// Для тестов: границы периода — самое хрупкое место (от них зависит победитель).
+// Для тестов: границы периода - самое хрупкое место (от них зависит победитель).
 module.exports.parseRange = parseRange;

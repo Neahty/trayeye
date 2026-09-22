@@ -11,7 +11,7 @@ const STEP_EMOJI = {
   bought: "👑"
 };
 
-// Цвет пилюли «дошло X%» (доля от предыдущего шага): много — зелёный, мало — красный.
+// Цвет пилюли «дошло X%» (доля от предыдущего шага): много - зелёный, мало - красный.
 function retClass(pct) {
   if (pct >= 70) return "green";
   if (pct >= 40) return "amber";
@@ -39,7 +39,7 @@ export default function Funnel() {
     <div>
       <div className="topbar"><h1 className="page-title">Путь клиента</h1></div>
       <div className="muted" style={{ marginTop: -6, marginBottom: 18, fontSize: 13 }}>
-        Сколько людей доходит до каждого шага: от запуска до оплаты. У каждого шага — доля от старта,
+        Сколько людей доходит до каждого шага: от запуска до оплаты. У каждого шага - доля от старта,
         сколько дошло с прошлого шага и сколько ушло.
       </div>
 
@@ -49,7 +49,7 @@ export default function Funnel() {
         <Stat label="Конверсия в оплату" value={`${last.conversion || 0}%`} sub={`${last.value || 0} оплат`} />
         <Stat
           label="Главный отвал"
-          value={worst ? `−${worst.drop}` : "—"}
+          value={worst ? `−${worst.drop}` : "-"}
           sub={worst ? `на шаге «${worst.label}»` : "потерь нет"}
         />
       </div>

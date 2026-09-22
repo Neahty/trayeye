@@ -20,7 +20,7 @@ async function getUsdRub() {
   } catch (err) {
     console.error("[fx] CBR fetch failed:", err.message);
   }
-  // если не удалось — отдаём прошлый кэш или запасное значение
+  // если не удалось - отдаём прошлый кэш или запасное значение
   return cache.rate || FALLBACK;
 }
 

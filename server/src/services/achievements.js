@@ -67,7 +67,7 @@ async function gatherMetrics(userId, user, tz) {
 
   m.streak = await computeStreak(userId, tz);
 
-  // Дневные агрегаты (день — в поясе пользователя, строкой YYYY-MM-DD)
+  // Дневные агрегаты (день - в поясе пользователя, строкой YYYY-MM-DD)
   const daily = await db.query(
     `SELECT to_char(scanned_at AT TIME ZONE $2, 'YYYY-MM-DD') AS day, SUM(calories)::int AS cal,
             SUM(protein) AS p, SUM(fat) AS f, SUM(carbs) AS c, COUNT(*)::int AS n
@@ -228,7 +228,7 @@ function metricValue(criteria, m) {
   if (criteria.type in numeric) {
     return { current: Number(numeric[criteria.type]) || 0, goal };
   }
-  // Остальные — булевы: выполнено ⇒ current = goal, иначе 0.
+  // Остальные - булевы: выполнено ⇒ current = goal, иначе 0.
   const done = isUnlocked(criteria, m, 0);
   return { current: done ? goal : 0, goal };
 }

@@ -158,7 +158,7 @@ export function UIProvider({ children }) {
 
   const toast = useCallback((text, icon) => {
     const id = Math.random();
-    // На экране держим максимум 2 тоста — самые старые выталкиваем
+    // На экране держим максимум 2 тоста - самые старые выталкиваем
     setToasts((ts) => [...ts, { id, text, icon, in: false }].slice(-2));
     requestAnimationFrame(() => setToasts((ts) => ts.map((x) => (x.id === id ? { ...x, in: true } : x))));
     setTimeout(() => setToasts((ts) => ts.map((x) => (x.id === id ? { ...x, in: false } : x))), 2200);
@@ -216,7 +216,7 @@ export function UIProvider({ children }) {
           </div>
           <div className="scan-txt"><span className="scan-dot" /> Распознаём блюдо…</div>
           {scan.slow && (
-            <div className="scan-hint">Bytwise сейчас чуть нагружен — считаем немного дольше обычного. Не закрывайте экран.</div>
+            <div className="scan-hint">Bytwise сейчас чуть нагружен - считаем немного дольше обычного. Не закрывайте экран.</div>
           )}
         </div>
       )}

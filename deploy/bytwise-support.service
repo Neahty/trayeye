@@ -1,5 +1,5 @@
 [Unit]
-Description=Bytwise — бот техподдержки
+Description=Bytwise - бот техподдержки
 After=network.target postgresql.service
 Wants=postgresql.service
 

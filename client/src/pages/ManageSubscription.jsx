@@ -16,7 +16,7 @@ const PAY_STATUS = {
 };
 
 function fmtDate(d) {
-  return d ? new Date(d).toLocaleDateString("ru-RU") : "—";
+  return d ? new Date(d).toLocaleDateString("ru-RU") : "-";
 }
 
 // Сколько дней осталось до даты (целое, не меньше 0).
@@ -36,7 +36,7 @@ export default function ManageSubscription() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   // Тарифы и история платежей грузятся вместе; при сбое сети показываем заметное
-  // сообщение с кнопкой «Повторить» — раньше страница молча оставалась пустой.
+  // сообщение с кнопкой «Повторить» - раньше страница молча оставалась пустой.
   async function loadData() {
     setLoadFailed(false);
     try {
@@ -63,7 +63,7 @@ export default function ManageSubscription() {
     progress = end > start ? Math.min(100, Math.max(0, ((Date.now() - start) / (end - start)) * 100)) : null;
   }
 
-  // Какие тарифы предложить: триал/без подписки — любые; basic — апгрейд до тренерской; тренер — максимум.
+  // Какие тарифы предложить: триал/без подписки - любые; basic - апгрейд до тренерской; тренер - максимум.
   const allTariffs = cfg?.tariffs || [];
   let upgradeOptions = [];
   if (!sub) upgradeOptions = allTariffs;
@@ -122,7 +122,7 @@ export default function ManageSubscription() {
         )}
       </div>
 
-      {/* Сбой загрузки тарифов/платежей — без этого при плохой сети страница выглядела пустой */}
+      {/* Сбой загрузки тарифов/платежей - без этого при плохой сети страница выглядела пустой */}
       {loadFailed && (
         <div className="card" style={{ marginTop: 18, padding: 16, textAlign: "center" }}>
           <div style={{ fontSize: 14.5, color: "var(--text-2)", marginBottom: 12 }}>
@@ -168,7 +168,7 @@ export default function ManageSubscription() {
 
       {sub?.type === "trainer" && (
         <div className="card" style={{ marginTop: 18, padding: 16, color: "var(--text-2)", fontSize: 14.5 }}>
-          👑 У вас максимальный тариф — Тренерская подписка.
+          👑 У вас максимальный тариф - Тренерская подписка.
         </div>
       )}
 

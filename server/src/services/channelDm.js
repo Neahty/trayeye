@@ -1,5 +1,5 @@
 // Личное сообщение пользователю, отправленное админом прямо из канала логов
-// (Поправка №49). Человек видит обычное сообщение от бота — ни имени админа,
+// (Поправка №49). Человек видит обычное сообщение от бота - ни имени админа,
 // ни пометки «это ответ поддержки» в нём нет: со стороны это выглядит как рассылка.
 //
 // Черновик сохраняется в БД до подтверждения: в callback_data кнопки помещается
@@ -10,7 +10,7 @@ const { sendMessage } = require("./telegram");
 // Лимит Telegram на длину текстового сообщения.
 const MAX_LEN = 4096;
 
-// Получатель со всеми флагами доставки — findById в moderation их не отдаёт.
+// Получатель со всеми флагами доставки - findById в moderation их не отдаёт.
 async function recipient(userId) {
   const { rows } = await db.query(
     `SELECT id, telegram_id, username, name, is_blocked, tg_unreachable, created_at
@@ -91,7 +91,7 @@ async function send(id, { byTelegramId, actorUserId = null } = {}) {
   }
   if (user.is_blocked) {
     await finish(id, "failed", "пользователь заблокирован");
-    return { ok: false, error: "Пользователь заблокирован — сообщение не отправлено." };
+    return { ok: false, error: "Пользователь заблокирован - сообщение не отправлено." };
   }
 
   const res = await deliver(user, draft.text);

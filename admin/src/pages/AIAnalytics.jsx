@@ -20,9 +20,9 @@ export default function AIAnalytics() {
 
       <div className="muted" style={{ marginTop: -6, marginBottom: 14, fontSize: 13 }}>
         {data.is_real
-          ? `Суммы — реальные расходы из OpenAI, пересчитаны в рубли по курсу ЦБ РФ (${data.usd_rub} ₽ за $1).`
-          : `OpenAI admin-ключ не задан — показана примерная оценка по объёму запросов. Курс ЦБ РФ: ${data.usd_rub} ₽ за $1.`}
-        {" "}Расход за сегодня — всегда оценка по токенам: OpenAI отдаёт факт за текущие сутки с задержкой.
+          ? `Суммы - реальные расходы из OpenAI, пересчитаны в рубли по курсу ЦБ РФ (${data.usd_rub} ₽ за $1).`
+          : `OpenAI admin-ключ не задан - показана примерная оценка по объёму запросов. Курс ЦБ РФ: ${data.usd_rub} ₽ за $1.`}
+        {" "}Расход за сегодня - всегда оценка по токенам: OpenAI отдаёт факт за текущие сутки с задержкой.
       </div>
 
       <div className="grid cols-4">
@@ -57,7 +57,7 @@ export default function AIAnalytics() {
 
       <div className="section-title">Как часто люди переделывают за ИИ (за 30 дней)</div>
       <div className="muted" style={{ marginTop: -8, marginBottom: 10, fontSize: 13 }}>
-        Чем ниже доля переделок, тем точнее считает ИИ. Резкий рост после смены модели — повод откатиться.
+        Чем ниже доля переделок, тем точнее считает ИИ. Резкий рост после смены модели - повод откатиться.
       </div>
       <div className="table-wrap">
         <table>

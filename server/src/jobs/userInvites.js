@@ -1,8 +1,8 @@
 // Проверка пользовательских приглашений «Пригласи друга» (запускается ежечасно на :25,
-// на 5 минут позже сотрудничьей — чтобы два прохода по users не совпадали).
+// на 5 минут позже сотрудничьей - чтобы два прохода по users не совпадали).
 // Приглашения старше 24 часов → confirmed или rejected по правилу
 // «открыл приложение + в канале + не заблокировал бота» (состояние на момент проверки).
-// Атрибуции оплат здесь нет: денег в этой механике не платят, награда за конкурс — вручную.
+// Атрибуции оплат здесь нет: денег в этой механике не платят, награда за конкурс - вручную.
 const db = require("../db");
 const userInvites = require("../services/userInvites");
 const inviteRewards = require("../services/inviteRewards");
@@ -19,7 +19,7 @@ async function runUserInviteChecks() {
 
   let confirmed = 0;
   let rejected = 0;
-  // Кому пересчитать ступени подарков — только тем, у кого прибавилось засчитанных.
+  // Кому пересчитать ступени подарков - только тем, у кого прибавилось засчитанных.
   const touched = new Set();
   for (const r of pending) {
     let reason = null;
@@ -28,7 +28,7 @@ async function runUserInviteChecks() {
     else if (r.tg_unreachable) reason = "blocked_bot";
     const status = reason ? "rejected" : "confirmed";
 
-    // Guard по status='pending' — защита от гонки с параллельным запуском.
+    // Guard по status='pending' - защита от гонки с параллельным запуском.
     const upd = await db.query(
       `UPDATE user_invites SET status = $2, reject_reason = $3, decided_at = NOW()
         WHERE id = $1 AND status = 'pending' RETURNING id`,
@@ -37,7 +37,7 @@ async function runUserInviteChecks() {
     if (!upd.rows.length) continue;
     if (reason) rejected++; else { confirmed++; touched.add(r.inviter_id); }
 
-    // Приглашающему — ЛС с итогом (без имени приведённого), в лог-канал — с именами.
+    // Приглашающему - ЛС с итогом (без имени приведённого), в лог-канал - с именами.
     userInvites.notifyDecided(r.inviter_id, status, reason).catch(() => {});
     try {
       const who = await notify.userLabel(r.user_id);

@@ -51,7 +51,7 @@ export default function Finance() {
             <Stat label="Возвраты" value={money(yk.data?.refunds || 0)} />
           </div>
           <div className="muted" style={{ marginTop: 8 }}>
-            Платежей: {yk.data?.count || 0}. Сумма выводов на банковский счёт через API недоступна — смотрите в{" "}
+            Платежей: {yk.data?.count || 0}. Сумма выводов на банковский счёт через API недоступна - смотрите в{" "}
             <a href="https://yookassa.ru/my" target="_blank" rel="noreferrer">личном кабинете ЮKassa</a>.
           </div>
         </>
@@ -104,8 +104,8 @@ export default function Finance() {
                   <td data-label="Дата">{fmtDate(p.created_at)}</td>
                   <td data-label="Пользователь">{p.username || p.telegram_id}</td>
                   <td data-label="Сумма">{money(p.amount)}</td>
-                  <td data-label="Тариф">{p.sub_type ? subLabel(p.sub_type, tariffMap) : "—"}</td>
-                  <td data-label="Способ оплаты">{p.method || "—"}</td>
+                  <td data-label="Тариф">{p.sub_type ? subLabel(p.sub_type, tariffMap) : "-"}</td>
+                  <td data-label="Способ оплаты">{p.method || "-"}</td>
                   <td data-label="Статус"><span className={"pill " + (p.status === "succeeded" ? "green" : p.status === "error" ? "red" : "")}>{payLabel(p.status)}</span></td>
                 </tr>
               ))}

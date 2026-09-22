@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Bytwise для iPhone — нативная сборка на Capacitor. Копия client/, живёт своей жизнью.",
+  "description": "Bytwise для iPhone - нативная сборка на Capacitor. Копия client/, живёт своей жизнью.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

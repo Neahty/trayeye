@@ -27,7 +27,7 @@ export default function Subscriptions() {
                 <td data-label="Статус">{s.status === "active" ? <span className="pill green">Действует</span> : <span className="pill">{STATUS[s.status] || s.status}</span>}</td>
                 <td data-label="Куплено">{fmtDate(s.started_at)}</td>
                 <td data-label="Действует до">{fmtDate(s.expires_at)}</td>
-                <td data-label="Способ оплаты">{s.pay_method || s.method || "—"}</td>
+                <td data-label="Способ оплаты">{s.pay_method || s.method || "-"}</td>
                 <td data-label="Действия">
                   <div className="row">
                     <button className="btn ghost sm" onClick={() => { const body = askGrantBody(s.type, 30, tariffMap[s.type]?.price); if (body) act(() => Admin.grantSub(s.user_id, body)); }}>Продлить на 30 дней</button>

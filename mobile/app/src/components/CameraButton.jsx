@@ -9,7 +9,7 @@ export default function CameraButton({ onPick, disabled, label = "📷 Сфот�
   const pickSource = () => ui.sheet({
     type: "info",
     title: "Добавить фото",
-    sub: "💡 Если еда в упаковке — сфоткайте сторону с составом и КБЖУ: так AI посчитает точнее",
+    sub: "💡 Если еда в упаковке - сфоткайте сторону с составом и КБЖУ: так AI посчитает точнее",
     actionLabel: "Сделать фото",
     actionIcon: "camera",
     onAction: () => cameraRef.current?.click(),

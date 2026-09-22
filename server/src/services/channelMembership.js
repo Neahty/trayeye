@@ -1,6 +1,6 @@
 // Учёт членства в обязательном Telegram-канале и связанные логи.
 // «Пользователь = подписчик канала»: лог «Новый пользователь» уходит ровно один раз,
-// когда channel_joined_at проставляется впервые; «Вышел из канала» — при отписке.
+// когда channel_joined_at проставляется впервые; «Вышел из канала» - при отписке.
 // Все хелперы идемпотентны (защита от повторных событий из разных источников:
 // /start, кнопка «Я подписался», chat_member-апдейты, вход в приложение).
 const db = require("../db");
@@ -8,7 +8,7 @@ const notify = require("./notify");
 const channelLog = require("./channelLog");
 
 // Пользователь подписан на канал. Если членство фиксируется ВПЕРВЫЕ
-// (channel_joined_at был NULL) — шлём лог «Новый пользователь».
+// (channel_joined_at был NULL) - шлём лог «Новый пользователь».
 async function markChannelJoined(userId, source = "channel") {
   if (!userId) return false;
   try {
@@ -21,13 +21,13 @@ async function markChannelJoined(userId, source = "channel") {
       [userId]
     );
     if (rows.length) {
-      // Первое подтверждённое членство — это и есть «новый пользователь».
+      // Первое подтверждённое членство - это и есть «новый пользователь».
       notify.notifyNewUser(userId, source).catch((e) =>
         console.error("[channelMembership] notifyNewUser:", e.message)
       );
       return true;
     }
-    // Уже были отмечены ранее — на всякий случай вернём флаг membership (вдруг выходили и вернулись).
+    // Уже были отмечены ранее - на всякий случай вернём флаг membership (вдруг выходили и вернулись).
     await db.query("UPDATE users SET channel_member = TRUE WHERE id = $1 AND channel_member = FALSE", [userId]);
   } catch (e) {
     console.error("[channelMembership] markChannelJoined:", e.message);
@@ -62,7 +62,7 @@ async function markChannelLeft(userId) {
 }
 
 // Бот недоступен пользователю (получили 403 при отправке). Помечаем tg_unreachable
-// и логируем один раз — пока флаг был FALSE.
+// и логируем один раз - пока флаг был FALSE.
 async function markUnreachable(userId) {
   if (!userId) return false;
   try {
@@ -78,7 +78,7 @@ async function markUnreachable(userId) {
       "blocked_bot",
       userId,
       `🚫 <b>Заблокировал бота</b>\n\n` +
-      `${who} заблокировал бота или не начинал диалог — сообщения ему больше не доходят.\n` +
+      `${who} заблокировал бота или не начинал диалог - сообщения ему больше не доходят.\n` +
       `Время: ${notify.fmtWhen()}`
     ).catch(() => {});
     return true;

@@ -4,7 +4,7 @@ import { Auth, setToken } from "../api";
 import { useAuth } from "../App.jsx";
 import { useLive } from "../lib.jsx";
 
-// Индикатор автообновления: зелёная точка = живёт, серая = на паузе. Клик — пауза/возобновить.
+// Индикатор автообновления: зелёная точка = живёт, серая = на паузе. Клик - пауза/возобновить.
 function LiveIndicator() {
   const { paused, refreshSec, togglePaused } = useLive();
   if (!refreshSec) return null; // автообновление выключено в настройках

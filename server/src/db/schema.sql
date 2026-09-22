@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
 CREATE TABLE IF NOT EXISTS trainer_clients (
   trainer_id INT REFERENCES users(id),
-  client_id INT REFERENCES users(id),  -- один клиент — один тренер
+  client_id INT REFERENCES users(id),  -- один клиент - один тренер
   added_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (trainer_id, client_id)
 );
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS payments (
 
 -- LEGACY: реферальная система удалена из кода (Поправка №23). Таблицы referrals/referral_balance
 -- и колонка users.referred_by оставлены, чтобы не терять исторические данные; код их не пишет
--- и не читает. ref_code (users) ОСТАЁТСЯ — это код ссылок-приглашений тренера.
+-- и не читает. ref_code (users) ОСТАЁТСЯ - это код ссылок-приглашений тренера.
 CREATE TABLE IF NOT EXISTS referrals (
   id SERIAL PRIMARY KEY,
   referrer_id INT REFERENCES users(id),
@@ -107,7 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_scans_user_date ON scans (user_id, scanned_at);
 CREATE INDEX IF NOT EXISTS idx_subs_user ON subscriptions (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_logs_action ON system_logs (action, created_at);
 -- Дневной лимит бесплатных сканов считается по этому журналу (utils/scanUsage.js) и выполняется
--- на каждом скане и на каждой отрисовке пейволла — без индекса это Seq Scan по всей таблице логов.
+-- на каждом скане и на каждой отрисовке пейволла - без индекса это Seq Scan по всей таблице логов.
 CREATE INDEX IF NOT EXISTS idx_logs_user_action ON system_logs (user_id, action, created_at);
 
 -- ============================================================
@@ -132,7 +132,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS target_weight NUMERIC;
 -- Темп достижения цели (влияет на дефицит/профицит калорий): slow | mid | fast. mid = базовый ±300.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS pace TEXT DEFAULT 'mid';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN DEFAULT FALSE;
--- Пользователь задал норму КБЖУ вручную — авто-пересчёт по формуле тогда не трогает значения.
+-- Пользователь задал норму КБЖУ вручную - авто-пересчёт по формуле тогда не трогает значения.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS goals_set_manually BOOLEAN DEFAULT FALSE;
 -- Недоступность в Telegram (бот получил 403 на отправку). Отдельно от is_blocked,
 -- чтобы единичный сбой доставки не блокировал вход и не отключал навсегда напоминания.
@@ -152,7 +152,7 @@ ALTER TABLE users ALTER COLUMN app_opened SET DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS channel_member BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS channel_joined_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS channel_left_at TIMESTAMPTZ;
--- Бэкофилл существующих: кто открывал приложение — тот уже прошёл шлагбаум подписки.
+-- Бэкофилл существующих: кто открывал приложение - тот уже прошёл шлагбаум подписки.
 -- Срабатывает один раз (после него channel_joined_at не NULL и условие не выполняется),
 -- старых пользователей не залогирует как «новых».
 UPDATE users SET channel_member = TRUE, channel_joined_at = COALESCE(channel_joined_at, created_at)
@@ -160,14 +160,14 @@ UPDATE users SET channel_member = TRUE, channel_joined_at = COALESCE(channel_joi
 
 -- Ссылка на сообщение «Новый пользователь» в канале логов: { chat_id, message_id, kind }.
 -- Нужна, чтобы после онбординга дописать в то же сообщение анкету (пол/рост/вес).
--- kind = 'photo' | 'text' — Telegram правит подпись и текст РАЗНЫМИ методами и не даёт
+-- kind = 'photo' | 'text' - Telegram правит подпись и текст РАЗНЫМИ методами и не даёт
 -- превратить одно в другое, поэтому способ отправки надо помнить (см. services/notify.js).
 -- chat_id храним, потому что канал меняется из админки и мог смениться после отправки.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_log_new_user_msg JSONB;
 -- Когда боту в последний раз ушёл апселл-пуш по исчерпанию дневного лимита (дедуп 1/сутки).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS limit_push_at TIMESTAMPTZ;
 -- Аудит бана: когда заблокировали и telegram_id того, кто нажал (и в админке, и в лог-канале).
--- Сам факт бана по-прежнему хранится в is_blocked — эти поля только объясняют, кто и когда.
+-- Сам факт бана по-прежнему хранится в is_blocked - эти поля только объясняют, кто и когда.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_by BIGINT;
 
@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 -- ============================================================
 --  Квесты с наградами (заменяют достижения на экране Статистика).
 --  Каталог полностью управляется из админки (раздел «Квесты»); стартует пустым.
---  criteria — та же форма, что у achievements: {"type":"streak","value":7} и т.п.
+--  criteria - та же форма, что у achievements: {"type":"streak","value":7} и т.п.
 --  (проверка через services/achievements.isUnlocked). Награда = ссылка + текст,
 --  которую бот присылает пользователю в ЛС при нажатии «Забрать награду».
 -- ============================================================
@@ -271,7 +271,7 @@ CREATE TABLE IF NOT EXISTS quests (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Факт получения награды пользователем (один раз на юзера — PK не даёт забрать дважды).
+-- Факт получения награды пользователем (один раз на юзера - PK не даёт забрать дважды).
 CREATE TABLE IF NOT EXISTS user_quests (
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   quest_code TEXT NOT NULL REFERENCES quests(code) ON DELETE CASCADE,
@@ -282,11 +282,11 @@ CREATE TABLE IF NOT EXISTS user_quests (
 -- Стартовые квесты с наградами (ссылки-подарки). Заводятся один раз (DO NOTHING),
 -- дальше полностью редактируются из админки (раздел «Квесты»).
 INSERT INTO quests (code, title, description, emoji, criteria, reward_title, reward_link, sort) VALUES
-  ('q_scan20', 'Сделай 20 сканов еды',                       'Отсканируй 20 приёмов пищи — по фото или тексту.',        '📸', '{"type":"total_scans","value":20}'::jsonb,      'Рецепт ПП-блинчиков',                    'https://telegra.ph/Recept-pp-blinchikov-07-14', 1),
+  ('q_scan20', 'Сделай 20 сканов еды',                       'Отсканируй 20 приёмов пищи - по фото или тексту.',        '📸', '{"type":"total_scans","value":20}'::jsonb,      'Рецепт ПП-блинчиков',                    'https://telegra.ph/Recept-pp-blinchikov-07-14', 1),
   ('q_fat3',   'Не превышай норму по жирам 3 дня подряд',     'Три дня подряд удержи жиры в пределах дневной нормы.',    '🥑', '{"type":"fat_norm_streak","value":3}'::jsonb,   'Гайд «Как всегда оставаться в форме»',   'https://telegra.ph/Gajd-kak-vsegda-ostavatsya-v-forme-07-14', 2),
   ('q_pro',    'Оформи подписку PRO',                         'Оформи любую подписку Bytwise.',                          '👑', '{"type":"first_payment"}'::jsonb,               'Программа тренировок на 4 недели',        'https://telegra.ph/Programma-trenirovok-na-4-nedeli-07-14', 3),
   ('q_lose5',  'Сбрось 5 кг',                                 'Похудей на 5 кг по данным взвешиваний.',                  '📉', '{"type":"weight_loss_kg","value":5}'::jsonb,    'Гайд на плоский животик',                 'https://telegra.ph/Gajd-na-ploskij-zhivotik-07-14', 4),
-  ('q_ai10',   'Добавь 10 блюд через AI-описание',            'Добавь 10 блюд текстом — AI посчитает КБЖУ.',             '✨', '{"type":"text_scans","value":10}'::jsonb,       'Рецепт ПП',                              'https://telegra.ph/Recept-pp-07-14', 5)
+  ('q_ai10',   'Добавь 10 блюд через AI-описание',            'Добавь 10 блюд текстом - AI посчитает КБЖУ.',             '✨', '{"type":"text_scans","value":10}'::jsonb,       'Рецепт ПП',                              'https://telegra.ph/Recept-pp-07-14', 5)
 ON CONFLICT (code) DO NOTHING;
 
 -- Массовые рассылки (раздел «Уведомления»)
@@ -347,10 +347,10 @@ INSERT INTO app_settings (key, value) VALUES
   ('free_scan_daily_limit', '10'::jsonb),
   ('trial_days',          '3'::jsonb),
   ('trainer_max_clients', '20'::jsonb),
-  ('welcome_text',        '"Привет! Я Bytwise — считаю калории и БЖУ по фото и описанию блюда. Сфотографируй еду или просто опиши её текстом."'::jsonb),
+  ('welcome_text',        '"Привет! Я Bytwise - считаю калории и БЖУ по фото и описанию блюда. Сфотографируй еду или просто опиши её текстом."'::jsonb),
   ('paywall_text',        '"Оформите Bytwise PRO: безлимит фото-сканов, AI-добавление текстом и полная статистика."'::jsonb),
   ('support_links',       '{"help":"https://t.me/bytwise_support","privacy":"https://bytwise.app/privacy","terms":"https://bytwise.app/terms"}'::jsonb),
-  -- Глобальные ссылки, редактируемые в админке (вкладка «Ссылки»). Пустые по умолчанию —
+  -- Глобальные ссылки, редактируемые в админке (вкладка «Ссылки»). Пустые по умолчанию -
   -- карточки на Главной прячутся, пока ссылка не задана.
   ('nutritionist_url',    '""'::jsonb),
   ('plan_url',            '""'::jsonb),
@@ -363,7 +363,7 @@ UPDATE app_settings SET value = '349'::jsonb  WHERE key = 'sub_price_basic'   AN
 UPDATE app_settings SET value = '1799'::jsonb WHERE key = 'sub_price_trainer' AND value IN ('990'::jsonb,'1490'::jsonb);
 
 -- Дополнить тарифы новыми полями (duration_days, enabled) для уже существующих БД.
--- Идемпотентно: COALESCE сохраняет уже заданные значения. Тренерский тариф без флага — выключаем
+-- Идемпотентно: COALESCE сохраняет уже заданные значения. Тренерский тариф без флага - выключаем
 -- (сохраняем прежнее поведение «тренер недоступен»).
 UPDATE app_settings SET value = (
   SELECT jsonb_agg(
@@ -377,7 +377,7 @@ UPDATE app_settings SET value = (
 WHERE key = 'tariffs' AND jsonb_typeof(value) = 'array' AND jsonb_array_length(value) > 0;
 
 -- Однократно включить тренерский тариф для уже существующих БД (раньше был enabled:false).
--- Маркер не даёт повторно включать его на каждом старте — админ может выключить через админку.
+-- Маркер не даёт повторно включать его на каждом старте - админ может выключить через админку.
 UPDATE app_settings SET value = (
   SELECT jsonb_agg(CASE WHEN elem->>'id' = 'trainer' THEN jsonb_set(elem, '{enabled}', 'true') ELSE elem END)
   FROM jsonb_array_elements(value) elem
@@ -397,7 +397,7 @@ WHERE key = 'tariffs' AND jsonb_typeof(value) = 'array'
   AND EXISTS (SELECT 1 FROM jsonb_array_elements(value) e
               WHERE e->>'id' = 'trainer' AND e->>'title' = 'С тренером');
 
--- «Один клиент — один тренер» на уровне БД (PK (trainer_id, client_id) это не гарантирует).
+-- «Один клиент - один тренер» на уровне БД (PK (trainer_id, client_id) это не гарантирует).
 -- Сначала убираем возможные дубли (оставляя самую раннюю привязку), затем UNIQUE-индекс по client_id.
 -- Он же используется для запросов «кто мой тренер» / доступа.
 DELETE FROM trainer_clients a USING trainer_clients b
@@ -415,7 +415,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_payments_succeeded_yukassa
   ON payments (yukassa_id) WHERE status = 'succeeded' AND yukassa_id IS NOT NULL;
 
 -- Почасовой перебор пользователей в напоминаниях/рассылках (notifications_enabled AND NOT is_blocked
--- AND NOT tg_unreachable) — частичный индекс, чтобы не сканировать всю таблицу users.
+-- AND NOT tg_unreachable) - частичный индекс, чтобы не сканировать всю таблицу users.
 CREATE INDEX IF NOT EXISTS idx_users_notify ON users (id)
   WHERE notifications_enabled = TRUE AND is_blocked = FALSE AND tg_unreachable = FALSE;
 
@@ -439,13 +439,13 @@ INSERT INTO achievements (code, title, subtitle, description, emoji, icon, color
   ('streak_3',      '3 дня контроля',        '3 дня подряд лог питания',        'Три дня подряд вы вели дневник питания.',                      '📅', 'flame',   '#22C55E', 'Стрики', 5,  '{"type":"streak","value":3}'::jsonb),
   ('streak_7',      'Неделя дисциплины',     '7 дней подряд',                   'Целую неделю без пропусков. Отличная дисциплина!',             '📅', 'flame',   '#22C55E', 'Стрики', 6,  '{"type":"streak","value":7}'::jsonb),
   ('streak_14',     'Железная воля',         '14 дней подряд',                  'Две недели подряд лог питания.',                               '📅', 'flame',   '#16A34A', 'Стрики', 7,  '{"type":"streak","value":14}'::jsonb),
-  ('streak_30',     'Машина режима',         '30 дней подряд',                  'Месяц без пропусков. Вы — машина режима!',                     '📅', 'flame',   '#EA580C', 'Стрики', 8,  '{"type":"streak","value":30}'::jsonb),
+  ('streak_30',     'Машина режима',         '30 дней подряд',                  'Месяц без пропусков. Вы - машина режима!',                     '📅', 'flame',   '#EA580C', 'Стрики', 8,  '{"type":"streak","value":30}'::jsonb),
   ('streak_60',     'Срыв? не слышал',       '60 дней без пропусков',           '60 дней подряд. Несокрушимая дисциплина.',                     '💀', 'trophy',  '#E0A020', 'Стрики', 9,  '{"type":"streak","value":60}'::jsonb),
 
   ('scans_10',      'Фуд-детектив',          '10 сканов еды',                   'Вы сделали 10 сканов еды.',                                    '📸', 'camera',  '#3B82F6', 'Сканирование', 10, '{"type":"total_scans","value":10}'::jsonb),
   ('scans_50',      'Повар-исследователь',   '50 сканов',                       'Вы сделали 50 сканов еды.',                                    '🔍', 'camera',  '#3B82F6', 'Сканирование', 11, '{"type":"total_scans","value":50}'::jsonb),
   ('scans_100',     'AI-напарник',           '100 сканов',                      '100 сканов вместе с AI.',                                      '🤖', 'sparkles','#7C3AED', 'Сканирование', 12, '{"type":"total_scans","value":100}'::jsonb),
-  ('scans_500',     'Живой холодильник',     '500 сканов',                      '500 сканов еды — впечатляюще!',                                '📦', 'camera',  '#7C3AED', 'Сканирование', 13, '{"type":"total_scans","value":500}'::jsonb),
+  ('scans_500',     'Живой холодильник',     '500 сканов',                      '500 сканов еды - впечатляюще!',                                '📦', 'camera',  '#7C3AED', 'Сканирование', 13, '{"type":"total_scans","value":500}'::jsonb),
 
   ('weight_first',  'Первый контроль',       'Записал вес',                     'Вы записали свой вес впервые.',                                '⚖️', 'weight',  '#22C55E', 'Контроль тела', 14, '{"type":"has_weight"}'::jsonb),
   ('weight_down_1', 'Пошёл вниз',            'Потерял 1 кг',                    'Вы сбросили 1 кг. Дорога начинается с первого шага.',          '📉', 'weight',  '#22C55E', 'Контроль тела', 15, '{"type":"weight_loss_kg","value":1}'::jsonb),
@@ -464,9 +464,9 @@ INSERT INTO achievements (code, title, subtitle, description, emoji, icon, color
   ('control_master','Контроль мастер',       '7 дней в норме по калориям',      '7 дней в пределах нормы калорий.',                             '📊', 'bars',    '#7C3AED', 'Питание', 26, '{"type":"days_in_norm","value":7}'::jsonb),
 
   ('cheat_day',     'Один чит-день',         'Впервые превысил калории',        'Вы впервые превысили дневную норму калорий. Бывает!',          '🍕', 'flame',   '#EF4444', 'Особые', 27, '{"type":"day_over_norm"}'::jsonb),
-  ('skip_day',      'Я вернусь завтра',      'Пропуск 1 дня',                   'Вы пропустили один день. Главное — вернуться!',                '🧃', 'clock',   '#F59E0B', 'Особые', 28, '{"type":"missed_one_day"}'::jsonb),
+  ('skip_day',      'Я вернусь завтра',      'Пропуск 1 дня',                   'Вы пропустили один день. Главное - вернуться!',                '🧃', 'clock',   '#F59E0B', 'Особые', 28, '{"type":"missed_one_day"}'::jsonb),
   ('back_in_game',  'Снова в игре',          'Вернулся после перерыва',         'Вы вернулись после перерыва. Так держать!',                    '🔥', 'flame',   '#22C55E', 'Особые', 29, '{"type":"returned_after_break"}'::jsonb),
-  ('count_all',     'Я теперь считаю всё',   '100% дней с логом за неделю',     'Каждый день недели — с логом питания. 100%!',                  '🧠', 'sparkles','#7C3AED', 'Особые', 30, '{"type":"full_week_logged","value":7}'::jsonb)
+  ('count_all',     'Я теперь считаю всё',   '100% дней с логом за неделю',     'Каждый день недели - с логом питания. 100%!',                  '🧠', 'sparkles','#7C3AED', 'Особые', 30, '{"type":"full_week_logged","value":7}'::jsonb)
 ON CONFLICT (code) DO UPDATE SET
   title=EXCLUDED.title, subtitle=EXCLUDED.subtitle, description=EXCLUDED.description,
   emoji=EXCLUDED.emoji, icon=EXCLUDED.icon, color=EXCLUDED.color, category=EXCLUDED.category,
@@ -474,7 +474,7 @@ ON CONFLICT (code) DO UPDATE SET
 
 -- ============================================================
 --  Техподдержка (отдельный бот support/ + раздел «Поддержка» в админке).
---  ВНИМАНИЕ: копия этого блока — в support/src/schema.sql (бот сам создаёт
+--  ВНИМАНИЕ: копия этого блока - в support/src/schema.sql (бот сам создаёт
 --  таблицы на старте, чтобы не зависеть от migrate основного приложения).
 --  При изменении править ОБА файла.
 -- ============================================================
@@ -495,9 +495,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_support_open_per_user
   ON support_tickets (user_id) WHERE status = 'open';
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status
   ON support_tickets (status, updated_at DESC);
--- Публичный номер обращения — случайный 6-значный (НЕ порядковый id), чтобы не выдавать
+-- Публичный номер обращения - случайный 6-значный (НЕ порядковый id), чтобы не выдавать
 -- общее число тикетов. Новые получают случайный номер при создании (support/src/handlers/user.js).
--- Бэкфилл старых: детерминированный разброс id*73 mod 900000 — это биекция по модулю,
+-- Бэкфилл старых: детерминированный разброс id*73 mod 900000 - это биекция по модулю,
 -- значит номера уникальны, но «вперемешку» (а не 1,2,3). Делаем ДО уникального индекса.
 ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ticket_no INT;
 UPDATE support_tickets SET ticket_no = 100000 + ((id * 73) % 900000) WHERE ticket_no IS NULL;
@@ -508,7 +508,7 @@ CREATE TABLE IF NOT EXISTS support_messages (
   ticket_id INT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
   sender TEXT NOT NULL,                 -- 'user' | 'admin'
   admin_id BIGINT,                      -- telegram_id админа (NULL для sender='user')
-  via TEXT DEFAULT 'bot',               -- bot | web — откуда отправлен ответ админа
+  via TEXT DEFAULT 'bot',               -- bot | web - откуда отправлен ответ админа
   text TEXT,
   photo_file_id TEXT,                   -- file_id фото в Telegram (бот поддержки)
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -520,7 +520,7 @@ CREATE INDEX IF NOT EXISTS idx_support_messages_ticket
 --  Напоминания о подписке/пробном периоде (jobs/subscriptionReminders.js).
 --  Одна строка = одна отправленная стадия. UNIQUE-ключ включает anchor_at
 --  (expires_at подписки или конец триала): после продления появляется новый
---  anchor — серия начинается заново, старые отметки не мешают.
+--  anchor - серия начинается заново, старые отметки не мешают.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS subscription_reminders (
   id SERIAL PRIMARY KEY,
@@ -535,7 +535,7 @@ CREATE INDEX IF NOT EXISTS idx_sub_reminders_user ON subscription_reminders (use
 
 -- ============================================================
 --  Сотрудники-пиарщики (Поправка №43). НЕ путать с legacy referrals выше:
---  та система удалена, эти таблицы — новый учёт наёмных пиарщиков.
+--  та система удалена, эти таблицы - новый учёт наёмных пиарщиков.
 --  Ссылка сотрудника: t.me/<бот>?start=emp_<code>. Рефералом становится только
 --  НОВЫЙ пользователь; подтверждение через 24 ч (jobs/employeeReferrals.js):
 --  открыл приложение + в канале + не заблокировал бота.
@@ -565,7 +565,7 @@ CREATE TABLE IF NOT EXISTS employee_payouts (
 );
 CREATE INDEX IF NOT EXISTS idx_emp_payouts ON employee_payouts (employee_id, created_at DESC);
 
--- Каждый /start по emp_-ссылке (в т.ч. существующих пользователей — для воронки в /stat).
+-- Каждый /start по emp_-ссылке (в т.ч. существующих пользователей - для воронки в /stat).
 CREATE TABLE IF NOT EXISTS employee_link_clicks (
   id SERIAL PRIMARY KEY,
   employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -578,7 +578,7 @@ CREATE INDEX IF NOT EXISTS idx_emp_clicks ON employee_link_clicks (employee_id, 
 CREATE TABLE IF NOT EXISTS employee_referrals (
   id SERIAL PRIMARY KEY,
   employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  user_id INT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- один юзер — один сотрудник
+  user_id INT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- один юзер - один сотрудник
   status TEXT NOT NULL DEFAULT 'pending', -- pending | confirmed | rejected
   reject_reason TEXT,                     -- app_not_opened | left_channel | blocked_bot
   payout_id INT REFERENCES employee_payouts(id) ON DELETE SET NULL,   -- NULL = ещё не выплачено
@@ -588,7 +588,7 @@ CREATE TABLE IF NOT EXISTS employee_referrals (
 CREATE INDEX IF NOT EXISTS idx_emp_refs ON employee_referrals (employee_id, status, created_at);
 
 -- Оплаты рефералов, засчитанные сотруднику (каждая, включая продления).
--- UNIQUE (payment_id) — идемпотентность атрибуции при повторе вебхука/reconcile.
+-- UNIQUE (payment_id) - идемпотентность атрибуции при повторе вебхука/reconcile.
 CREATE TABLE IF NOT EXISTS employee_payments (
   id SERIAL PRIMARY KEY,
   employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -616,20 +616,20 @@ CREATE INDEX IF NOT EXISTS idx_tg_log_refs_created ON tg_log_refs (created_at);
 
 -- ============================================================
 --  Пользовательские приглашения «Пригласи друга» (Поправка №47).
---  Ссылка обычного юзера: t.me/<бот>?start=<invite_code> — короткий код БЕЗ префикса
---  (у сотрудников emp_<code>, у тренеров startapp=tr_<ref_code> — три разные механики).
+--  Ссылка обычного юзера: t.me/<бот>?start=<invite_code> - короткий код БЕЗ префикса
+--  (у сотрудников emp_<code>, у тренеров startapp=tr_<ref_code> - три разные механики).
 --  Правило зачёта то же, что у сотрудников: приглашением становится только НОВЫЙ
---  пользователь, подтверждение через 24 ч (jobs/userInvites.js) — открыл приложение,
+--  пользователь, подтверждение через 24 ч (jobs/userInvites.js) - открыл приложение,
 --  в канале, не заблокировал бота. Денег здесь нет: награда за конкурс выдаётся
 --  вручную из админки, поэтому таблиц выплат (как employee_payouts) нет.
---  НЕ путать с legacy referrals/referral_balance выше — та система удалена.
+--  НЕ путать с legacy referrals/referral_balance выше - та система удалена.
 -- ============================================================
 ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code TEXT UNIQUE;
 
 CREATE TABLE IF NOT EXISTS user_invites (
   id SERIAL PRIMARY KEY,
   inviter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  user_id INT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- один юзер — один пригласивший
+  user_id INT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- один юзер - один пригласивший
   status TEXT NOT NULL DEFAULT 'pending',  -- pending | confirmed | rejected
   reject_reason TEXT,                      -- app_not_opened | left_channel | blocked_bot
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -638,7 +638,7 @@ CREATE TABLE IF NOT EXISTS user_invites (
 CREATE INDEX IF NOT EXISTS idx_user_invites ON user_invites (inviter_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_user_invites_created ON user_invites (created_at);
 
--- Каждый /start по пользовательской ссылке (в т.ч. существующих юзеров — для воронки
+-- Каждый /start по пользовательской ссылке (в т.ч. существующих юзеров - для воронки
 -- «перешли → засчитаны» на экране приглашений).
 CREATE TABLE IF NOT EXISTS user_invite_clicks (
   id SERIAL PRIMARY KEY,
@@ -649,10 +649,10 @@ CREATE TABLE IF NOT EXISTS user_invite_clicks (
 );
 CREATE INDEX IF NOT EXISTS idx_user_invite_clicks ON user_invite_clicks (inviter_id, clicked_at);
 
--- Подарки за приглашения: за каждые N засчитанных друзей — M дней PRO (настройки
+-- Подарки за приглашения: за каждые N засчитанных друзей - M дней PRO (настройки
 -- invite_reward_per / invite_reward_days). Строка на каждую достигнутую ступень:
 -- tier=1 за первых 10 друзей, tier=2 за 20 и т.д. UNIQUE (user_id, tier) делает
--- начисление идемпотентным — крон может пересчитывать ступени сколько угодно раз.
+-- начисление идемпотентным - крон может пересчитывать ступени сколько угодно раз.
 -- days фиксируется в момент начисления: изменение настройки не переписывает старые подарки.
 CREATE TABLE IF NOT EXISTS invite_rewards (
   id SERIAL PRIMARY KEY,
@@ -670,7 +670,7 @@ CREATE INDEX IF NOT EXISTS idx_invite_rewards_user ON invite_rewards (user_id, s
 -- ============================================================
 --  Личные сообщения пользователям из канала логов (Поправка №49).
 -- ============================================================
--- Админ отвечает на лог человека текстом «.Привет» — бот показывает карточку
+-- Админ отвечает на лог человека текстом «.Привет» - бот показывает карточку
 -- подтверждения, а после нажатия кнопки шлёт текст в ЛС от своего лица.
 -- Черновик живёт в базе, потому что в callback_data влезает только 64 байта:
 -- по кнопке передаётся id этой строки, а не сам текст.

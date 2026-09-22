@@ -1,6 +1,6 @@
 // Отправка сообщений от имени БОТА ПОДДЕРЖКИ (отдельный токен SUPPORT_BOT_TOKEN).
 // Используется веб-админкой: ответы в тикеты и проксирование фото из Telegram.
-// Сам бот поддержки — отдельное приложение в папке support/, тут только HTTP-вызовы Bot API.
+// Сам бот поддержки - отдельное приложение в папке support/, тут только HTTP-вызовы Bot API.
 const axios = require("axios");
 
 const TOKEN = process.env.SUPPORT_BOT_TOKEN || "";
@@ -59,7 +59,7 @@ async function notifyOtherAdmins(exceptTelegramId, text) {
     .filter(Boolean);
   for (const id of ids) {
     if (String(id) === String(exceptTelegramId)) continue;
-    try { await sendMessage(id, text); } catch { /* одного не достучались — не падаем */ }
+    try { await sendMessage(id, text); } catch { /* одного не достучались - не падаем */ }
   }
 }
 

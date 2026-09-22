@@ -8,7 +8,7 @@ export default function MacroRow({ type, value = 0, goal = 0, unit = "г" }) {
       <div className="macro-head">
         <span>{LABELS[type]}</span>
         <span>
-          {Math.round(value)} / {goal || "—"} {unit}
+          {Math.round(value)} / {goal || "-"} {unit}
         </span>
       </div>
       <div className="macro-track">

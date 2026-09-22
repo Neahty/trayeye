@@ -26,7 +26,7 @@ input,select,textarea{font-family:inherit;}
 .content{flex:1; padding:28px 32px; overflow-x:hidden; max-width:100%;}
 .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;}
 .page-title{font-size:26px; font-weight:800; margin:0;}
-/* Мобильная шапка и затемнение — скрыты на десктопе, включаются в @media ниже */
+/* Мобильная шапка и затемнение - скрыты на десктопе, включаются в @media ниже */
 .mobile-topbar{display:none;}
 .drawer-overlay{display:none;}
 .burger{background:var(--surface-2); color:var(--text); border-radius:10px; width:42px; height:42px; font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center;}
@@ -144,11 +144,11 @@ tbody tr:hover{background:var(--surface-2); cursor:pointer;}
   .topbar .input{width:100% !important;}     /* перебиваем инлайновый width:260 */
   .btn.sm{padding:9px 12px;}                  /* крупнее тач-цели */
 
-  /* Таблицы — горизонтальный скролл (overflow-x:auto уже на .table-wrap) */
+  /* Таблицы - горизонтальный скролл (overflow-x:auto уже на .table-wrap) */
   table{font-size:13.5px;}
   th,td{padding:10px 11px;}
 
-  /* Модалка — почти на весь экран, со внутренним скроллом */
+  /* Модалка - почти на весь экран, со внутренним скроллом */
   .modal-back{padding:0; align-items:flex-end;}
   .modal{width:100%; max-width:100%; max-height:92vh; border-radius:18px 18px 0 0; padding:20px;}
   .modal .row{flex-wrap:wrap;}
@@ -175,7 +175,7 @@ tbody tr:hover{background:var(--surface-2); cursor:pointer;}
   td::before{content:attr(data-label); color:var(--text-2); font-weight:700; font-size:12px;
     text-transform:uppercase; letter-spacing:.3px; text-align:left; flex:0 0 auto;}
   td:not([data-label])::before{content:none;}   /* ячейки без подписи (пустые/служебные) */
-  /* Ряд кнопок действий внутри ячейки — во всю ширину */
+  /* Ряд кнопок действий внутри ячейки - во всю ширину */
   td .row{justify-content:flex-end; flex-wrap:wrap;}
   td .row .btn{flex:1 1 auto;}
 }

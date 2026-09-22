@@ -50,7 +50,7 @@ router.post("/telegram", async (req, res, next) => {
     let user = rows[0];
 
     if (!user) {
-      // ref_code оставляем — это код для ссылок-приглашений тренера (реферальной системы нет).
+      // ref_code оставляем - это код для ссылок-приглашений тренера (реферальной системы нет).
       const refCode = await uniqueRefCode();
       const ins = await db.query(
         `INSERT INTO users (telegram_id, username, name, ref_code, is_admin, app_opened)
@@ -67,7 +67,7 @@ router.post("/telegram", async (req, res, next) => {
       const wasInserted = user.inserted;
       await db.logAction(user.id, "login", { event: wasInserted ? "register" : "login" });
       // Новый пользователь, попавший в базу сразу через приложение (без /start в боте).
-      // Открыть мини-апп можно только подписчику канала, поэтому отмечаем членство —
+      // Открыть мини-апп можно только подписчику канала, поэтому отмечаем членство -
       // markChannelJoined сам пришлёт лог «Новый пользователь» (один раз). Fire-and-forget.
       if (wasInserted) {
         channelMembership.markChannelJoined(user.id, "app").catch((e) =>
@@ -75,7 +75,7 @@ router.post("/telegram", async (req, res, next) => {
         );
       }
     } else {
-      // Запомним прошлый вход ДО обновления — для лога «вернулся после паузы».
+      // Запомним прошлый вход ДО обновления - для лога «вернулся после паузы».
       const prevLogin = user.last_login_at;
       // Обновить базовые поля + статус админа + активность
       const device = (req.body?.platform || req.headers["user-agent"] || "").toString().slice(0, 200) || null;
@@ -93,7 +93,7 @@ router.post("/telegram", async (req, res, next) => {
       );
       user = upd.rows[0];
       await db.logAction(user.id, "login", { event: "login" });
-      // Вернулся после долгой паузы — лог в канал (один раз на возвращение).
+      // Вернулся после долгой паузы - лог в канал (один раз на возвращение).
       if (prevLogin) {
         const daysAway = Math.floor((Date.now() - new Date(prevLogin).getTime()) / 86400000);
         if (daysAway >= REACTIVATION_DAYS) {
@@ -113,7 +113,7 @@ router.post("/telegram", async (req, res, next) => {
       return res.status(403).json({ error: "blocked" });
     }
 
-    // Подтягиваем/обновляем аватарку из Telegram и кэшируем у себя — чтобы фото было
+    // Подтягиваем/обновляем аватарку из Telegram и кэшируем у себя - чтобы фото было
     // всегда, даже если загруженный файл потерялся при миграции БД. Fire-and-forget:
     // вход не должен ждать/падать из-за Bot API.
     avatarSync.syncTelegramAvatar(user).catch((e) =>
@@ -165,9 +165,9 @@ router.post("/pwa", async (req, res, next) => {
   }
 });
 
-// GET /api/auth/me — кто мы по сохранённому токену.
+// GET /api/auth/me - кто мы по сохранённому токену.
 // Нужен установленному приложению: при каждом запуске initData взять неоткуда,
-// а токен уже лежит в localStorage — просто проверяем, что он ещё живой.
+// а токен уже лежит в localStorage - просто проверяем, что он ещё живой.
 router.get("/me", auth, async (req, res) => {
   const u = req.user;
   res.json({ user: { id: u.id, telegram_id: u.telegram_id, name: u.name, is_admin: u.is_admin } });

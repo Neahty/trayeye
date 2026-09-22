@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Ic } from "./icons";
 
-// Управляемый пикер числа: тап по числу — ввод с клавиатуры,
-// удержание +/− — ускоренное изменение. Одиночный тап = шаг.
+// Управляемый пикер числа: тап по числу - ввод с клавиатуры,
+// удержание +/− - ускоренное изменение. Одиночный тап = шаг.
 export default function NumberPicker({ value, min = -1e9, max = 1e9, step = 1, unit = "", fmt, onChange }) {
   const clamp = (x) => Math.min(max, Math.max(min, x));
   const hold = useRef(null);

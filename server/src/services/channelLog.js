@@ -1,6 +1,6 @@
-// Дублирование событий в Telegram-канал (постит ОСНОВНОЙ бот — он должен быть админом канала).
+// Дублирование событий в Telegram-канал (постит ОСНОВНОЙ бот - он должен быть админом канала).
 // Канал, мастер-выключатель и тумблеры по типам событий берутся из app_settings («Настройки →
-// Логи в Telegram»), поэтому всё динамично, без хардкода. Любая ошибка отправки гасится —
+// Логи в Telegram»), поэтому всё динамично, без хардкода. Любая ошибка отправки гасится -
 // канал не должен ронять основной поток приложения.
 const { sendMessage, sendPhoto, editMessageText, editMessageCaption, copyMessage } = require("./telegram");
 const settings = require("../utils/settings");
@@ -49,7 +49,7 @@ async function post(eventKey, text, extra = {}) {
   }
 }
 
-// Фото-событие в канал (photo — URL или file_id). Возвращает ответ Bot API или null.
+// Фото-событие в канал (photo - URL или file_id). Возвращает ответ Bot API или null.
 async function postPhoto(eventKey, photo, caption = "", extra = {}) {
   try {
     const channel = await allowed(eventKey);
@@ -84,7 +84,7 @@ async function editCaption(eventKey, chatId, messageId, caption, extra = {}) {
   }
 }
 
-// Копия сообщения из чата с ботом в канал — любой тип контента как есть.
+// Копия сообщения из чата с ботом в канал - любой тип контента как есть.
 async function copyTo(eventKey, fromChatId, messageId, extra = {}) {
   try {
     const channel = await allowed(eventKey);
@@ -96,7 +96,7 @@ async function copyTo(eventKey, fromChatId, messageId, extra = {}) {
   }
 }
 
-// Запоминает, о ком было отправленное в канал сообщение, — чтобы админ мог ответить
+// Запоминает, о ком было отправленное в канал сообщение, - чтобы админ мог ответить
 // на него «.запретить» и бот понял, про кого речь (см. services/bot.js).
 // chatId передаём отдельно: copyMessage возвращает голый message_id, без chat.
 async function remember(chatId, apiResult, userId) {
@@ -109,7 +109,7 @@ async function remember(chatId, apiResult, userId) {
       [String(chatId), String(messageId), userId]
     );
   } catch (err) {
-    // Ссылка — удобство модерации, а не часть логирования: падать из-за неё нельзя.
+    // Ссылка - удобство модерации, а не часть логирования: падать из-за неё нельзя.
     console.error("[channelLog] remember failed:", err.message);
   }
 }
@@ -140,7 +140,7 @@ async function copyToFor(eventKey, userId, fromChatId, messageId, extra = {}) {
   return res;
 }
 
-// Пользователь, о котором сообщение в канале логов (или null, если связи нет —
+// Пользователь, о котором сообщение в канале логов (или null, если связи нет -
 // например, сообщение отправлено до появления этой функции).
 async function userIdByLogMessage(chatId, messageId) {
   try {
@@ -155,7 +155,7 @@ async function userIdByLogMessage(chatId, messageId) {
   }
 }
 
-// Кто напоролся на ошибку — кликабельная подпись для канала: @username, иначе имя.
+// Кто напоролся на ошибку - кликабельная подпись для канала: @username, иначе имя.
 // Без неё алерт не отличить от фонового шума: непонятно, пострадал ли живой человек.
 function whoLabel(u) {
   if (!u) return null;
@@ -172,10 +172,10 @@ const WHERE_LABELS = {
   startup: "Запуск сервера"
 };
 
-// Ошибка системы — четырьмя строками: кто напоролся, где, что случилось и почему.
+// Ошибка системы - четырьмя строками: кто напоролся, где, что случилось и почему.
 // Без «кто» и «почему» алерт бесполезен: видно, что где-то упало, но непонятно,
 // задело ли это живого человека и надо ли бежать чинить прямо сейчас.
-// who приходит УЖЕ готовым HTML (ссылка на пользователя) — его не экранируем.
+// who приходит УЖЕ готовым HTML (ссылка на пользователя) - его не экранируем.
 async function logError(where, what, extra = {}) {
   const { who = null, why = null } = extra;
   const lines = [];

@@ -7,7 +7,7 @@ import { weightUnit, heightUnit, weightToDisplay, weightFromDisplay, heightToDis
 
 export default function Onboarding({ user, onDone }) {
   const detectedTz = useMemo(() => detectTz(), []);
-  // Единицы берём из профиля (по умолчанию метрика). В d.* всегда храним метрику — конверсия только на границе степперов.
+  // Единицы берём из профиля (по умолчанию метрика). В d.* всегда храним метрику - конверсия только на границе степперов.
   const units = user?.units || "metric";
   const uW = weightUnit(units);
   const uH = heightUnit(units);
@@ -90,7 +90,7 @@ export default function Onboarding({ user, onDone }) {
         return (
           <div>
             <p className="muted" style={{ textAlign: "center", fontSize: 13.5, margin: "0 6px 14px", lineHeight: 1.45 }}>
-              {dir ? `Чтобы ${dir}, выберите комфортный темп — Bytwise подстроит норму калорий.` : "Выберите желаемый темп — при поддержании веса он не меняет норму."}
+              {dir ? `Чтобы ${dir}, выберите комфортный темп - Bytwise подстроит норму калорий.` : "Выберите желаемый темп - при поддержании веса он не меняет норму."}
             </p>
             {PACES.map((p) => (
               <button key={p.key} className="tap" onClick={() => set({ pace: p.key })}

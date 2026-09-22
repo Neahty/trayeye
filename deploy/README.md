@@ -1,4 +1,4 @@
-# Bytwise — перенос на Ubuntu 24.04 + авто-деплой
+# Bytwise - перенос на Ubuntu 24.04 + авто-деплой
 
 Схема работы после настройки:
 
@@ -9,7 +9,7 @@
                                                                   миграции, restart)
 ```
 
-Один раз настраиваешь сервер по этой инструкции. Дальше — только `git push`, и через ~1 минуту сервер обновлён.
+Один раз настраиваешь сервер по этой инструкции. Дальше - только `git push`, и через ~1 минуту сервер обновлён.
 
 ---
 
@@ -57,7 +57,7 @@ sudo -u postgres psql -c "CREATE ROLE calorie LOGIN PASSWORD 'calorie';"
 sudo -u postgres psql -c "CREATE DATABASE calorieyka OWNER calorie;"
 ```
 
-> Пароль `calorie` — как в текущем `start.bat`. Хочешь надёжнее — поменяй здесь и в `DATABASE_URL`.
+> Пароль `calorie` - как в текущем `start.bat`. Хочешь надёжнее - поменяй здесь и в `DATABASE_URL`.
 
 ### 1.4. Caddy
 
@@ -82,7 +82,7 @@ git clone https://github.com/<ТВОЙ_ЮЗЕР>/<ТВОЙ_РЕПО>.git bytwise
 chown -R bytwise:bytwise /opt/bytwise
 ```
 
-> Если репозиторий приватный — настрой deploy key (см. Часть 3, там же ключ для Actions пригодится) или клонируй по HTTPS с токеном.
+> Если репозиторий приватный - настрой deploy key (см. Часть 3, там же ключ для Actions пригодится) или клонируй по HTTPS с токеном.
 
 ### 1.7. Секреты (.env)
 
@@ -117,7 +117,7 @@ cp /opt/bytwise/deploy/Caddyfile /etc/caddy/Caddyfile
 systemctl reload caddy
 ```
 
-> DNS-запись `shekspireteam.ru` (A-запись) должна указывать на IP этого сервера — Caddy сам выпустит HTTPS-сертификат.
+> DNS-запись `shekspireteam.ru` (A-запись) должна указывать на IP этого сервера - Caddy сам выпустит HTTPS-сертификат.
 
 ### 1.10. Право деплой-скрипта на restart без пароля
 
@@ -128,7 +128,7 @@ systemctl reload caddy
 adduser --disabled-password --gecos "" deploy
 usermod -aG bytwise deploy
 
-# точечный sudo без пароля — только на нужные команды
+# точечный sudo без пароля - только на нужные команды
 cat >/etc/sudoers.d/bytwise-deploy <<'EOF'
 deploy ALL=(root) NOPASSWD: /bin/systemctl restart bytwise-api, /bin/systemctl restart bytwise-support, /bin/systemctl restart bytwise-api bytwise-support, /bin/systemctl reload caddy, /bin/systemctl restart caddy
 EOF
@@ -156,7 +156,7 @@ curl -s http://localhost:4000/api/health
 journalctl -u bytwise-api -n 50 --no-pager
 ```
 
-Открой `https://shekspireteam.ru` — должно работать.
+Открой `https://shekspireteam.ru` - должно работать.
 
 ### 1.12. Фаервол (по желанию)
 
@@ -203,7 +203,7 @@ chmod 600 /home/deploy/.ssh/authorized_keys
 
 ### 2.3. Готово
 
-Workflow `.github/workflows/deploy.yml` уже в репозитории. Теперь любой `git push` в `master` автоматически задеплоит. Прогресс — во вкладке **Actions**. Можно запустить и вручную: Actions → *Deploy to Ubuntu* → **Run workflow**.
+Workflow `.github/workflows/deploy.yml` уже в репозитории. Теперь любой `git push` в `master` автоматически задеплоит. Прогресс - во вкладке **Actions**. Можно запустить и вручную: Actions → *Deploy to Ubuntu* → **Run workflow**.
 
 ---
 
@@ -216,7 +216,7 @@ git commit -m "правка"
 git push
 ```
 
-Через ~1 минуту сервер обновлён. Смотреть, что происходит, — во вкладке **Actions** на GitHub.
+Через ~1 минуту сервер обновлён. Смотреть, что происходит, - во вкладке **Actions** на GitHub.
 
 ### Полезные команды на сервере
 
@@ -237,7 +237,7 @@ bash /opt/bytwise/deploy/deploy.sh
 ## Частые вопросы
 
 **Загруженные фото не потеряются при деплое?**
-Нет. `deploy.sh` делает `git reset --hard`, который не трогает незатрекованные файлы. `uploads/` и `.env` в `.gitignore` — они остаются на месте.
+Нет. `deploy.sh` делает `git reset --hard`, который не трогает незатрекованные файлы. `uploads/` и `.env` в `.gitignore` - они остаются на месте.
 
 **Как откатиться на прошлую версию?**
 ```bash
@@ -246,8 +246,8 @@ git reset --hard <хеш_старого_коммита>
 bash deploy/deploy.sh
 ```
 
-**Миграция упала — что будет?**
+**Миграция упала - что будет?**
 `deploy.sh` остановится на шаге миграции (`set -e`), сервисы НЕ перезапустятся со сломанной схемой. Старая версия продолжит работать. Смотри лог в Actions, чини, пушь снова.
 
 **Нужен ли Docker?**
-Нет. Выбран нативный запуск через systemd — легче в отладке и меньше накладных расходов. Dockerfile'ы в `server/` и `client/` можно оставить как есть, они не мешают.
+Нет. Выбран нативный запуск через systemd - легче в отладке и меньше накладных расходов. Dockerfile'ы в `server/` и `client/` можно оставить как есть, они не мешают.

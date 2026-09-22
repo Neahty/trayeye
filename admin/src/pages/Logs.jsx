@@ -16,7 +16,7 @@ const ACTION_LABEL = {
 };
 const actLabel = (a) => ACTION_LABEL[a] || a;
 
-// Иконка + цвет «пилюли» события — чтобы лента читалась взглядом.
+// Иконка + цвет «пилюли» события - чтобы лента читалась взглядом.
 const ACTION_STYLE = {
   login: { icon: "🔑", cls: "" },
   scan: { icon: "🍽", cls: "" },
@@ -56,7 +56,7 @@ function describe(l) {
       if (d.source === "photo") return `Распознал по фото${d.count ? ` · ${d.count} блюд` : ""}`;
       return "Добавил приём пищи";
     case "payment":
-      return `Оплата${d.amount != null ? ` ${d.amount} ₽` : ""}${d.type ? ` — ${d.type}` : ""}`;
+      return `Оплата${d.amount != null ? ` ${d.amount} ₽` : ""}${d.type ? ` - ${d.type}` : ""}`;
     case "profile_update":
       return "Изменил профиль";
     case "goal_update":
@@ -75,7 +75,7 @@ function describe(l) {
     case "error":
       return `Ошибка${d.where ? ` в «${d.where}»` : ""}${d.message ? `: ${d.message}` : ""}`;
     default:
-      return Object.keys(d).length ? JSON.stringify(d) : "—";
+      return Object.keys(d).length ? JSON.stringify(d) : "-";
   }
 }
 
@@ -118,7 +118,7 @@ export default function Logs() {
                   <tr key={l.id}>
                     <td data-label="Дата">{fmtDate(l.created_at)}</td>
                     <td data-label="Событие"><span className={"pill " + st.cls}>{st.icon} {actLabel(l.action)}</span></td>
-                    <td data-label="Пользователь">{l.username ? `@${l.username}` : (l.telegram_id || l.user_id || "—")}</td>
+                    <td data-label="Пользователь">{l.username ? `@${l.username}` : (l.telegram_id || l.user_id || "-")}</td>
                     <td data-label="Что произошло" style={{ maxWidth: 460, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                       title={typeof l.details === "object" ? JSON.stringify(l.details) : ""}>
                       {describe(l)}

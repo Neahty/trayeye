@@ -6,7 +6,7 @@ import { Scan, Trainer } from "../api";
 import { groupTitle } from "./meal";
 
 export function mealTime(scan, tz) {
-  // Приоритет — time_label, посчитанный на сервере в поясе пользователя (надёжно,
+  // Приоритет - time_label, посчитанный на сервере в поясе пользователя (надёжно,
   // полный ICU). Telegram-webview с урезанным ICU молча форматил зоны в UTC.
   if (scan?.time_label) return scan.time_label;
   if (!scan?.scanned_at) return "";
@@ -61,7 +61,7 @@ function EditForm({ scan, close, ui, onChange }) {
       ui.toast("Изменения сохранены", "check");
       onChange && onChange();
     } catch (err) {
-      // Сервер отбивает отрицательные и нечисловые значения — говорим за что, а не «не вышло».
+      // Сервер отбивает отрицательные и нечисловые значения - говорим за что, а не «не вышло».
       ui.toast(err?.response?.data?.error === "bad_number"
         ? "Проверьте числа: только положительные значения"
         : "Не удалось сохранить");
@@ -133,7 +133,7 @@ function DeleteButton({ scan, close, ui, onChange }) {
           ui.toast("Блюдо удалено", "check");
           onChange && onChange();
         } catch (err) {
-          // 404 — блюда уже нет (например, удалили с другого устройства): это тоже успех.
+          // 404 - блюда уже нет (например, удалили с другого устройства): это тоже успех.
           if (err?.response?.status === 404) {
             close();
             ui.toast("Блюдо удалено", "check");
@@ -151,7 +151,7 @@ function DeleteButton({ scan, close, ui, onChange }) {
   );
 }
 
-// Простая сводка одного макроса (без прогресс-бара) — для суммы по приёму.
+// Простая сводка одного макроса (без прогресс-бара) - для суммы по приёму.
 function MacroSum({ color, label, val }) {
   return (
     <div style={{ flex: 1 }}>
@@ -165,12 +165,12 @@ function MacroSum({ color, label, val }) {
 }
 
 // Детали ПРИЁМА: фото один раз, сумма КБЖУ, список блюд.
-// Обычный режим — тап по блюду открывает его карточку (правка/удаление).
-// Тренерский режим (opts.trainer) — у каждого блюда кнопка «Комментарий».
+// Обычный режим - тап по блюду открывает его карточку (правка/удаление).
+// Тренерский режим (opts.trainer) - у каждого блюда кнопка «Комментарий».
 export function openMealGroup(ui, group, onChange, tz, opts = {}) {
   const trainer = !!opts.trainer;
   const single = group.dishes.length === 1;
-  // Один блюдо без тренерского режима — открываем привычную карточку блюда.
+  // Один блюдо без тренерского режима - открываем привычную карточку блюда.
   if (single && !trainer) return openMealDetail(ui, group.dishes[0], onChange, tz);
 
   const commentDish = (scan) => ui.sheet({

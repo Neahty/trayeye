@@ -9,7 +9,7 @@ export const TIMEZONES = [
 
 export const DEFAULT_TZ = "Europe/Moscow";
 
-// Часовой пояс устройства, если он есть в списке — иначе дефолтный.
+// Часовой пояс устройства, если он есть в списке - иначе дефолтный.
 export function detectTz() {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -19,7 +19,7 @@ export function detectTz() {
   }
 }
 
-// «Moscow · GMT+3» — человекочитаемая подпись пояса.
+// «Moscow · GMT+3» - человекочитаемая подпись пояса.
 export function tzLabel(tz) {
   try {
     const s = new Intl.DateTimeFormat("ru", { timeZone: tz, timeZoneName: "shortOffset" })

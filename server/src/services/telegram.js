@@ -67,7 +67,7 @@ async function sendMessage(chatId, text, extra = {}) {
   }
 }
 
-// Отправка фото через Bot API. photo — URL или file_id.
+// Отправка фото через Bot API. photo - URL или file_id.
 async function sendPhoto(chatId, photo, caption = "", extra = {}) {
   if (!BOT_TOKEN) {
     console.log(`[telegram:mock] photo -> ${chatId}: ${caption}`);
@@ -107,7 +107,7 @@ async function editMessageText(chatId, messageId, text, extra = {}) {
 }
 
 // Правка подписи уже отправленного медиа-сообщения (для фото).
-// Текстовое сообщение так править НЕЛЬЗЯ — и наоборот: Telegram не разрешает
+// Текстовое сообщение так править НЕЛЬЗЯ - и наоборот: Telegram не разрешает
 // превращать текст в медиа (и обратно) правкой, только пересылкой заново.
 async function editMessageCaption(chatId, messageId, caption, extra = {}) {
   if (!BOT_TOKEN) {
@@ -128,8 +128,8 @@ async function editMessageCaption(chatId, messageId, caption, extra = {}) {
   }
 }
 
-// Копия любого сообщения в другой чат — без пометки «переслано» и без привязки
-// к типу контента (фото, голосовое, кружок, стикер и т.д. — всё одним методом).
+// Копия любого сообщения в другой чат - без пометки «переслано» и без привязки
+// к типу контента (фото, голосовое, кружок, стикер и т.д. - всё одним методом).
 async function copyMessage(chatId, fromChatId, messageId, extra = {}) {
   if (!BOT_TOKEN) {
     console.log(`[telegram:mock] copy ${fromChatId}/${messageId} -> ${chatId}`);
@@ -161,7 +161,7 @@ async function getUserProfilePhotoFileId(userId) {
     );
     const photos = data?.result?.photos;
     if (!Array.isArray(photos) || !photos.length || !photos[0].length) return null;
-    // Каждый элемент — массив размеров одного фото; берём самый крупный (последний).
+    // Каждый элемент - массив размеров одного фото; берём самый крупный (последний).
     const sizes = photos[0];
     return sizes[sizes.length - 1].file_id || null;
   } catch (err) {
@@ -223,7 +223,7 @@ const memberCache = new Map();
 const MEMBER_TTL_MS = 60 * 1000;
 
 // Подписан ли пользователь на обязательный канал.
-// Если канал не задан или нет токена — считаем, что подписан (не ломаем локалку/мок).
+// Если канал не задан или нет токена - считаем, что подписан (не ломаем локалку/мок).
 async function isChannelMember(userId, { force = false } = {}) {
   const channelId = process.env.REQUIRED_CHANNEL_ID;
   if (!channelId || !BOT_TOKEN || !userId) return true;

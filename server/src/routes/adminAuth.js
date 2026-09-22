@@ -123,7 +123,7 @@ router.post("/logout", adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/admin/auth/setup-2fa — генерирует секрет + QR
+// POST /api/admin/auth/setup-2fa - генерирует секрет + QR
 router.post("/setup-2fa", adminAuth, async (req, res, next) => {
   try {
     const secret = authenticator.generateSecret();
@@ -142,7 +142,7 @@ router.post("/setup-2fa", adminAuth, async (req, res, next) => {
   }
 });
 
-// POST /api/admin/auth/verify-2fa  { totp } — включает 2FA
+// POST /api/admin/auth/verify-2fa  { totp } - включает 2FA
 router.post("/verify-2fa", adminAuth, async (req, res, next) => {
   try {
     const { totp } = req.body || {};

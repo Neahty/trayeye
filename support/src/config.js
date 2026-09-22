@@ -3,7 +3,7 @@
 const SUPPORT_BOT_TOKEN = process.env.SUPPORT_BOT_TOKEN || "";
 const DATABASE_URL = process.env.DATABASE_URL || "";
 
-// Telegram ID админов — они получают тикеты и отвечают пользователям.
+// Telegram ID админов - они получают тикеты и отвечают пользователям.
 const ADMIN_IDS = (process.env.SUPPORT_ADMIN_IDS || "")
   .split(",")
   .map((s) => s.trim())
@@ -14,8 +14,8 @@ function isAdmin(telegramId) {
 }
 
 // Что видит заблокированный пользователь. Дубль константы из
-// server/src/services/moderation.js — процессы разные, общего кода у них нет.
-// Меняете здесь — поменяйте и там.
+// server/src/services/moderation.js - процессы разные, общего кода у них нет.
+// Меняете здесь - поменяйте и там.
 const BLOCKED_TEXT = "🌐 Bytwise не доступен в вашей стране.";
 
 function assertConfig() {

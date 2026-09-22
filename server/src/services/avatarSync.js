@@ -20,9 +20,9 @@ function fileExists(rel) {
 
 // Скачивает и кэширует аватарку пользователя из Telegram в наши uploads.
 // Идемпотентно и «дёшево»: работает только если кэш отсутствует/битый или устарел.
-// Ошибки не пробрасываются — аватар не критичен для входа (fire-and-forget).
+// Ошибки не пробрасываются - аватар не критичен для входа (fire-and-forget).
 //
-// user — строка из БД (нужны id, telegram_id, tg_photo_path, tg_photo_synced_at).
+// user - строка из БД (нужны id, telegram_id, tg_photo_path, tg_photo_synced_at).
 async function syncTelegramAvatar(user) {
   try {
     if (!telegram.BOT_TOKEN || !user || !user.telegram_id) return null;
@@ -30,7 +30,7 @@ async function syncTelegramAvatar(user) {
     const cachedOk = user.tg_photo_path && fileExists(user.tg_photo_path);
     const fresh = user.tg_photo_synced_at &&
       Date.now() - new Date(user.tg_photo_synced_at).getTime() < REFRESH_MS;
-    // Есть валидный и свежий кэш — ничего не делаем.
+    // Есть валидный и свежий кэш - ничего не делаем.
     if (cachedOk && fresh) return user.tg_photo_path;
 
     const fileId = await telegram.getUserProfilePhotoFileId(user.telegram_id);

@@ -44,7 +44,7 @@ function AppShell() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
 
-  // Бан мог случиться уже во время сессии — тогда любой запрос вернёт 403 blocked,
+  // Бан мог случиться уже во время сессии - тогда любой запрос вернёт 403 blocked,
   // и заглушку надо показать сразу, не дожидаясь перезапуска приложения.
   useEffect(() => {
     onBlocked(() => setError("blocked"));
@@ -66,14 +66,14 @@ function AppShell() {
           setMembership({ subscribed: true });
         }
         await loadProfile();
-        // Возврат после оплаты (реальная ЮKassa) — перечитываем профиль
+        // Возврат после оплаты (реальная ЮKassa) - перечитываем профиль
         try {
           if (new URLSearchParams(window.location.search).get("paid") === "1") {
             await loadProfile();
           }
         } catch { /* ignore */ }
       } catch (e) {
-        // Приложение на телефоне без действующей сессии — не ошибка,
+        // Приложение на телефоне без действующей сессии - не ошибка,
         // а обычный первый запуск: просим код входа (см. CodeLogin).
         if (e?.needCode) setError("need_code");
         else setError(e?.response?.data?.error || e.message);
@@ -87,7 +87,7 @@ function AppShell() {
     boot();
   }, [boot]);
 
-  // Заставку прячем только когда стало что показывать — иначе пользователь
+  // Заставку прячем только когда стало что показывать - иначе пользователь
   // на секунду видит пустой белый экран вместо логотипа.
   useEffect(() => {
     if (ready) hideSplash();
@@ -97,7 +97,7 @@ function AppShell() {
   useEffect(() => {
     const u = profile?.user;
     if (u) applyTheme(u.theme || "light", u.accent);
-    // Иконки статус-бара iOS не знают про нашу тему — говорим им явно.
+    // Иконки статус-бара iOS не знают про нашу тему - говорим им явно.
     syncStatusBar(u?.theme || "light");
   }, [profile]);
 
@@ -125,7 +125,7 @@ function AppShell() {
     }
   }, [loadProfile, ui]);
 
-  // Открытие сразу на странице оплаты (startapp=paywall) — так приходят из кнопки
+  // Открытие сразу на странице оплаты (startapp=paywall) - так приходят из кнопки
   // «Продлить» в напоминаниях бота. Один раз за сессию.
   const paywallHandled = useRef(false);
   useEffect(() => {
@@ -134,7 +134,7 @@ function AppShell() {
     try { sp = new URLSearchParams(window.location.search).get("startapp"); } catch { sp = null; }
     if (sp !== "paywall") return;
     paywallHandled.current = true;
-    // Если доступ уже есть (своя подписка или доступ от тренера) — ведём в управление, а не на пейволл.
+    // Если доступ уже есть (своя подписка или доступ от тренера) - ведём в управление, а не на пейволл.
     const hasAccess = Boolean(profile?.subscription || profile?.trainer);
     navigate(hasAccess ? "/subscription" : "/paywall");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,14 +166,14 @@ function AppShell() {
       const res = await Scan.upload(compressed, defaultMeal(profile?.user?.timezone));
       stop();
       bumpData();
-      if (res.low_confidence) ui.toast("AI не уверен — проверьте запись", "info");
+      if (res.low_confidence) ui.toast("AI не уверен - проверьте запись", "info");
       else ui.toast("Блюдо добавлено в дневник", "check");
       if (pathname !== "/" && pathname !== "/history") navigate("/");
     } catch (e) {
       stop();
       const d = e?.response?.data;
       if (e?.response?.status === 403 && d?.error === "limit") {
-        // reason ("daily_cap" / "trial_expired") — по нему пейволл выбирает текст.
+        // reason ("daily_cap" / "trial_expired") - по нему пейволл выбирает текст.
         navigate("/paywall", { state: { reason: d.reason } });
       } else if (e?.response?.status === 429) {
         ui.toast("Слишком много запросов, подождите");
@@ -193,12 +193,12 @@ function AppShell() {
       </div>
     );
   }
-  // Заблокированный не видит ничего, кроме заглушки, — ни онбординга, ни приложения.
+  // Заблокированный не видит ничего, кроме заглушки, - ни онбординга, ни приложения.
   if (error === "blocked") {
     return <div className="app"><BlockedScreen /></div>;
   }
   // Установленное на телефон приложение при первом запуске (или после протухшего
-  // токена) просит одноразовый код из бота — Telegram initData здесь нет.
+  // токена) просит одноразовый код из бота - Telegram initData здесь нет.
   if (error === "need_code") {
     return (
       <div className="app">
@@ -222,7 +222,7 @@ function AppShell() {
     );
   }
 
-  // Первый вход — онбординг (имя, возраст, пол, рост/вес, тренировки, цель, часовой пояс)
+  // Первый вход - онбординг (имя, возраст, пол, рост/вес, тренировки, цель, часовой пояс)
   if (profile && !profile.user?.onboarded) {
     return (
       <AppContext.Provider value={{ user, profile, reload: loadProfile, dataVersion, bumpData }}>

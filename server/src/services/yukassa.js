@@ -11,7 +11,7 @@ function isMock() {
 }
 
 // Создаёт платёж. Возвращает { payment_id, payment_url, mock }
-// idempotenceKey — опционален: передайте стабильный ключ, чтобы безопасно повторять
+// idempotenceKey - опционален: передайте стабильный ключ, чтобы безопасно повторять
 // один и тот же логический запрос (ЮKassa вернёт исходный результат в течение 24ч).
 async function createPayment({ amount, description, metadata, idempotenceKey }) {
   if (isMock()) {
@@ -26,7 +26,7 @@ async function createPayment({ amount, description, metadata, idempotenceKey }) 
 
   const idemKey = idempotenceKey || crypto.randomUUID();
   // save_payment_method (сохранение карты для автопродления) требует подключённых
-  // рекуррентных платежей у магазина — иначе ЮKassa отвечает 403 forbidden
+  // рекуррентных платежей у магазина - иначе ЮKassa отвечает 403 forbidden
   // («This store can't make recurring payments»). По умолчанию выключено: обычный
   // разовый платёж. Включить можно env YUKASSA_RECURRING=true, когда ЮKassa подключит автоплатежи.
   const savePaymentMethod = process.env.YUKASSA_RECURRING === "true";
@@ -87,7 +87,7 @@ function _cacheSet(key, data) {
 }
 
 // Универсальная постраничная выборка списка (payments | refunds) с суммированием.
-// from/to — ISO-строки. cb(item, acc) накапливает суммы в acc.
+// from/to - ISO-строки. cb(item, acc) накапливает суммы в acc.
 async function _paginate(resource, { from, to }, acc, reduce) {
   let cursor = null;
   let pages = 0;
@@ -112,7 +112,7 @@ async function _paginate(resource, { from, to }, acc, reduce) {
 }
 
 // Сумма поступлений за период: { gross, net, commission, count }.
-// gross — брутто (amount), net — чистыми (income_amount, после комиссии ЮKassa).
+// gross - брутто (amount), net - чистыми (income_amount, после комиссии ЮKassa).
 async function listPaymentsSummary({ from, to }) {
   if (isMock()) return { mock: true };
   const key = `pay:${from}:${to}`;

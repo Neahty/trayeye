@@ -2,7 +2,7 @@
   "name": "bytwise-support-bot",
   "version": "1.0.0",
   "private": true,
-  "description": "Бот техподдержки Bytwise — отдельное приложение, общая база с основным проектом",
+  "description": "Бот техподдержки Bytwise - отдельное приложение, общая база с основным проектом",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {

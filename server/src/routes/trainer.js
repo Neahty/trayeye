@@ -19,10 +19,10 @@ async function maxClients() {
 
 router.use(auth, checkTrainer);
 
-// GET /api/trainer/invite — ссылка-приглашение клиента (открывает мини-апп с привязкой)
+// GET /api/trainer/invite - ссылка-приглашение клиента (открывает мини-апп с привязкой)
 router.get("/invite", async (req, res, next) => {
   try {
-    // ref_code мог не выдаться (старые аккаунты) — гарантируем валидный код, иначе ссылка ломалась как tr_null.
+    // ref_code мог не выдаться (старые аккаунты) - гарантируем валидный код, иначе ссылка ломалась как tr_null.
     const refCode = await ensureRefCode(req.user.id);
     const code = `tr_${refCode}`;
     const link = `https://t.me/${BOT_USERNAME}?startapp=${code}`;
@@ -30,7 +30,7 @@ router.get("/invite", async (req, res, next) => {
       code,
       link,
       // Без самой ссылки: при «Поделиться» Telegram (t.me/share/url?url=…&text=…) сам
-      // подставляет ссылку из url=. Если оставить её ещё и в тексте — ссылка задвоится.
+      // подставляет ссылку из url=. Если оставить её ещё и в тексте - ссылка задвоится.
       share_text: "Я буду вести тебя как тренер в Bytwise. Подключись по ссылке →"
     });
   } catch (err) {
@@ -38,7 +38,7 @@ router.get("/invite", async (req, res, next) => {
   }
 });
 
-// GET /api/trainer/clients — список с краткой статистикой за сегодня
+// GET /api/trainer/clients - список с краткой статистикой за сегодня
 router.get("/clients", async (req, res, next) => {
   try {
     const { rows } = await db.query(
@@ -143,7 +143,7 @@ router.get("/clients/:client_id/history", async (req, res, next) => {
 
     const client = await loadClient(clientId);
     const tz = userTz(client || {});
-    // День — в часовом поясе клиента (как в остальном приложении), иначе ночные записи уезжают в чужой день.
+    // День - в часовом поясе клиента (как в остальном приложении), иначе ночные записи уезжают в чужой день.
     // Дефолт «сегодня» тоже в поясе клиента (был UTC через toISOString → off-by-one у полуночи).
     const date = req.query.date || localToday(tz);
     const { rows } = await db.query(
@@ -173,7 +173,7 @@ router.get("/clients/:client_id/history", async (req, res, next) => {
   }
 });
 
-// GET /api/trainer/clients/:client_id/stats?period=day|week|month|year — та же статистика, что видит клиент
+// GET /api/trainer/clients/:client_id/stats?period=day|week|month|year - та же статистика, что видит клиент
 router.get("/clients/:client_id/stats", async (req, res, next) => {
   try {
     const clientId = parseId(req.params.client_id);
@@ -187,7 +187,7 @@ router.get("/clients/:client_id/stats", async (req, res, next) => {
   }
 });
 
-// GET /api/trainer/clients/:client_id/weight — история веса клиента
+// GET /api/trainer/clients/:client_id/weight - история веса клиента
 router.get("/clients/:client_id/weight", async (req, res, next) => {
   try {
     const clientId = parseId(req.params.client_id);

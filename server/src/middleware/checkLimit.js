@@ -9,7 +9,7 @@ const notifyLog = require("../services/notifyLog");
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "Bytwise_bot";
 
 // Апселл-пуш при исчерпании дневного лимита сканов у пробного юзера.
-// Дедуп 1/сутки — атомарно через UPDATE ... RETURNING: право на пуш «занимает»
+// Дедуп 1/сутки - атомарно через UPDATE ... RETURNING: право на пуш «занимает»
 // только тот запрос, что реально обновил дату (гонок одновременных сканов нет).
 async function maybeSendLimitPush(user, dailyLimit, tz, daysLeft) {
   const cfg = await settings.get("limit_push");
@@ -20,18 +20,18 @@ async function maybeSendLimitPush(user, dailyLimit, tz, daysLeft) {
     [user.id, tz]
   );
   if (!rowCount) return; // сегодня уже слали
-  // {days_left} — сколько дней пробного ещё осталось: пуш и экран оплаты должны говорить
+  // {days_left} - сколько дней пробного ещё осталось: пуш и экран оплаты должны говорить
   // одно и то же («на сегодня всё, но пробный доступ ещё идёт»).
   const text = String(cfg.text)
     .replace(/\{limit\}/g, dailyLimit)
     .replace(/\{days_left\}/g, daysLeft);
   const button = { text: cfg.button_text || "Оформить Pro", url: `https://t.me/${BOT_USERNAME}?startapp=paywall` };
   const res = await sendMessage(user.telegram_id, text, { reply_markup: { inline_keyboard: [[button]] } });
-  // Заблокировал бота / не начинал диалог — помечаем, чтобы не слать впустую (как в broadcast.js).
+  // Заблокировал бота / не начинал диалог - помечаем, чтобы не слать впустую (как в broadcast.js).
   if (res && res.error_code === 403) {
     await db.query("UPDATE users SET tg_unreachable = TRUE WHERE id = $1", [user.id]);
   }
-  // Пуш уходит не чаще раза в сутки на человека — в канал пишем сразу и с именем:
+  // Пуш уходит не чаще раза в сутки на человека - в канал пишем сразу и с именем:
   // «упёрся в лимит» это сигнал о готовности купить, а не фоновый шум.
   if (res && res.ok !== false) {
     notifyLog.limitPush(user.id, { limit: dailyLimit, daysLeft }).catch(() => {});
@@ -45,7 +45,7 @@ module.exports = async function checkLimit(req, res, next) {
   try {
     const user = req.user;
 
-    // req.scanLimit — состояние лимита на момент запроса. Нужно роуту скана, чтобы
+    // req.scanLimit - состояние лимита на момент запроса. Нужно роуту скана, чтобы
     // показать остаток в логе канала, не делая тот же подсчёт второй раз.
     if (await hasEffectiveAccess(user.id)) {
       req.scanLimit = { unlimited: true };
@@ -62,9 +62,9 @@ module.exports = async function checkLimit(req, res, next) {
     }
 
     const tz = userTz(user);
-    // Известное ограничение: проверка и последующая вставка скана не атомарны — несколько
+    // Известное ограничение: проверка и последующая вставка скана не атомарны - несколько
     // строго одновременных запросов могут превысить лимит на 1-2 скана. Риск принят осознанно:
-    // ущерб — копейки на AI-вызовах, а честная защита (advisory lock на пользователя) усложнила
+    // ущерб - копейки на AI-вызовах, а честная защита (advisory lock на пользователя) усложнила
     // бы код и добавила точку ожидания на каждый скан.
     const todayCount = await countScansToday(user.id, tz);
     req.scanLimit = { unlimited: false, limit: dailyLimit, used: todayCount, left: Math.max(0, dailyLimit - todayCount) };

@@ -4,7 +4,7 @@ const { isAllowedMime, extFor, imageFileFilter } = require("../src/utils/imageUp
 // req.file.mimetype, который задаёт клиент. Аватар с Content-Type: text/html сохранялся
 // как .html и выполнялся как скрипт на боевом домене админки. Если кто-то снова начнёт
 // доверять присланному mime, упадёт этот тест.
-describe("imageUpload — расширение не доверяет клиенту", () => {
+describe("imageUpload - расширение не доверяет клиенту", () => {
   test("исполняемые типы отклоняются", () => {
     for (const mime of ["text/html", "image/svg+xml", "application/javascript", "text/plain", ""]) {
       expect(isAllowedMime(mime)).toBe(false);

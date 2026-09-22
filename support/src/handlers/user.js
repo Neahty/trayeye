@@ -9,12 +9,12 @@ const channelLog = require("../channelLog");
 async function start(ctx) {
   await ctx.reply(
     "👋 Это поддержка Bytwise.\n\n" +
-    "Опишите проблему текстом или пришлите фото (скриншот) — " +
+    "Опишите проблему текстом или пришлите фото (скриншот) - " +
     "мы ответим прямо здесь, в этом чате."
   );
 }
 
-// Данные пользователя из общей базы приложения (может не быть — LEFT JOIN-логика).
+// Данные пользователя из общей базы приложения (может не быть - LEFT JOIN-логика).
 async function getAppUser(telegramId) {
   const { rows } = await db.query(
     "SELECT name, created_at, app_opened FROM users WHERE telegram_id = $1",
@@ -46,7 +46,7 @@ async function findOrCreateTicket(from, text) {
 
   const subject = (text || "Фото").slice(0, 200);
   // Несколько попыток: случайный 6-значный номер тикета может изредка совпасть с уже
-  // существующим (уникальный индекс uniq_support_ticket_no) — тогда берём новый и пробуем снова.
+  // существующим (уникальный индекс uniq_support_ticket_no) - тогда берём новый и пробуем снова.
   for (let attempt = 0; attempt < 8; attempt++) {
     const ticketNo = 100000 + Math.floor(Math.random() * 900000); // 100000–999999
     try {
@@ -58,7 +58,7 @@ async function findOrCreateTicket(from, text) {
       return { ticket: ins.rows[0], created: true };
     } catch (err) {
       if (err.code === "23505") {
-        // Коллизия по номеру тикета — просто пробуем другой номер.
+        // Коллизия по номеру тикета - просто пробуем другой номер.
         if (err.constraint === "uniq_support_ticket_no") continue;
         // Иначе это гонка по uniq_support_open_per_user: тикет успел создаться параллельно.
         const retry = await db.query(
@@ -93,7 +93,7 @@ async function onMessage(ctx) {
 
   await ctx.reply(
     created
-      ? `✅ Обращение №${ticket.ticket_no} принято. Ответим здесь же — можно дописать детали следующими сообщениями.`
+      ? `✅ Обращение №${ticket.ticket_no} принято. Ответим здесь же - можно дописать детали следующими сообщениями.`
       : `✉️ Добавлено к обращению №${ticket.ticket_no}.`
   );
 
@@ -113,7 +113,7 @@ async function onMessage(ctx) {
     ? `@${esc(ctx.from.username)}`
     : esc([ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || `#${ctx.from.id}`);
   channelLog.logSupport(
-    `🎫 <b>Поддержка — ${created ? "новое обращение" : "новое сообщение"}</b>\n\n` +
+    `🎫 <b>Поддержка - ${created ? "новое обращение" : "новое сообщение"}</b>\n\n` +
     `Тикет №${ticket.ticket_no}\n` +
     `От: ${who}\n` +
     (text ? `💬 ${esc(text.slice(0, 500))}` : "📷 Фото")

@@ -35,7 +35,7 @@ router.get("/", auth, async (req, res, next) => {
     const is_trainer = Boolean(sub && sub.type === "trainer");
     const trainer = await getActiveTrainer(req.user.id); // тренер клиента (если есть активный)
 
-    // Последняя подписка ЛЮБОГО статуса — чтобы на пейволле различать «триал закончился»
+    // Последняя подписка ЛЮБОГО статуса - чтобы на пейволле различать «триал закончился»
     // (платной подписки никогда не было) и «подписка закончилась» (была и истекла/отменена).
     const lastSub = await db.query(
       "SELECT type, status, expires_at FROM subscriptions WHERE user_id = $1 ORDER BY expires_at DESC LIMIT 1",
@@ -53,7 +53,7 @@ router.get("/", auth, async (req, res, next) => {
       [userTz(req.user)]
     );
 
-    // Остаток бесплатных сканов на сегодня — только тем, у кого нет доступа: пейволл по этому
+    // Остаток бесплатных сканов на сегодня - только тем, у кого нет доступа: пейволл по этому
     // полю понимает «сканы на сегодня кончились, но пробный ещё идёт» и показывает свой текст.
     // Заходом по диплинку из пуша бота 403 не приходит, узнать ситуацию можно только отсюда.
     const has_access = Boolean(sub) || Boolean(trainer);
@@ -86,7 +86,7 @@ router.patch("/", auth, async (req, res, next) => {
     const u = req.user;
     const b = req.body || {};
 
-    // Тренировки в неделю — единый источник активности; уровень и направление цели — производные.
+    // Тренировки в неделю - единый источник активности; уровень и направление цели - производные.
     const wpw = b.workouts_per_week ?? u.workouts_per_week;
     const mergedWeight = b.weight ?? u.weight;
     const mergedTarget = b.target_weight ?? u.target_weight;
@@ -141,7 +141,7 @@ router.patch("/", auth, async (req, res, next) => {
       await db.query("INSERT INTO weight_history (user_id, weight) VALUES ($1, $2)", [u.id, Number(b.weight)]);
     }
 
-    // Онбординг только что пройден — дописываем анкету в лог «Новый пользователь» в канале.
+    // Онбординг только что пройден - дописываем анкету в лог «Новый пользователь» в канале.
     // Ловим именно переход FALSE→TRUE, иначе правка летела бы на каждое сохранение профиля.
     if (!u.onboarded && merged.onboarded) {
       notify.refreshNewUserLog(u.id).catch((e) =>
@@ -156,7 +156,7 @@ router.patch("/", auth, async (req, res, next) => {
   }
 });
 
-// PATCH /api/profile/goals — задать норму КБЖУ вручную
+// PATCH /api/profile/goals - задать норму КБЖУ вручную
 router.patch("/goals", auth, async (req, res, next) => {
   try {
     const u = req.user;
@@ -187,7 +187,7 @@ router.patch("/goals", auth, async (req, res, next) => {
   }
 });
 
-// POST /api/profile/goals/auto — вернуть автоматический расчёт нормы
+// POST /api/profile/goals/auto - вернуть автоматический расчёт нормы
 router.post("/goals/auto", auth, async (req, res, next) => {
   try {
     const u = req.user;

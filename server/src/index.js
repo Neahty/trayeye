@@ -7,7 +7,7 @@ const notifications = require("./jobs/notifications");
 const PORT = process.env.PORT || 4000;
 const IS_PROD = process.env.NODE_ENV === "production";
 
-// Проверка окружения до старта. Обе ошибки ниже раньше проявлялись молча — сервис
+// Проверка окружения до старта. Обе ошибки ниже раньше проявлялись молча - сервис
 // поднимался и работал, а узнать о проблеме можно было только по счёту или по жалобе.
 function checkConfig() {
   // Пустые ключи ЮKassa переводят оплату в mock-режим (services/yukassa.js:isMock),
@@ -24,7 +24,7 @@ function checkConfig() {
   // Без ключа Gemini цепочка провайдеров вырождается в один платный OpenAI: ошибки нет,
   // всё работает, но каждый скан начинает стоить деньги. Это должно быть видно сразу.
   if (!process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEYS) {
-    console.warn("[startup] ВНИМАНИЕ: GEMINI_API_KEY не задан — все сканы уйдут на платный OpenAI.");
+    console.warn("[startup] ВНИМАНИЕ: GEMINI_API_KEY не задан - все сканы уйдут на платный OpenAI.");
     require("./services/channelLog")
       .logError("startup", "GEMINI_API_KEY не задан: все сканы идут на платный OpenAI")
       .catch(() => {});
@@ -71,7 +71,7 @@ function checkConfig() {
     console.log(`[shutdown] получен ${signal}, останавливаюсь…`);
     // Дожидаемся завершения запросов в полёте, а не рвём их сразу: скан ждёт ответа AI
     // до минуты, и обрыв на деплое означал бы потерю уже ОПЛАЧЕННОГО вызова. Потолок
-    // 30 с — дальше закрываемся принудительно, чтобы деплой не завис.
+    // 30 с - дальше закрываемся принудительно, чтобы деплой не завис.
     await new Promise((resolve) => {
       const force = setTimeout(() => {
         console.warn("[shutdown] не дождался завершения запросов за 30 с, закрываюсь принудительно");
@@ -97,7 +97,7 @@ process.on("unhandledRejection", (reason) => {
 // После необработанного исключения состояние процесса недостоверно: могли остаться
 // полузакрытые соединения и незавершённые транзакции. Раньше процесс продолжал жить
 // в этом состоянии и не перезапускался никогда. Выходим с ненулевым кодом и доверяем
-// рестарт systemd (Restart=always) — он поднимет заведомо чистый процесс.
+// рестарт systemd (Restart=always) - он поднимет заведомо чистый процесс.
 process.on("uncaughtException", (err) => {
   console.error("[uncaughtException]", err.stack || err.message);
   process.exit(1);

@@ -4,7 +4,7 @@ const quests = require("../services/quests");
 
 const router = express.Router();
 
-// GET /api/quests — список активных квестов со статусом текущего пользователя
+// GET /api/quests - список активных квестов со статусом текущего пользователя
 router.get("/", auth, async (req, res, next) => {
   try {
     const data = await quests.getForUser(req.user.id, req.user);
@@ -14,7 +14,7 @@ router.get("/", auth, async (req, res, next) => {
   }
 });
 
-// POST /api/quests/:code/claim — забрать награду (бот шлёт ссылку в ЛС)
+// POST /api/quests/:code/claim - забрать награду (бот шлёт ссылку в ЛС)
 router.post("/:code/claim", auth, async (req, res, next) => {
   try {
     const result = await quests.claim(req.user.id, req.user, req.params.code);

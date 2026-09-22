@@ -1,8 +1,8 @@
 // Разовый maintenance для исправления исторических данных Bytwise.
 //
 // Запуск (из папки server, внутри контейнера или локально):
-//   node scripts/maintenance.js <команда>            — DRY-RUN: только показывает, что изменится
-//   node scripts/maintenance.js <команда> --apply     — выполняет изменения
+//   node scripts/maintenance.js <команда>            - DRY-RUN: только показывает, что изменится
+//   node scripts/maintenance.js <команда> --apply     - выполняет изменения
 //
 // Команды:
 //   dedupe-subs               удалить точные дубли подписок и погасить лишние active
@@ -32,7 +32,7 @@ async function tariffPrice(type) {
 async function dedupeSubs() {
   console.log(`\n=== dedupe-subs ${tag()} ===`);
 
-  // a) точные дубли: одинаковые user_id,type,started_at,expires_at — оставляем минимальный id
+  // a) точные дубли: одинаковые user_id,type,started_at,expires_at - оставляем минимальный id
   const dups = await db.query(
     `SELECT user_id, type, started_at, expires_at, COUNT(*)::int AS c, MIN(id) AS keep_id
        FROM subscriptions
@@ -56,7 +56,7 @@ async function dedupeSubs() {
     console.log(`  удалено дублей: ${res.rowCount}`);
   }
 
-  // b) несколько active у одного пользователя — оставляем самую позднюю по expires_at
+  // b) несколько active у одного пользователя - оставляем самую позднюю по expires_at
   const multiActive = await db.query(
     `SELECT user_id, COUNT(*)::int AS c
        FROM subscriptions WHERE status='active'
@@ -82,7 +82,7 @@ async function dedupeSubs() {
 async function dedupePayments() {
   console.log(`\n=== dedupe-payments ${tag()} ===`);
 
-  // a) точные дубли вебхука: одинаковый yukassa_id у succeeded — оставляем минимальный id
+  // a) точные дубли вебхука: одинаковый yukassa_id у succeeded - оставляем минимальный id
   const byId = await db.query(
     `SELECT yukassa_id, COUNT(*)::int AS c
        FROM payments WHERE status='succeeded' AND yukassa_id IS NOT NULL
@@ -186,7 +186,7 @@ async function reclassifyMeals() {
   for (const r of rows.rows) {
     const want = mealByHour(r.h);
     if (want !== r.meal_type) {
-      counts[`${r.meal_type || "—"}→${want}`] = (counts[`${r.meal_type || "—"}→${want}`] || 0) + 1;
+      counts[`${r.meal_type || "-"}→${want}`] = (counts[`${r.meal_type || "-"}→${want}`] || 0) + 1;
       updates.push([r.id, want]);
     }
   }
@@ -243,7 +243,7 @@ const COMMANDS = {
   const cmd = process.argv[2];
   try {
     if (cmd === "all") {
-      // reset-billing деструктивен и в «all» не входит — запускается только явно
+      // reset-billing деструктивен и в «all» не входит - запускается только явно
       for (const [name, fn] of Object.entries(COMMANDS)) {
         if (name === "reset-billing") continue;
         await fn();
@@ -255,7 +255,7 @@ const COMMANDS = {
       console.log("Добавь --apply, чтобы применить изменения (по умолчанию dry-run).");
       process.exitCode = 1;
     }
-    if (!APPLY && COMMANDS[cmd]) console.log(`\n(DRY-RUN — ничего не изменено. Повтори с --apply.)`);
+    if (!APPLY && COMMANDS[cmd]) console.log(`\n(DRY-RUN - ничего не изменено. Повтори с --apply.)`);
   } catch (err) {
     console.error("Ошибка:", err.message);
     process.exitCode = 1;

@@ -49,7 +49,7 @@ function WeightChart({ points, target }) {
   );
 }
 
-// Карточка приёма клиента у тренера — единый стиль с Историей.
+// Карточка приёма клиента у тренера - единый стиль с Историей.
 // Одно фото = одна карточка; блюда списком; 💬 если есть комментарии.
 function ClientMealCard({ group, onClick }) {
   const multi = group.dishes.length > 1;
@@ -134,7 +134,7 @@ function ClientDetail({ client, onBack, onRemoved }) {
   const goalField = (k, label) => (
     <div style={{ flex: 1, minWidth: 70 }}>
       <label style={{ fontSize: 12.5, color: "var(--text-2)", fontWeight: 600, marginLeft: 4 }}>{label}</label>
-      <input className="sheet-input" type="number" inputMode="numeric" value={goals[k]} placeholder="—"
+      <input className="sheet-input" type="number" inputMode="numeric" value={goals[k]} placeholder="-"
         onChange={(e) => setGoals((g) => ({ ...g, [k]: e.target.value }))} style={{ marginTop: 6 }} />
     </div>
   );
@@ -227,7 +227,7 @@ function ClientDetail({ client, onBack, onRemoved }) {
         <div className="row-between" style={{ marginBottom: 8 }}>
           <div style={{ fontWeight: 800 }}>Вес</div>
           <div className="muted" style={{ fontSize: 13.5 }}>
-            {weight?.weight_history?.length ? `${Number(weight.weight_history[weight.weight_history.length - 1].weight)} кг` : "—"}
+            {weight?.weight_history?.length ? `${Number(weight.weight_history[weight.weight_history.length - 1].weight)} кг` : "-"}
             {weight?.target_weight ? ` · цель ${Number(weight.target_weight)} кг` : ""}
           </div>
         </div>
@@ -299,7 +299,7 @@ export default function TrainerPage() {
       {/* Приглашение */}
       <div className="card" style={{ padding: 16 }}>
         <div style={{ fontWeight: 800, marginBottom: 6 }}>Пригласить клиента</div>
-        <p className="muted" style={{ fontSize: 13.5, marginBottom: 12 }}>Отправьте клиенту ссылку — по ней он подключится к вам.</p>
+        <p className="muted" style={{ fontSize: 13.5, marginBottom: 12 }}>Отправьте клиенту ссылку - по ней он подключится к вам.</p>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="sheet-btn" style={{ flex: 1 }} onClick={shareLink}>Поделиться</button>
           <button className="sheet-btn ghost" onClick={copyLink} style={{ flex: "0 0 auto", width: "auto", marginTop: 0, paddingInline: 22 }}>Копировать</button>
@@ -318,7 +318,7 @@ export default function TrainerPage() {
               <span style={{ color: "var(--primary)", fontWeight: 800, fontSize: 15.5 }}>{c.today_calories} ккал</span>
             </div>
             <div className="muted" style={{ fontSize: 13.5, marginTop: 4 }}>
-              Б {Math.round(c.today_protein)} · Ж {Math.round(c.today_fat)} · У {Math.round(c.today_carbs)} · норма {c.daily_calories || "—"}
+              Б {Math.round(c.today_protein)} · Ж {Math.round(c.today_fat)} · У {Math.round(c.today_carbs)} · норма {c.daily_calories || "-"}
             </div>
           </button>
           <button className="tap" onClick={() => confirmRemove(c)} aria-label="Удалить клиента"

@@ -18,7 +18,7 @@ export default function TabBar({ onCapture, busy }) {
   const cameraRef = useRef();
   const galleryRef = useRef();
 
-  // В приложении снимок делает системная камера iOS, в браузере (npm run dev) —
+  // В приложении снимок делает системная камера iOS, в браузере (npm run dev) -
   // обычный file input. Дальше по коду разницы нет: и там, и там получается File.
   const grabPhoto = async (fromCamera) => {
     if (!isNative()) {
@@ -29,7 +29,7 @@ export default function TabBar({ onCapture, busy }) {
       const file = await pickPhoto(fromCamera);
       if (file && onCapture) onCapture(file);
     } catch (e) {
-      // Отказ в доступе лечится только в настройках телефона — говорим об этом прямо,
+      // Отказ в доступе лечится только в настройках телефона - говорим об этом прямо,
       // иначе «не удалось» выглядит как поломка приложения.
       const msg = String(e?.message || "").toLowerCase();
       if (/denied|permission|not allowed|unauthorized/.test(msg)) {
@@ -45,7 +45,7 @@ export default function TabBar({ onCapture, busy }) {
   const pickSource = () => ui.sheet({
     type: "info",
     title: "Добавить фото",
-    sub: "💡 Если еда в упаковке — сфоткайте сторону с составом и КБЖУ: так AI посчитает точнее",
+    sub: "💡 Если еда в упаковке - сфоткайте сторону с составом и КБЖУ: так AI посчитает точнее",
     actionLabel: "Сделать фото",
     actionIcon: "camera",
     onAction: () => grabPhoto(true),

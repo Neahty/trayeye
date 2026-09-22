@@ -43,11 +43,11 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
       const popular = Array.isArray(d?.popular) ? d.popular : [];
       if (recent.length) { setChips(recent.slice(0, 6)); setChipKind("recent"); }
       else if (popular.length) { setChips(popular.slice(0, 4)); setChipKind("popular"); }
-    }).catch(() => { /* нет сети — остаёмся на EXAMPLES */ });
+    }).catch(() => { /* нет сети - остаёмся на EXAMPLES */ });
     return () => { alive = false; };
   }, []);
 
-  // Долгий ответ — не «зависло», а очередь к AI. Молчать об этом нельзя: человек
+  // Долгий ответ - не «зависло», а очередь к AI. Молчать об этом нельзя: человек
   // закроет форму и наберёт блюдо заново, удлинив очередь ещё сильнее.
   useEffect(() => {
     if (stage !== "loading") { setSlow(false); return; }
@@ -93,7 +93,7 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
           <div style={{ fontSize: 15, color: "var(--text-2)", textAlign: "center", maxWidth: 260 }}>«{text}»</div>
           {slow && (
             <div style={{ fontSize: 14, color: "var(--text-2)", textAlign: "center", maxWidth: 270, lineHeight: 1.45 }}>
-              Bytwise сейчас чуть нагружен — считаем немного дольше обычного.
+              Bytwise сейчас чуть нагружен - считаем немного дольше обычного.
             </div>
           )}
         </div>
@@ -128,7 +128,7 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
             setStage("input"); setText(""); setRes(null);
           }}
         >
-          Это не то — изменить описание
+          Это не то - изменить описание
         </button>
       </div>
     );
@@ -144,7 +144,7 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
         </span>
         <h3 className="sheet-h" style={{ margin: 0 }}>Добавить блюдо текстом</h3>
       </div>
-      <p className="sheet-sub" style={{ marginTop: 8 }}>Опишите, что вы съели — AI сам посчитает калории и БЖУ</p>
+      <p className="sheet-sub" style={{ marginTop: 8 }}>Опишите, что вы съели - AI сам посчитает калории и БЖУ</p>
 
       <input
         ref={ref} className="sheet-input" value={text} placeholder="Например: тарелка борща со сметаной"
@@ -155,7 +155,7 @@ function AddByTextBody({ close, ui, onAdded, tz, onLimit }) {
       {err && <div style={{ color: "var(--red)", fontSize: 14, fontWeight: 600, margin: "-12px 0 14px" }}>{err}</div>}
 
       <div style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.45, margin: "10px 0 16px" }}>
-        Текстом — быстро, но менее точно, чем по фото: AI не видит само блюдо. Проверьте КБЖУ после расчёта.
+        Текстом - быстро, но менее точно, чем по фото: AI не видит само блюдо. Проверьте КБЖУ после расчёта.
       </div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>

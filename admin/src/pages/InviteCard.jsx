@@ -7,7 +7,7 @@ import { INVITE_STATUS, REJECT_REASONS, personName } from "./Invites.jsx";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 // Карточка приглашающего: его ссылка, цифры, динамика за 30 дней и все приведённые
-// поимённо. Отсюда же выдаётся награда конкурса — той же ручной выдачей подписки,
+// поимённо. Отсюда же выдаётся награда конкурса - той же ручной выдачей подписки,
 // что и в разделе «Пользователи» (никакой автоматики начисления в механике нет).
 
 const axis = { stroke: "#62626F", fontSize: 12 };
@@ -68,7 +68,7 @@ export default function InviteCardPage() {
       <p className="muted" style={{ marginTop: -8, marginBottom: 16, wordBreak: "break-all", fontSize: 13 }}>
         {user.link
           ? <>Ссылка: <span style={{ color: "var(--text)" }}>{user.link}</span></>
-          : "Ссылку ещё не запрашивал — код выдастся, когда он откроет «Пригласить друга»."}
+          : "Ссылку ещё не запрашивал - код выдастся, когда он откроет «Пригласить друга»."}
         {" · "}в боте с {fmtDate(user.created_at)} · id {user.telegram_id}
       </p>
 
@@ -79,11 +79,11 @@ export default function InviteCardPage() {
           sub={`за 30 дней: ${stats.invites.month}`} />
         <Stat label="Переходы по ссылке" value={stats.clicks.total}
           sub={`сегодня: ${stats.clicks.day} · за 30 дней: ${stats.clicks.month}`} />
-        <Stat label="Конверсия перехода" value={stats.clicks.total ? Math.round((stats.invites.total / stats.clicks.total) * 100) + "%" : "—"}
+        <Stat label="Конверсия перехода" value={stats.clicks.total ? Math.round((stats.invites.total / stats.clicks.total) * 100) + "%" : "-"}
           sub="сколько переходов стали приглашениями" />
       </div>
 
-      {/* Автоподарки за каждые N друзей — начисляются сами, забирает их сам пользователь. */}
+      {/* Автоподарки за каждые N друзей - начисляются сами, забирает их сам пользователь. */}
       {(rewards || []).length > 0 && (
         <>
           <div className="section-title">Подарки за приглашения</div>
@@ -110,7 +110,7 @@ export default function InviteCardPage() {
           </div>
           {pendingRewards.length > 0 && (
             <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-              Подарок забирает сам пользователь — кнопкой в сообщении бота или на экране приглашений.
+              Подарок забирает сам пользователь - кнопкой в сообщении бота или на экране приглашений.
               Вручную выдавать его не нужно.
             </p>
           )}
@@ -132,7 +132,7 @@ export default function InviteCardPage() {
           </button>
         </div>
         <p className="muted" style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>
-          Выдаёт подписку PRO выбранным сроком — то же, что кнопка «Выдать» в карточке пользователя.
+          Выдаёт подписку PRO выбранным сроком - то же, что кнопка «Выдать» в карточке пользователя.
           Срок считается от текущего момента, прежняя активная подписка гасится.
         </p>
       </div>
@@ -169,7 +169,7 @@ export default function InviteCardPage() {
                   <td data-label="Пришёл">{fmtDate(r.created_at)}</td>
                   <td data-label="Статус">
                     <span className={"pill " + st.cls}>
-                      {st.label}{r.reject_reason ? ` — ${REJECT_REASONS[r.reject_reason] || r.reject_reason}` : ""}
+                      {st.label}{r.reject_reason ? ` - ${REJECT_REASONS[r.reject_reason] || r.reject_reason}` : ""}
                     </span>
                   </td>
                   <td data-label="Решение">{r.decided_at ? fmtDate(r.decided_at) : <span className="muted">через 24 ч</span>}</td>
@@ -178,7 +178,7 @@ export default function InviteCardPage() {
                     {" · "}{r.channel_member ? "в канале" : "не в канале"}
                     {r.tg_unreachable ? " · заблокировал бота" : ""}
                   </td>
-                  <td data-label="Купил PRO">{r.user_paid ? "✅" : <span className="muted">—</span>}</td>
+                  <td data-label="Купил PRO">{r.user_paid ? "✅" : <span className="muted">-</span>}</td>
                 </tr>
               );
             })}

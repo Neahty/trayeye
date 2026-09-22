@@ -60,7 +60,7 @@ export default function SupportTicket() {
       const r = await Support.reply(id, t);
       setText("");
       if (r.warning === "user_blocked_bot") {
-        alert("Пользователь заблокировал бота — ответ сохранён в истории, но не доставлен.");
+        alert("Пользователь заблокировал бота - ответ сохранён в истории, но не доставлен.");
       }
       reload();
     } catch (err) {
@@ -125,7 +125,7 @@ export default function SupportTicket() {
           <textarea
             className="input"
             style={{ flex: 1, minHeight: 70, resize: "vertical" }}
-            placeholder="Ответ пользователю — уйдёт в Telegram от имени бота поддержки"
+            placeholder="Ответ пользователю - уйдёт в Telegram от имени бота поддержки"
             value={text}
             maxLength={4000}
             onChange={(e) => setText(e.target.value)}
@@ -135,7 +135,7 @@ export default function SupportTicket() {
           </button>
         </form>
       ) : (
-        <div className="muted">Тикет закрыт. Если пользователь напишет снова — создастся новый.</div>
+        <div className="muted">Тикет закрыт. Если пользователь напишет снова - создастся новый.</div>
       )}
     </div>
   );

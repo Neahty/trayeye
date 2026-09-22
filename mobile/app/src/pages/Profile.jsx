@@ -10,7 +10,7 @@ import { TIMEZONES, tzLabel, DEFAULT_TZ } from "../lib/timezones";
 import { subBadge, subName } from "../lib/sub";
 import { weightUnit, heightUnit, weightToDisplay, weightFromDisplay, heightToDisplay, heightFromDisplay, fmtWeight, fmtHeight } from "../lib/units";
 
-// Уровень активности (5-уровневая шкала) — производный от числа тренировок, только для отображения.
+// Уровень активности (5-уровневая шкала) - производный от числа тренировок, только для отображения.
 const ACTIVITY_LABEL = {
   sedentary: "Сидячий",
   light: "Лёгкая",
@@ -22,7 +22,7 @@ const ACTIVITY_LABEL = {
 };
 const GOAL_LABEL = { loss: "Похудение", maintain: "Поддержание", gain: "Набор массы" };
 const GENDERS = [{ value: "male", label: "Мужской" }, { value: "female", label: "Женский" }];
-// Темп достижения цели — влияет на дефицит/профицит калорий (см. server/utils/calories.js).
+// Темп достижения цели - влияет на дефицит/профицит калорий (см. server/utils/calories.js).
 const PACE_LABEL = { slow: "Спокойный", mid: "Оптимальный", fast: "Быстрый" };
 const PACE_OPTIONS = [
   { value: "fast", label: "Быстрый темп" },
@@ -43,7 +43,7 @@ function GoalsEditor({ initial, manual, onSave, onAuto }) {
   const field = (k, label) => (
     <div style={{ flex: 1, minWidth: 70 }}>
       <label style={{ fontSize: 12.5, color: "var(--text-2)", fontWeight: 600, marginLeft: 4 }}>{label}</label>
-      <input className="sheet-input" type="number" inputMode="numeric" value={g[k]} placeholder="—"
+      <input className="sheet-input" type="number" inputMode="numeric" value={g[k]} placeholder="-"
         onChange={(e) => setG((p) => ({ ...p, [k]: e.target.value }))} style={{ marginTop: 6 }} />
     </div>
   );
@@ -111,7 +111,7 @@ function initialsOf(name) {
 // Аватар с цепочкой запасных вариантов:
 //   загруженное фото → кэш фото Telegram (с нашего сервера) → «живой» photo_url Telegram → инициалы.
 // Если очередной источник не открылся (напр. файл не перенесён при миграции БД или ссылка
-// Telegram истекла), onError переключает на следующий кандидат — «битой» картинки не будет,
+// Telegram истекла), onError переключает на следующий кандидат - «битой» картинки не будет,
 // а в самом конце всегда показываются инициалы, поэтому аватар есть всегда.
 function Avatar({ sources = [], name, size, iconSize }) {
   const candidates = sources.filter(Boolean);
@@ -149,7 +149,7 @@ export default function ProfilePage() {
   const links = pub?.support_links;
   const reviewsUrl = pub?.reviews_url || "";
 
-  // Экран редактирования профиля (имя, фото, «Мои данные», «Норма КБЖУ») — отдельный
+  // Экран редактирования профиля (имя, фото, «Мои данные», «Норма КБЖУ») - отдельный
   // подэкран, открывается кнопкой «Изм.». Основной экран остаётся чистым.
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -191,7 +191,7 @@ export default function ProfilePage() {
     onPick: (v) => update({ gender: v }, "Сохранено") });
   const editAge = () => ui.sheet({ type: "stepper", title: "Возраст", value: u.age || 25, min: 10, max: 99, unit: "лет",
     onSave: (v) => update({ age: v }, "Сохранено") });
-  // Рост/вес редактируются в единицах пользователя (imperial — дюймы/фунты), в БД сохраняется метрика.
+  // Рост/вес редактируются в единицах пользователя (imperial - дюймы/фунты), в БД сохраняется метрика.
   const editHeight = () => ui.sheet({ type: "stepper", title: "Рост", value: heightToDisplay(u.height || 175, units), min: heightToDisplay(120, units), max: heightToDisplay(220, units), unit: uH,
     onSave: (v) => update({ height: heightFromDisplay(v, units) }, "Сохранено") });
   const editWeight = () => ui.sheet({ type: "stepper", title: "Вес", value: weightToDisplay(Number(u.weight) || 70, units), min: weightToDisplay(35, units), max: weightToDisplay(200, units), unit: uW,
@@ -233,7 +233,7 @@ export default function ProfilePage() {
     value: tz, options: TIMEZONES.map((t) => ({ value: t, label: tzLabel(t) })),
     onPick: (v) => update({ timezone: v }, "Часовой пояс обновлён") });
 
-  // PRO/триал — полноценный экран управления подпиской; иначе — экран оплаты.
+  // PRO/триал - полноценный экран управления подпиской; иначе - экран оплаты.
   const openSubscription = () => {
     if (isPro) navigate("/subscription");
     else navigate("/paywall");
@@ -250,7 +250,7 @@ export default function ProfilePage() {
     else ui.sheet({ type: "info", title, body: "Свяжитесь с поддержкой через Telegram-бота.", actionLabel: "Понятно" });
   };
 
-  // Внешняя ссылка открывается системным браузером — Telegram-обёртки здесь нет.
+  // Внешняя ссылка открывается системным браузером - Telegram-обёртки здесь нет.
   const openExternal = (url) => openTgLink(url);
 
   // Аватарку из Telegram отдаёт сервер (users.tg_photo_path, avatarSync):
@@ -301,15 +301,15 @@ export default function ProfilePage() {
 
         {/* мои данные */}
         <SectionCard title="Мои данные">
-          <ListRow icon="user" label="Пол" value={u.gender ? (u.gender === "male" ? "Мужской" : "Женский") : "—"} onClick={editGender} />
-          <ListRow icon="calendar" label="Возраст" value={u.age ? u.age + " лет" : "—"} onClick={editAge} />
-          <ListRow icon="ruler" label="Рост" value={u.height ? fmtHeight(u.height, units) : "—"} onClick={editHeight} />
-          <ListRow icon="weight" label="Вес" value={u.weight ? fmtWeight(u.weight, units) : "—"} onClick={editWeight} />
-          <ListRow icon="target" label="Целевой вес" value={u.target_weight ? fmtWeight(u.target_weight, units) : "—"} onClick={editTarget} />
+          <ListRow icon="user" label="Пол" value={u.gender ? (u.gender === "male" ? "Мужской" : "Женский") : "-"} onClick={editGender} />
+          <ListRow icon="calendar" label="Возраст" value={u.age ? u.age + " лет" : "-"} onClick={editAge} />
+          <ListRow icon="ruler" label="Рост" value={u.height ? fmtHeight(u.height, units) : "-"} onClick={editHeight} />
+          <ListRow icon="weight" label="Вес" value={u.weight ? fmtWeight(u.weight, units) : "-"} onClick={editWeight} />
+          <ListRow icon="target" label="Целевой вес" value={u.target_weight ? fmtWeight(u.target_weight, units) : "-"} onClick={editTarget} />
           <ListRow icon="target" label="Активность"
-            value={`${Number(u.workouts_per_week) || 0} трен/нед · ${ACTIVITY_LABEL[u.activity] || "—"}`} onClick={editWorkouts} />
+            value={`${Number(u.workouts_per_week) || 0} трен/нед · ${ACTIVITY_LABEL[u.activity] || "-"}`} onClick={editWorkouts} />
           <ListRow icon="flame" label="Темп" value={PACE_LABEL[u.pace || "mid"]} onClick={editPace} />
-          <ListRow icon="flame" label="Цель" value={GOAL_LABEL[u.goal] || "—"} last />
+          <ListRow icon="flame" label="Цель" value={GOAL_LABEL[u.goal] || "-"} last />
         </SectionCard>
         <div style={{ color: "var(--text-2)", fontSize: 12.5, margin: "8px 6px 0", lineHeight: 1.4 }}>
           Цель (похудение/поддержание/набор) определяется автоматически по целевому весу.
@@ -318,11 +318,11 @@ export default function ProfilePage() {
         {/* норма КБЖУ */}
         <SectionCard title="Норма КБЖУ">
           <ListRow icon="flame" label="Дневная норма"
-            value={u.daily_calories ? `${u.daily_calories} ккал${u.goals_set_manually ? " · вручную" : ""}` : "—"}
+            value={u.daily_calories ? `${u.daily_calories} ккал${u.goals_set_manually ? " · вручную" : ""}` : "-"}
             onClick={editGoals} last />
         </SectionCard>
         <div style={{ color: "var(--text-2)", fontSize: 13, margin: "10px 6px 0", lineHeight: 1.45 }}>
-          Норма пересчитывается автоматически при изменении веса, активности и цели — либо задаётся вручную.
+          Норма пересчитывается автоматически при изменении веса, активности и цели - либо задаётся вручную.
         </div>
       </div>
     );
@@ -341,7 +341,7 @@ export default function ProfilePage() {
             <span style={{ fontSize: 21, fontWeight: 800, letterSpacing: "-.3px" }}>{u.name || "Без имени"}</span>
             {isPro && <span className="pill-pro" style={{ fontSize: 11.5, padding: "3px 9px" }}>{subBadge(sub?.type)}</span>}
           </div>
-          <div style={{ color: "var(--text-2)", fontSize: 15.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tgUsername ? `@${tgUsername}` : "—"}</div>
+          <div style={{ color: "var(--text-2)", fontSize: 15.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tgUsername ? `@${tgUsername}` : "-"}</div>
         </div>
         <button className="tap" onClick={openEdit} style={{ padding: "9px 16px", borderRadius: 12, background: "var(--tint)", color: "var(--primary)", fontWeight: 800, fontSize: 14.5, flex: "0 0 auto" }}>Изм.</button>
       </div>
@@ -377,7 +377,7 @@ export default function ProfilePage() {
         )}
       </SectionCard>
 
-      {/* приглашение друзей — доступно всем, включая тренеров и сотрудников */}
+      {/* приглашение друзей - доступно всем, включая тренеров и сотрудников */}
       <SectionCard title="Приглашай друзей">
         <ListRow icon="sparkles" label="Пригласить друга" onClick={() => navigate("/invite")} last />
       </SectionCard>

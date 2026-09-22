@@ -67,12 +67,12 @@ function UserModal({ id, onClose, onChanged }) {
             </div>
 
             <div className="section-title" style={{ marginTop: 6 }}>Профиль</div>
-            <div className="kv"><span>Пол / Возраст</span><span>{data.user.gender || "—"} · {data.user.age || "—"}</span></div>
-            <div className="kv"><span>Рост / Вес</span><span>{data.user.height || "—"} см · {data.user.weight || "—"} кг</span></div>
-            <div className="kv"><span>Цель / Активность</span><span>{data.user.goal || "—"} · {data.user.activity || "—"}</span></div>
-            <div className="kv"><span>Норма калорий</span><span>{data.user.daily_calories || "—"} ккал</span></div>
+            <div className="kv"><span>Пол / Возраст</span><span>{data.user.gender || "-"} · {data.user.age || "-"}</span></div>
+            <div className="kv"><span>Рост / Вес</span><span>{data.user.height || "-"} см · {data.user.weight || "-"} кг</span></div>
+            <div className="kv"><span>Цель / Активность</span><span>{data.user.goal || "-"} · {data.user.activity || "-"}</span></div>
+            <div className="kv"><span>Норма калорий</span><span>{data.user.daily_calories || "-"} ккал</span></div>
 
-            {/* Откуда пришёл и сколько привёл сам — источник трафика одним взглядом. */}
+            {/* Откуда пришёл и сколько привёл сам - источник трафика одним взглядом. */}
             <div className="section-title">Приглашения</div>
             <div className="kv">
               <span>Как пришёл</span>
@@ -96,7 +96,7 @@ function UserModal({ id, onClose, onChanged }) {
             <div className="section-title">Активность</div>
             <div className="kv"><span>Всего входов</span><span>{data.activity.logins}</span></div>
             <div className="kv"><span>Последний вход</span><span>{fmtDate(data.activity.last_login)}</span></div>
-            <div className="kv"><span>Устройство</span><span className="tag">{data.activity.device || "—"}</span></div>
+            <div className="kv"><span>Устройство</span><span className="tag">{data.activity.device || "-"}</span></div>
 
             <div className="section-title">Питание</div>
             <div className="kv"><span>Всего сканов</span><span>{data.nutrition.scans}</span></div>
@@ -181,7 +181,7 @@ function SubCell({ u, tariffMap }) {
   );
 }
 
-// Статус «активный/неактивный» в списке. Активный (подписан + бот не в ЧС) — норма, без бейджа.
+// Статус «активный/неактивный» в списке. Активный (подписан + бот не в ЧС) - норма, без бейджа.
 function StatusBadge({ u }) {
   if (u.app_opened === false) return null; // про таких SubCell уже пишет «не открыл приложение»
   if (u.tg_unreachable) return <span className="pill red" style={{ marginLeft: 6 }}>бот в ЧС</span>;
@@ -229,7 +229,7 @@ export default function Users() {
                 {data.users.map((u) => (
                   <tr key={u.id} onClick={() => setOpenId(u.id)}>
                     <td data-label="Telegram ID">{u.telegram_id}</td>
-                    <td data-label="Имя">{u.name || "—"}{u.is_blocked && (
+                    <td data-label="Имя">{u.name || "-"}{u.is_blocked && (
                       <span
                         className="pill red"
                         style={{ marginLeft: 6 }}
@@ -238,7 +238,7 @@ export default function Users() {
                         заблокирован
                       </span>
                     )}<StatusBadge u={u} /></td>
-                    <td data-label="Username">{u.username || "—"}</td>
+                    <td data-label="Username">{u.username || "-"}</td>
                     <td data-label="Регистрация">{fmtDate(u.created_at)}</td>
                     <td data-label="Последний вход">{fmtDate(u.last_login_at)}</td>
                     <td data-label="Подписка"><SubCell u={u} tariffMap={tariffMap} /></td>

@@ -18,7 +18,7 @@ function pubTrainer(u) {
   return { id: u.id, name: u.name, username: u.username };
 }
 
-// GET /api/my-trainer — текущий АКТИВНЫЙ тренер клиента (или null)
+// GET /api/my-trainer - текущий АКТИВНЫЙ тренер клиента (или null)
 router.get("/", async (req, res, next) => {
   try {
     const trainer = await getActiveTrainer(req.user.id);
@@ -28,7 +28,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// POST /api/my-trainer/accept { code, replace? } — подключиться к тренеру по ссылке (code = tr_<refCode>)
+// POST /api/my-trainer/accept { code, replace? } - подключиться к тренеру по ссылке (code = tr_<refCode>)
 router.post("/accept", async (req, res, next) => {
   try {
     const raw = String(req.body?.code || "").trim();
@@ -88,7 +88,7 @@ router.post("/accept", async (req, res, next) => {
   }
 });
 
-// DELETE /api/my-trainer — клиент сам отвязывается от тренера
+// DELETE /api/my-trainer - клиент сам отвязывается от тренера
 router.delete("/", async (req, res, next) => {
   try {
     const { rowCount } = await db.query("DELETE FROM trainer_clients WHERE client_id = $1", [req.user.id]);

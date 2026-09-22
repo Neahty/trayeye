@@ -35,7 +35,7 @@ async function loadMealConfig() {
 }
 
 // Личные цифры именно для напоминаний о еде: калории за сегодня, остаток до цели, серия.
-// 0/отрицательные значения возвращаем как null — тогда renderTemplate пропустит такой шаблон
+// 0/отрицательные значения возвращаем как null - тогда renderTemplate пропустит такой шаблон
 // (например, «осталось 0 ккал» или «серия 0 дн.» не уйдут, выберется вариант попроще).
 async function loadMealStats(userId, tz, dailyCaloriesRaw) {
   const today = await db.query(
@@ -78,7 +78,7 @@ async function buildMealData(userRow) {
 
 // Напоминания утром/днём/вечером по локальному времени пользователя.
 // Запускается раз в час; для каждого пользователя смотрим его локальный час.
-// Тексты, часы и вкл/выкл — в настройке meal_reminders (правится в админке), здесь — механика.
+// Тексты, часы и вкл/выкл - в настройке meal_reminders (правится в админке), здесь - механика.
 async function mealReminders() {
   const cfg = await loadMealConfig();
   if (cfg.enabled === false) {
@@ -94,7 +94,7 @@ async function mealReminders() {
     hourMeals[h].push(meal);
   }
 
-  // Берём пользователей и их локальный час. tz по умолчанию — Москва (если у юзера не выбран),
+  // Берём пользователей и их локальный час. tz по умолчанию - Москва (если у юзера не выбран),
   // иначе он выпадал из напоминаний, а при неверном поясе час считался не тот.
   const { rows } = await db.query(
     `SELECT u.id, u.telegram_id, u.name, u.daily_calories,
@@ -105,7 +105,7 @@ async function mealReminders() {
        AND u.app_opened = TRUE`
   );
   let sent = 0, failed = 0, skipped = 0, blocked = 0;
-  // Разбивка по приёмам пищи — для сводки в канал логов («разослали 128 напоминаний про завтрак»).
+  // Разбивка по приёмам пищи - для сводки в канал логов («разослали 128 напоминаний про завтрак»).
   const byMeal = {};
   for (const r of rows) {
     const meals = hourMeals[r.h];
@@ -120,25 +120,25 @@ async function mealReminders() {
       );
       if (ex.rows.length) { skipped++; continue; }
 
-      // Вариант текста крутим по дню месяца — один и тот же приём в разные дни даёт разный текст,
+      // Вариант текста крутим по дню месяца - один и тот же приём в разные дни даёт разный текст,
       // а в пределах дня выбор воспроизводим. Плейсхолдеры без данных → шаблон пропускается.
       const data = await buildMealData(r);
       const text = pickTemplate(cfg.texts[meal], r.id, new Date().getDate(), data);
       if (!text) {
         skipped++;
-        console.warn(`[cron] mealReminders: нет подходящего шаблона ${meal} (user ${r.id}) — пропуск`);
+        console.warn(`[cron] mealReminders: нет подходящего шаблона ${meal} (user ${r.id}) - пропуск`);
         continue;
       }
       try {
         // sendMessage не бросает исключение, а возвращает { ok:false, error, error_code } при сбое.
         const res = await sendMessage(r.telegram_id, text);
         if (res && res.mock) {
-          // mock-режим (нет токена) — не реальная отправка, не считаем сбоем.
+          // mock-режим (нет токена) - не реальная отправка, не считаем сбоем.
           skipped++;
         } else if (res && res.ok === false) {
           failed++;
           console.error(`[cron] mealReminders send failed tg=${r.telegram_id} code=${res.error_code || "?"}: ${res.error || "mock/unknown"}`);
-          // 403 — юзер не нажимал Start или заблокировал бота: помечаем tg_unreachable,
+          // 403 - юзер не нажимал Start или заблокировал бота: помечаем tg_unreachable,
           // чтобы не слать впустую. НЕ трогаем is_blocked (это админ-блок + вход).
           // Флаг сбрасывается при следующем успешном входе (routes/auth.js).
           if (res.error_code === 403) {
@@ -156,7 +156,7 @@ async function mealReminders() {
     }
   }
   console.log(`[cron] mealReminders -> sent=${sent} failed=${failed} blocked=${blocked} skipped=${skipped}`);
-  // Сводка в канал логов — общими цифрами, без перечисления людей.
+  // Сводка в канал логов - общими цифрами, без перечисления людей.
   await notifyLog.mealRun({ byMeal, failed, blocked }).catch((e) => console.error("[cron] mealReminders log:", e.message));
 }
 
@@ -183,13 +183,13 @@ async function sendTestMealReminder({ meal, user }) {
   };
   const text = pickTemplate(templates, user.id, Math.floor(Math.random() * 100), data);
   if (!text) return { ok: false, error: "no_templates" };
-  const res = await sendMessage(user.telegram_id, `🧪 Тест — так это увидит пользователь:\n\n${text}`);
-  // В канал логов — только про реально ушедший тест (в mock-режиме отправки не было).
+  const res = await sendMessage(user.telegram_id, `🧪 Тест - так это увидит пользователь:\n\n${text}`);
+  // В канал логов - только про реально ушедший тест (в mock-режиме отправки не было).
   if (res && res.ok !== false) notifyLog.test(user.id, meal).catch(() => {});
   return res;
 }
 
-// ежедневно 03:00 — удаление фото старше 12 месяцев
+// ежедневно 03:00 - удаление фото старше 12 месяцев
 async function cleanOldPhotos() {
   const cutoff = Date.now() - 365 * 86400000;
   const usersDir = path.join(UPLOADS_ROOT, "users");
@@ -214,7 +214,7 @@ async function cleanOldPhotos() {
 // Ежедневная сводка в канал логов: ключевые цифры за последние сутки.
 async function dailyDigest() {
   const q = (t) => db.query(t).then((r) => r.rows[0]);
-  // Сканы по способу ввода (интервал — наша константа, не пользовательский ввод):
+  // Сканы по способу ввода (интервал - наша константа, не пользовательский ввод):
   // сколько посчитали по фото, сколько текстом, сколько вбили руками.
   const scansBySource = (interval) => q(
     `SELECT COUNT(*)::int AS total,
@@ -259,7 +259,7 @@ async function dailyDigest() {
   console.log(`[cron] dailyDigest -> joined=${joined.c} left=${left.c} pay=${pay.c}/${pay.s} scans=${scans.total} active=${active.c}`);
 }
 
-// Логируем окончание подписок/пробного. Окно в 2 суток — чтобы поймать истечение,
+// Логируем окончание подписок/пробного. Окно в 2 суток - чтобы поймать истечение,
 // даже если запуск пропускался; expiry_logged_at защищает от повторов.
 // Берём только тех, у кого нет более поздней активной подписки (реально потеряли доступ).
 async function subscriptionExpiryCheck() {
@@ -275,7 +275,7 @@ async function subscriptionExpiryCheck() {
   );
   let logged = 0;
   for (const r of rows) {
-    // Фиксируем отметку ДО лога — один раз на подписку, даже при параллельных запусках.
+    // Фиксируем отметку ДО лога - один раз на подписку, даже при параллельных запусках.
     const ins = await db.query(
       "UPDATE subscriptions SET expiry_logged_at = NOW() WHERE id = $1 AND expiry_logged_at IS NULL RETURNING id",
       [r.id]
@@ -285,7 +285,7 @@ async function subscriptionExpiryCheck() {
     channelLog.post(
       "subscription_expired",
       `⌛️ <b>Подписка закончилась</b>\n\n` +
-      `${who} — доступ по подписке истёк.\n` +
+      `${who} - доступ по подписке истёк.\n` +
       `Время: ${notify.fmtWhen()}`
     ).catch(() => {});
     logged++;
@@ -303,24 +303,24 @@ async function cleanOldLogRefs() {
 function start() {
   // node-cron: minute hour day month weekday
   cron.schedule("0 * * * *", () => mealReminders().catch((e) => console.error(e.message)));
-  // Напоминания о подписке/триале — ежечасно на 5-й минуте (чтобы не сливаться
+  // Напоминания о подписке/триале - ежечасно на 5-й минуте (чтобы не сливаться
   // с mealReminders в час отправки); внутри сами проверяют локальный час юзера.
   cron.schedule("5 * * * *", () => subscriptionReminders().catch((e) => console.error(e.message)));
-  // Детектор окончания подписок — ежечасно на 10-й минуте (не сливается с другими джобами).
+  // Детектор окончания подписок - ежечасно на 10-й минуте (не сливается с другими джобами).
   cron.schedule("10 * * * *", () => subscriptionExpiryCheck().catch((e) => console.error(e.message)));
   cron.schedule("0 3 * * *", () => cleanOldPhotos().catch((e) => console.error(e.message)));
   cron.schedule("30 3 * * *", () => cleanOldLogRefs().catch((e) => console.error("[cron] cleanOldLogRefs:", e.message)));
-  // Сотрудники-пиарщики: проверка рефералов через 24 ч + доатрибуция оплат — ежечасно на :20.
+  // Сотрудники-пиарщики: проверка рефералов через 24 ч + доатрибуция оплат - ежечасно на :20.
   cron.schedule("20 * * * *", () =>
     require("./employeeReferrals").runEmployeeReferralChecks().catch((e) => console.error("[cron] employeeReferrals:", e.message))
   );
-  // Пользовательские приглашения «Пригласи друга»: проверка через 24 ч — ежечасно на :25.
+  // Пользовательские приглашения «Пригласи друга»: проверка через 24 ч - ежечасно на :25.
   cron.schedule("25 * * * *", () =>
     require("./userInvites").runUserInviteChecks().catch((e) => console.error("[cron] userInvites:", e.message))
   );
-  // Ежедневная сводка в канал логов — 21:00 по Москве.
+  // Ежедневная сводка в канал логов - 21:00 по Москве.
   cron.schedule("0 21 * * *", () => dailyDigest().catch((e) => console.error(e.message)), { timezone: "Europe/Moscow" });
-  // Авто-бэкап базы каждый день в 00:00 по Москве — отправляется админам в Telegram.
+  // Авто-бэкап базы каждый день в 00:00 по Москве - отправляется админам в Telegram.
   cron.schedule("0 0 * * *", () => backupDatabase().catch((e) => console.error(e.message)), { timezone: "Europe/Moscow" });
   console.log("[cron] jobs scheduled");
 }

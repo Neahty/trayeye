@@ -20,7 +20,7 @@ async function connectWithRetry(attempts = 12, delayMs = 5000) {
       await db.ensureSchema();
       return;
     } catch (err) {
-      // У AggregateError (ECONNREFUSED) message пустой — показываем код ошибки.
+      // У AggregateError (ECONNREFUSED) message пустой - показываем код ошибки.
       const reason = err.message || err.code || err;
       if (i === attempts) throw new Error(reason);
       console.warn(`[support] база не отвечает (${reason}), попытка ${i}/${attempts}, повтор через ${delayMs / 1000}с`);
@@ -48,7 +48,7 @@ async function connectWithRetry(attempts = 12, delayMs = 5000) {
   console.log(`[support] админы: ${config.ADMIN_IDS.join(", ")}`);
 
   const shutdown = async (signal) => {
-    console.log(`[support] ${signal} — останавливаюсь`);
+    console.log(`[support] ${signal} - останавливаюсь`);
     try { bot.stop(signal); } catch { /* уже остановлен */ }
     try { await db.pool.end(); } catch { /* ок */ }
     process.exit(0);

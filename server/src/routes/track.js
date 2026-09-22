@@ -3,7 +3,7 @@ const db = require("../db");
 
 const router = express.Router();
 
-// GET /api/track/broadcast/:id?u=&to=&b=  — учёт клика и редирект на целевой URL
+// GET /api/track/broadcast/:id?u=&to=&b=  - учёт клика и редирект на целевой URL
 router.get("/broadcast/:id", async (req, res, next) => {
   try {
     const broadcastId = Number(req.params.id);

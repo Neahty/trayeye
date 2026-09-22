@@ -2,7 +2,7 @@
 // и их оплат, статистика для /stat и админки, уведомления в ЛС и лог-канал.
 // Правила зачёта: рефералом становится только НОВЫЙ пользователь (не сам сотрудник
 // и не другой сотрудник); подтверждение через 24 часа делает jobs/employeeReferrals.js.
-// Все даты в статистике считаются по Москве — у владельца и сотрудников цифры совпадают.
+// Все даты в статистике считаются по Москве - у владельца и сотрудников цифры совпадают.
 const db = require("../db");
 const { sendMessage } = require("./telegram");
 const channelLog = require("./channelLog");
@@ -15,7 +15,7 @@ function buildLink(code) {
   return `https://t.me/${BOT_USERNAME}?start=emp_${code}`;
 }
 
-// Активный сотрудник по telegram_id — гейт для /ref и /stat (уволенным команды молчат).
+// Активный сотрудник по telegram_id - гейт для /ref и /stat (уволенным команды молчат).
 async function getActiveEmployeeByTg(telegramId) {
   if (!telegramId) return null;
   const { rows } = await db.query(
@@ -39,7 +39,7 @@ async function dm(userId, text) {
 }
 
 // Переход по ссылке emp_<code> из /start. Вызывается fire-and-forget из bot.start.
-// userRow — результат registerStartUser: содержит id и inserted (новый ли пользователь).
+// userRow - результат registerStartUser: содержит id и inserted (новый ли пользователь).
 async function handleStartLink({ code, from, userRow }) {
   if (!code || !userRow) return;
   const { rows } = await db.query(
@@ -47,13 +47,13 @@ async function handleStartLink({ code, from, userRow }) {
     [code]
   );
   const emp = rows[0];
-  if (!emp) return; // неизвестный код или уволенный сотрудник — ссылка погашена
+  if (!emp) return; // неизвестный код или уволенный сотрудник - ссылка погашена
 
   const isSelf = Number(userRow.id) === Number(emp.user_id);
   const { rows: empRows } = await db.query("SELECT 1 FROM employees WHERE user_id = $1", [userRow.id]);
   const eligible = userRow.inserted === true && !isSelf && !empRows.length;
 
-  // Переход фиксируем всегда — сотрудник видит воронку «перешли → засчитаны».
+  // Переход фиксируем всегда - сотрудник видит воронку «перешли → засчитаны».
   await db.query(
     "INSERT INTO employee_link_clicks (employee_id, telegram_id, existing_user) VALUES ($1, $2, $3)",
     [emp.id, from?.id || null, !eligible]
@@ -67,7 +67,7 @@ async function handleStartLink({ code, from, userRow }) {
   );
   if (!ins.rows.length) return;
 
-  // Сотруднику — только факт, без личных данных приведённого.
+  // Сотруднику - только факт, без личных данных приведённого.
   dm(emp.user_id,
     "👥 <b>Новый человек по твоей ссылке!</b>\n" +
     "Пока на проверке: засчитается через 24 часа, если он откроет приложение, " +
@@ -85,8 +85,8 @@ async function handleStartLink({ code, from, userRow }) {
 
 // Атрибуция оплат рефералов сотрудникам. Идемпотентна (UNIQUE payment_id):
 // зовётся и после fulfillPayment, и ежечасно из крона (страховка от падений,
-// плюс ловит ручные начисления админом — они тоже создают строку в payments).
-// Оплаты pending-рефералов засчитываются; отклонённых — нет.
+// плюс ловит ручные начисления админом - они тоже создают строку в payments).
+// Оплаты pending-рефералов засчитываются; отклонённых - нет.
 async function attributePaymentsSince(interval = "2 days") {
   const { rows } = await db.query(
     `INSERT INTO employee_payments (employee_id, referral_id, payment_id, amount)
@@ -104,7 +104,7 @@ async function attributePaymentsSince(interval = "2 days") {
       const emp = e[0];
       if (!emp) continue;
       if (emp.active) {
-        dm(emp.user_id, `💳 <b>Твой реферал оплатил подписку — ${row.amount} ₽!</b>\nОплата засчитана, детали в /stat.`).catch(() => {});
+        dm(emp.user_id, `💳 <b>Твой реферал оплатил подписку - ${row.amount} ₽!</b>\nОплата засчитана, детали в /stat.`).catch(() => {});
       }
       const empWho = await notify.userLabel(emp.user_id);
       const { rows: r } = await db.query("SELECT user_id FROM employee_referrals WHERE id = $1", [row.referral_id]);
@@ -135,7 +135,7 @@ async function statsForEmployee(employeeId) {
             COUNT(*)::int AS total
        FROM employee_link_clicks WHERE employee_id = $1`, params);
   // Периоды считают ПРИШЕДШИХ (не отклонённых): подтверждение происходит через 24 ч,
-  // поэтому «засчитанные за день» были бы всегда 0. Итоги (confirmed/pending) — точные.
+  // поэтому «засчитанные за день» были бы всегда 0. Итоги (confirmed/pending) - точные.
   const refsQ = db.query(
     `SELECT COUNT(*) FILTER (WHERE status <> 'rejected' AND ${dayCond("created_at")})::int AS day,
             COUNT(*) FILTER (WHERE status <> 'rejected' AND created_at >= NOW() - interval '7 days')::int AS week,
@@ -174,8 +174,8 @@ async function notifyGranted(emp) {
   dm(emp.user_id,
     "🎉 <b>Тебе выдана роль сотрудника Bytwise!</b>\n\n" +
     "Команды:\n" +
-    "/ref — твоя личная ссылка и правила зачёта\n" +
-    "/stat — твоя статистика и выплаты").catch(() => {});
+    "/ref - твоя личная ссылка и правила зачёта\n" +
+    "/stat - твоя статистика и выплаты").catch(() => {});
   const empWho = await notify.userLabel(emp.user_id);
   channelLog.post(
     "employees",
@@ -208,7 +208,7 @@ async function notifyPayout(emp, payout) {
 async function notifyPayoutCancelled(emp, payout) {
   dm(emp.user_id,
     `↩️ <b>Выплата отменена</b>\n\n` +
-    `Отменена выплата за ${kindLabel(payout.kind)} на ${payout.total} ₽ — она была отмечена по ошибке. ` +
+    `Отменена выплата за ${kindLabel(payout.kind)} на ${payout.total} ₽ - она была отмечена по ошибке. ` +
     `Эти единицы снова числятся как невыплаченные.`).catch(() => {});
   const empWho = await notify.userLabel(emp.user_id);
   channelLog.post(

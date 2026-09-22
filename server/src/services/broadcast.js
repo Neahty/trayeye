@@ -5,7 +5,7 @@ const notifyLog = require("./notifyLog");
 
 const SERVER_URL = process.env.SERVER_URL || "";
 
-// Активная подписка — единый признак «подписчика» во всём проекте.
+// Активная подписка - единый признак «подписчика» во всём проекте.
 const ACTIVE_SUB = `SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW()`;
 
 function audienceSql(audience) {
@@ -16,10 +16,10 @@ function audienceSql(audience) {
       return `u.id NOT IN (${ACTIVE_SUB})`;
     case "new":
       return `u.created_at >= NOW() - interval '7 days'`;
-    // Подписка ещё активна, но истекает в ближайшие 3 дня — напомнить продлить.
+    // Подписка ещё активна, но истекает в ближайшие 3 дня - напомнить продлить.
     case "expiring":
       return `u.id IN (SELECT user_id FROM subscriptions WHERE status='active' AND expires_at > NOW() AND expires_at <= NOW() + interval '3 days')`;
-    // Была подписка, сейчас активной нет (истекла/отменена) — win-back.
+    // Была подписка, сейчас активной нет (истекла/отменена) - win-back.
     case "churned":
       return `u.id IN (SELECT user_id FROM subscriptions) AND u.id NOT IN (${ACTIVE_SUB})`;
     case "sub_basic":
@@ -75,7 +75,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Пауза между отправками: ~25 сообщений/сек, чтобы не упереться в лимит Telegram (~30/сек → 429).
 const SEND_GAP_MS = 40;
 
-// Создаёт запись рассылки (status='pending') и СРАЗУ её возвращает — без отправки.
+// Создаёт запись рассылки (status='pending') и СРАЗУ её возвращает - без отправки.
 // Реальная отправка выполняется отдельно в runBroadcast(), чтобы HTTP-запрос админа
 // не висел минуты на большой аудитории (раньше из-за этого был таймаут и дубли при повторе).
 async function createBroadcast({ adminId, audience, kind, text, photoPath, buttons, targetUserIds }) {
@@ -118,11 +118,11 @@ async function runBroadcast(broadcastId) {
     if (res && res.ok !== false) {
       delivered++;
     } else if (res && res.error_code === 403) {
-      // Юзер не нажимал Start / заблокировал бота — помечаем, чтобы не слать впустую
+      // Юзер не нажимал Start / заблокировал бота - помечаем, чтобы не слать впустую
       // (как в mealReminders). Сбрасывается при следующем успешном входе.
       await db.query("UPDATE users SET tg_unreachable = TRUE WHERE id = $1", [u.id]);
     }
-    // 429 и прочие сбои доставкой не считаем — просто идём дальше.
+    // 429 и прочие сбои доставкой не считаем - просто идём дальше.
     await sleep(SEND_GAP_MS);
   }
 
@@ -134,7 +134,7 @@ async function runBroadcast(broadcastId) {
     action: "broadcast", broadcast_id: broadcast.id, audience: broadcast.audience,
     sent: users.length, delivered
   });
-  // Итог в канал логов — общими цифрами, без перечисления получателей.
+  // Итог в канал логов - общими цифрами, без перечисления получателей.
   await notifyLog.broadcastRun(broadcast, { sent: users.length, delivered })
     .catch((e) => console.error("[broadcast] log:", e.message));
 }

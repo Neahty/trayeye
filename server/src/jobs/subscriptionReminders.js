@@ -1,12 +1,12 @@
 // Напоминания о подписке и пробном периоде.
 // Запускается ежечасно; шлёт тем, у кого сейчас локально «час отправки» из настроек.
-// Всё расписание и тексты — в настройке `reminders` (правится из админки),
-// в коде только механика. Дедупликация — таблица subscription_reminders:
+// Всё расписание и тексты - в настройке `reminders` (правится из админки),
+// в коде только механика. Дедупликация - таблица subscription_reminders:
 // одна строка = одна отправленная стадия, повторный запуск ничего не дублирует.
 //
 // ВАЖНО: notifications_enabled здесь сознательно игнорируется (бизнес-критичные
 // сообщения), но is_blocked/tg_unreachable уважаем, а клиентов активного тренера
-// не трогаем — у них и так есть доступ.
+// не трогаем - у них и так есть доступ.
 const db = require("../db");
 const settings = require("../utils/settings");
 const { sendMessage } = require("../services/telegram");
@@ -37,7 +37,7 @@ function toDayList(value, fallback) {
 }
 
 // Подстановка плейсхолдеров. Если в шаблоне есть {ключ}, для которого нет данных
-// (null/undefined) — возвращаем null: вызывающий возьмёт следующий шаблон.
+// (null/undefined) - возвращаем null: вызывающий возьмёт следующий шаблон.
 function renderTemplate(tpl, data) {
   let missing = false;
   const text = String(tpl).replace(/\{(\w+)\}/g, (_, key) => {
@@ -49,7 +49,7 @@ function renderTemplate(tpl, data) {
 }
 
 // Детерминированный выбор шаблона: (user_id + номер стадии) по кругу до первого
-// рендерящегося. Без случайности — пользователь не получает один текст дважды
+// рендерящегося. Без случайности - пользователь не получает один текст дважды
 // за серию, а поведение воспроизводимо.
 function pickTemplate(templates, userId, stageIndex, data) {
   const list = (Array.isArray(templates) ? templates : []).filter((t) => typeof t === "string" && t.trim());
@@ -64,7 +64,7 @@ function pickTemplate(templates, userId, stageIndex, data) {
 
 // Изменение веса: «−2,5 кг» / «+1,2 кг» (первая vs последняя запись), либо null.
 function formatWeightDelta(firstW, lastW) {
-  // Number(null) === 0 — поэтому сначала явная проверка на отсутствие записей.
+  // Number(null) === 0 - поэтому сначала явная проверка на отсутствие записей.
   if (firstW === null || firstW === undefined || lastW === null || lastW === undefined) return null;
   const a = Number(firstW), b = Number(lastW);
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
@@ -74,7 +74,7 @@ function formatWeightDelta(firstW, lastW) {
   return sign + Math.abs(delta).toFixed(1).replace(".", ",") + " кг";
 }
 
-// Личные цифры для плейсхолдеров — два маленьких запроса, только для тех,
+// Личные цифры для плейсхолдеров - два маленьких запроса, только для тех,
 // кто прошёл дедуп (единицы пользователей в день).
 async function loadPersonalStats(userId, tz) {
   const scans = await db.query(
@@ -99,9 +99,9 @@ async function loadPersonalStats(userId, tz) {
 
 // Определяем, какая стадия (если есть) положена пользователю сегодня по расписанию.
 // Возвращает { kind, stage, stageIndex, anchor, textsKey, extra } или null.
-// textsKey — ключ в reminders.texts (для kind='trial' это trial_start/trial_end!).
+// textsKey - ключ в reminders.texts (для kind='trial' это trial_start/trial_end!).
 function classify(row, cfg, trialDays) {
-  // Клиент активного тренера — доступ и так есть, не дёргаем.
+  // Клиент активного тренера - доступ и так есть, не дёргаем.
   if (row.has_active_trainer) return null;
 
   const postDays = cfg.post_days;
@@ -111,7 +111,7 @@ function classify(row, cfg, trialDays) {
     // Есть подписка (берём строку с максимальным expires_at).
     const daysTo = row.days_to_expiry; // expiry_date − today (в tz юзера)
     if (daysTo > 0) {
-      // Активная и не истекает сегодня: напоминаем заранее (только если статус active —
+      // Активная и не истекает сегодня: напоминаем заранее (только если статус active -
       // отозванную админом не «продлеваем», это ручное решение).
       if (row.sub_status !== "active") return null;
       if (!cfg.paid_pre_days.includes(daysTo)) return null;
@@ -132,16 +132,16 @@ function classify(row, cfg, trialDays) {
     };
   }
 
-  // Подписок не было никогда — пробный период.
+  // Подписок не было никогда - пробный период.
   // Триал считаем по календарным дням в tz юзера: день старта = день 1,
-  // последний день = день № trial_days. Конец доступа — как в checkLimit.js.
+  // последний день = день № trial_days. Конец доступа - как в checkLimit.js.
   const sinceStart = row.days_since_trial_start; // today − trial_start_date
   if (sinceStart === null || sinceStart === undefined) return null;
   const lastDayOffset = Math.max(trialDays - 1, 0);
   const anchor = row.trial_started_at;
 
   if (sinceStart <= 1 && sinceStart < lastDayOffset) {
-    // Первый день (окно-«догонялка»: зарегистрировался после часа отправки — получит завтра).
+    // Первый день (окно-«догонялка»: зарегистрировался после часа отправки - получит завтра).
     return { kind: "trial", stage: "start", stageIndex: 0, anchor, textsKey: "trial_start", extra: {} };
   }
   if (sinceStart === lastDayOffset) {
@@ -163,7 +163,7 @@ function classify(row, cfg, trialDays) {
 // Режим «Разослать сейчас» из админки: не сверяемся с расписанием, а отправляем
 // КАЖДОМУ его текущую ситуацию: пробный идёт / последний день / пробный кончился /
 // подписка скоро истечёт / подписка истекла (сколько бы дней ни прошло).
-// Дедуп — по дате: kind='manual_<тип>', stage=YYYY-MM-DD, т.е. повторное нажатие
+// Дедуп - по дате: kind='manual_<тип>', stage=YYYY-MM-DD, т.е. повторное нажатие
 // в тот же день никого не задвоит, а завтра можно разослать снова.
 function classifyBlast(row, cfg, trialDays, today) {
   if (row.has_active_trainer) return null;
@@ -172,7 +172,7 @@ function classifyBlast(row, cfg, trialDays, today) {
     const daysTo = row.days_to_expiry;
     if (daysTo > 0) {
       if (row.sub_status !== "active") return null;
-      // Дальше горизонта напоминаний (деф. 7 дней) — рано дёргать человека.
+      // Дальше горизонта напоминаний (деф. 7 дней) - рано дёргать человека.
       const maxPre = Math.max(...cfg.paid_pre_days);
       if (daysTo > maxPre) return null;
       return {
@@ -205,10 +205,10 @@ function fmtDate(d, tz) {
   }
 }
 
-// force: true — игнорировать локальный час пользователей (обработать всех прямо сейчас).
-// blast: true — режим «Разослать сейчас» из админки: каждому уходит сообщение по его
+// force: true - игнорировать локальный час пользователей (обработать всех прямо сейчас).
+// blast: true - режим «Разослать сейчас» из админки: каждому уходит сообщение по его
 //   ТЕКУЩЕЙ ситуации (см. classifyBlast), а не по точному совпадению с расписанием.
-// Дедуп работает в обоих режимах; плюс общий предохранитель — не больше одного
+// Дедуп работает в обоих режимах; плюс общий предохранитель - не больше одного
 // напоминания о подписке в сутки на человека (blast и крон не задвоят друг друга).
 // Возвращает статистику для показа в админке.
 async function subscriptionReminders({ force = false, blast = false } = {}) {
@@ -253,7 +253,7 @@ async function subscriptionReminders({ force = false, blast = false } = {}) {
   );
 
   let sent = 0, failed = 0, skipped = 0, blocked = 0;
-  // Разбивка по поводам (ключи reminders.texts) — для сводки в канал логов.
+  // Разбивка по поводам (ключи reminders.texts) - для сводки в канал логов.
   // Именно textsKey, а не plan.kind: в ручной рассылке kind'ы свои (manual_*), а повод тот же.
   const byKind = {};
   for (const r of rows) {
@@ -265,7 +265,7 @@ async function subscriptionReminders({ force = false, blast = false } = {}) {
     const plan = blast ? classifyBlast(row, cfg, trialDays, today) : classify(row, cfg, trialDays);
     if (!plan) { skipped++; continue; }
 
-    // Дедуп: фиксируем стадию ДО отправки — одна попытка на стадию.
+    // Дедуп: фиксируем стадию ДО отправки - одна попытка на стадию.
     const ins = await db.query(
       `INSERT INTO subscription_reminders (user_id, kind, stage, anchor_at)
        VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING id`,
@@ -280,15 +280,15 @@ async function subscriptionReminders({ force = false, blast = false } = {}) {
       ...stats,
       ...plan.extra
     };
-    // В blast-режиме вариант текста крутим по дню месяца — повторные рассылки
+    // В blast-режиме вариант текста крутим по дню месяца - повторные рассылки
     // в разные дни показывают разные тексты.
     const stageIndex = blast ? new Date().getDate() : plan.stageIndex;
     const text = pickTemplate(cfg.texts[plan.textsKey], r.id, stageIndex, data);
     if (!text) {
-      // Стадия уже зафиксирована дедупом — без шаблонов она пропадёт молча,
+      // Стадия уже зафиксирована дедупом - без шаблонов она пропадёт молча,
       // поэтому оставляем след в логах (например, в админке стёрли все тексты).
       skipped++;
-      console.warn(`[cron] subscriptionReminders: нет подходящего шаблона ${plan.kind}/${plan.stage} (user ${r.id}) — стадия пропущена`);
+      console.warn(`[cron] subscriptionReminders: нет подходящего шаблона ${plan.kind}/${plan.stage} (user ${r.id}) - стадия пропущена`);
       continue;
     }
 
@@ -315,7 +315,7 @@ async function subscriptionReminders({ force = false, blast = false } = {}) {
     }
   }
   console.log(`[cron] subscriptionReminders${blast ? " (blast)" : ""} -> sent=${sent} failed=${failed} blocked=${blocked} skipped=${skipped} (of ${rows.length})`);
-  // Сводка в канал логов — общими цифрами по поводам, без перечисления людей.
+  // Сводка в канал логов - общими цифрами по поводам, без перечисления людей.
   await notifyLog.subscriptionRun({ byKind, failed, blocked, blast })
     .catch((e) => console.error("[cron] subscriptionReminders log:", e.message));
   return { sent, failed, blocked, skipped, total: rows.length };
@@ -348,20 +348,20 @@ async function sendTestReminder({ kind, user }) {
     weight_delta: stats.weight_delta ?? "−2,5 кг",
     days_left: 3,
     expires_date: fmtDate(inThreeDays, tz),
-    // Только для «Не завершил оплату» — в тесте показываем образец тарифа и цены.
+    // Только для «Не завершил оплату» - в тесте показываем образец тарифа и цены.
     tariff: "PRO",
     price: 150
   };
-  // Случайная стадия — каждый клик показывает другой вариант текста.
+  // Случайная стадия - каждый клик показывает другой вариант текста.
   const text = pickTemplate(templates, user.id, Math.floor(Math.random() * 100), data);
   if (!text) return { ok: false, error: "no_templates" };
 
-  // У догонялки по брошенной оплате своя кнопка — «Продлить» человеку без покупок не подходит.
+  // У догонялки по брошенной оплате своя кнопка - «Продлить» человеку без покупок не подходит.
   const buttonText = kind === "payment_abandoned"
     ? (cfg.abandoned_button_text || "Оформить подписку")
     : (cfg.button_text || "Продлить подписку");
 
-  const res = await sendMessage(user.telegram_id, `🧪 Тест — так это увидит пользователь:\n\n${text}`, {
+  const res = await sendMessage(user.telegram_id, `🧪 Тест - так это увидит пользователь:\n\n${text}`, {
     reply_markup: {
       inline_keyboard: [[{
         text: buttonText,
@@ -369,7 +369,7 @@ async function sendTestReminder({ kind, user }) {
       }]]
     }
   });
-  // В канал логов — только про реально ушедший тест (в mock-режиме отправки не было).
+  // В канал логов - только про реально ушедший тест (в mock-режиме отправки не было).
   if (res && res.ok !== false) notifyLog.test(user.id, kind).catch(() => {});
   return res;
 }
@@ -377,7 +377,7 @@ async function sendTestReminder({ kind, user }) {
 module.exports = {
   subscriptionReminders,
   sendTestReminder,
-  // Внутренности — для ручной проверки логики без БД (node -e / тесты)
+  // Внутренности - для ручной проверки логики без БД (node -e / тесты)
   // и переиспользования в mealReminders (renderTemplate/pickTemplate/loadPersonalStats).
   _internal: { classify, classifyBlast, renderTemplate, pickTemplate, toDayList, formatWeightDelta, loadPersonalStats }
 };

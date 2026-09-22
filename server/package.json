@@ -1,7 +1,7 @@
 {
   "name": "bytwise-server",
   "version": "1.0.0",
-  "description": "Bytwise — REST API backend",
+  "description": "Bytwise - REST API backend",
   "main": "src/index.js",
   "type": "commonjs",
   "engines": {

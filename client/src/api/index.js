@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Пользователя заблокировали — сервер отвечает 403 { error: "blocked" } на ЛЮБОЙ запрос
+// Пользователя заблокировали - сервер отвечает 403 { error: "blocked" } на ЛЮБОЙ запрос
 // (server/src/middleware/auth.js). Сообщаем об этом приложению, чтобы оно показало заглушку
 // сразу, а не после перезагрузки: бан может случиться посреди сессии.
 let blockedHandler = null;
@@ -60,7 +60,7 @@ export const Scan = {
     const fd = new FormData();
     fd.append("image", file);
     fd.append("meal_type", mealType);
-    // Распознавание фото может занять до ~минуты — даём запас по таймауту
+    // Распознавание фото может занять до ~минуты - даём запас по таймауту
     return api.post("/scan", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 90000 }).then((r) => r.data);
   },
   text: (body) => api.post("/scan/text", body).then((r) => r.data),

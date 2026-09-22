@@ -78,8 +78,8 @@ function PayoutModal({ stats, busy, onPay, onClose }) {
         </div>
 
         <p className="muted" style={{ fontSize: 13, margin: "10px 0 16px" }}>
-          Деньги ты переводишь сам — здесь только отметка. Выплата закроет всё невыплаченное
-          этого типа, бот пришлёт сотруднику сообщение. Ошибся — выплату можно отменить в истории.
+          Деньги ты переводишь сам - здесь только отметка. Выплата закроет всё невыплаченное
+          этого типа, бот пришлёт сотруднику сообщение. Ошибся - выплату можно отменить в истории.
         </p>
 
         <div className="row">
@@ -117,7 +117,7 @@ export default function EmployeeCardPage() {
       reload();
     } catch (ex) {
       const code = ex?.response?.data?.error;
-      alert(code === "nothing_to_pay" ? "Нечего выплачивать — всё уже закрыто." : "Не получилось: " + (code || ex.message));
+      alert(code === "nothing_to_pay" ? "Нечего выплачивать - всё уже закрыто." : "Не получилось: " + (code || ex.message));
     } finally {
       setBusy(false);
     }
@@ -247,11 +247,11 @@ export default function EmployeeCardPage() {
                   <td data-label="Пришёл">{fmtDate(r.created_at)}</td>
                   <td data-label="Статус">
                     <span className={"pill " + st.cls}>
-                      {st.label}{r.reject_reason ? ` — ${REJECT_REASONS[r.reject_reason] || r.reject_reason}` : ""}
+                      {st.label}{r.reject_reason ? ` - ${REJECT_REASONS[r.reject_reason] || r.reject_reason}` : ""}
                     </span>
                   </td>
                   <td data-label="Оплат">{r.payments_count}</td>
-                  <td data-label="Принёс">{r.revenue > 0 ? <b>{money(r.revenue)}</b> : <span className="muted">—</span>}</td>
+                  <td data-label="Принёс">{r.revenue > 0 ? <b>{money(r.revenue)}</b> : <span className="muted">-</span>}</td>
                   <td data-label="Выплачен">{r.status === "confirmed" ? (r.paid_out ? "✅" : <span className="pill amber">ждёт</span>) : ""}</td>
                 </tr>
               );

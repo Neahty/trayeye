@@ -44,13 +44,13 @@ function niceMax(v) {
 export function BarChart({ chart, metric, goal, granularity, onBar }) {
   const vals = chart.map((b) => Number(b[metric]) || 0);
   const maxData = Math.max(1, ...vals, goal || 0);
-  // Калории масштабируем шагами по 500, макросы — динамически, иначе столбцы почти не видны
+  // Калории масштабируем шагами по 500, макросы - динамически, иначе столбцы почти не видны
   const max = metric === "calories" ? (Math.ceil(maxData / 500) * 500 || 500) : niceMax(maxData);
   const goalY = goal ? CHART_H * (1 - goal / max) : null;
-  // При большом числе столбцов (год — 12 месяцев) сужаем, чтобы помещалось на мобильном
+  // При большом числе столбцов (год - 12 месяцев) сужаем, чтобы помещалось на мобильном
   const bw = chart.length > 8 ? 16 : 26;
   // Подпись бакета под столбцом зависит от гранулярности:
-  // день — «Пн / 5 июн»; неделя — «5 июн» (начало недели); месяц — «июн».
+  // день - «Пн / 5 июн»; неделя - «5 июн» (начало недели); месяц - «июн».
   const topLabel = (d) => granularity === "month" ? fmtMonth(d) : granularity === "week" ? fmtDay(d) : dow(d);
   const subLabel = (d) => granularity === "day" ? fmtDay(d) : "";
   const ticks = 5;
@@ -185,7 +185,7 @@ export default function StatsPage() {
   });
   const statInfo = (title, body) => () => ui.sheet({ type: "info", title, body, actionLabel: "Понятно" });
 
-  // Забрать награду: сервер проверяет выполнение и шлёт ссылку в ЛС. При недоступном боте — тост.
+  // Забрать награду: сервер проверяет выполнение и шлёт ссылку в ЛС. При недоступном боте - тост.
   const claimReward = async (q, close) => {
     try {
       await Quests.claim(q.code);
@@ -283,7 +283,7 @@ export default function StatsPage() {
                 </div>
               );
             })}
-            {!list.length && <div style={{ textAlign: "center", color: "var(--text-2)", padding: "20px 0" }}>Квестов пока нет — заглядывайте позже.</div>}
+            {!list.length && <div style={{ textAlign: "center", color: "var(--text-2)", padding: "20px 0" }}>Квестов пока нет - заглядывайте позже.</div>}
           </div>
         </div>
       )
@@ -326,7 +326,7 @@ export default function StatsPage() {
         {hasData ? (
           <BarChart chart={chart} metric={metric} goal={goals[metric]} granularity={granularity} onBar={barInfo} />
         ) : (
-          <EmptyState icon="bars" title="Нет данных за период" sub="Добавляйте приёмы пищи — здесь появится график калорий и БЖУ." />
+          <EmptyState icon="bars" title="Нет данных за период" sub="Добавляйте приёмы пищи - здесь появится график калорий и БЖУ." />
         )}
       </div>
 

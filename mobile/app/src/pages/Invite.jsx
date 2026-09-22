@@ -63,15 +63,15 @@ export default function InvitePage() {
     try { await navigator.clipboard.writeText(link); ui.toast("Ссылка скопирована", "check"); }
     catch { ui.toast(link); }
   };
-  // Telegram сам подставит ссылку из url=, поэтому в share_text её нет — иначе задвоится.
-  // Системное «Поделиться» iOS. Если не вышло (или мы в браузере) — копируем ссылку.
+  // Telegram сам подставит ссылку из url=, поэтому в share_text её нет - иначе задвоится.
+  // Системное «Поделиться» iOS. Если не вышло (или мы в браузере) - копируем ссылку.
   const share = async () => {
     if (!link) return;
     const ok = await shareNative(link, data.share_text || "");
     if (!ok) copyLink();
   };
 
-  // Забрать подарок. Ошибка «уже получено» — не сбой, а гонка с кнопкой в боте:
+  // Забрать подарок. Ошибка «уже получено» - не сбой, а гонка с кнопкой в боте:
   // просто перезагружаем список, чтобы карточка исчезла.
   const claimReward = async (r) => {
     if (claiming) return;
@@ -95,7 +95,7 @@ export default function InvitePage() {
   const pending = (data?.rewards || []).filter((r) => r.status === "pending");
   const claimed = (data?.rewards || []).filter((r) => r.status === "claimed");
   // Сколько друзей осталось до следующего подарка. Ступени считаются от общего числа
-  // засчитанных, поэтому остаток — это дополнение до целой ступени.
+  // засчитанных, поэтому остаток - это дополнение до целой ступени.
   const toNext = rule && inv ? rule.per - (inv.confirmed % rule.per) : null;
 
   return (
@@ -152,7 +152,7 @@ export default function InvitePage() {
             <span style={{ fontSize: 30, flex: "0 0 auto", opacity: .85 }}>🎁</span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: 15.5, letterSpacing: "-.2px" }}>
-                Каждые {rule.per} друзей — {rule.days} {plural(rule.days, "день", "дня", "дней")} PRO бесплатно
+                Каждые {rule.per} друзей - {rule.days} {plural(rule.days, "день", "дня", "дней")} PRO бесплатно
               </div>
               <div style={{ color: "var(--text-2)", fontSize: 13.5, marginTop: 3 }}>
                 {inv ? `Ещё ${toNext} ${plural(toNext, "друг", "друга", "друзей")} до подарка` : "Считаем ваш прогресс…"}
@@ -166,20 +166,20 @@ export default function InvitePage() {
       {/* статистика */}
       <h3 className="sec-title" style={{ margin: "22px 4px 10px", fontSize: 18 }}>Ваша статистика</h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-        <StatTile value={inv?.confirmed ?? "—"} label="Друзей засчитано" accent="var(--primary)" />
-        <StatTile value={inv?.pending ?? "—"} label="На проверке" />
+        <StatTile value={inv?.confirmed ?? "-"} label="Друзей засчитано" accent="var(--primary)" />
+        <StatTile value={inv?.pending ?? "-"} label="На проверке" />
         <StatTile value={clicks} label="Переходов по ссылке" />
-        <StatTile value={inv?.rejected ?? "—"} label="Не прошли проверку" />
+        <StatTile value={inv?.rejected ?? "-"} label="Не прошли проверку" />
       </div>
 
       {/* правила */}
       <div className="card" style={{ padding: 16, marginTop: 16 }}>
         <div style={{ fontWeight: 800, marginBottom: 2 }}>Как засчитывается друг</div>
-        <Rule>Он должен быть новым — тех, кто уже пользовался Bytwise, засчитать нельзя.</Rule>
+        <Rule>Он должен быть новым - тех, кто уже пользовался Bytwise, засчитать нельзя.</Rule>
         <Rule>Ему нужно открыть приложение и подписаться на наш канал.</Rule>
-        <Rule>Через 24 часа проверяем: если он не вышел из канала и не заблокировал бота — друг засчитан.</Rule>
+        <Rule>Через 24 часа проверяем: если он не вышел из канала и не заблокировал бота - друг засчитан.</Rule>
         {rule && (
-          <Rule>За каждые {rule.per} засчитанных друзей — {rule.days} {plural(rule.days, "день", "дня", "дней")} PRO
+          <Rule>За каждые {rule.per} засчитанных друзей - {rule.days} {plural(rule.days, "день", "дня", "дней")} PRO
             бесплатно. Подарок нужно забрать: кнопкой здесь или в сообщении от бота.</Rule>
         )}
         <p className="muted" style={{ fontSize: 13, marginTop: 14, lineHeight: 1.45 }}>

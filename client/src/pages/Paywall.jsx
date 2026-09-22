@@ -16,8 +16,8 @@ export default function Paywall() {
 
   useEffect(() => { Settings.public().then(setCfg).catch(() => setCfg(null)); }, []);
 
-  // Если доступ уже есть (своя активная подписка или доступ от тренера) — пейволл не нужен:
-  // ведём в «Управление подпиской». Активный пробный период не редиректим — это апселл.
+  // Если доступ уже есть (своя активная подписка или доступ от тренера) - пейволл не нужен:
+  // ведём в «Управление подпиской». Активный пробный период не редиректим - это апселл.
   const hasAccess = Boolean(profile?.subscription || profile?.trainer);
   useEffect(() => {
     if (hasAccess) navigate("/subscription", { replace: true });
@@ -27,7 +27,7 @@ export default function Paywall() {
     setLoading(true);
     try {
       const res = await Subscription.buy(type);
-      // Mock-режим: подписка активирована на сервере — без редиректа.
+      // Mock-режим: подписка активирована на сервере - без редиректа.
       if (res?.activated) {
         await reload();
         ui.toast("Подписка активна", "check");
@@ -35,7 +35,7 @@ export default function Paywall() {
         return;
       }
       openPayment(ui, res?.payment_url || res?.mock);
-      // Мини-апп остаётся открытым — снимаем блокировку кнопки в любом случае.
+      // Мини-апп остаётся открытым - снимаем блокировку кнопки в любом случае.
       setLoading(false);
     } catch (e) {
       if (e?.response?.data?.error === "already_subscribed") {
@@ -51,18 +51,18 @@ export default function Paywall() {
     }
   }
 
-  // Запасной тариф на случай, если настройки не загрузились (цена — из настроек).
+  // Запасной тариф на случай, если настройки не загрузились (цена - из настроек).
   const defaultTariffs = [
     { id: "basic", title: "PRO", price: cfg?.price_basic || 349, period: "мес", features: ["Безлимит сканов", "AI-добавление текстом", "Полная статистика"] }
   ];
-  // Сервер уже отдаёт только включённые тарифы — показываем все, включая тренерский
+  // Сервер уже отдаёт только включённые тарифы - показываем все, включая тренерский
   // (его также можно купить через «Стать тренером» в Профиле).
   const tariffs = cfg?.tariffs?.length ? cfg.tariffs : defaultTariffs;
 
   // Подстановки в текстах оффера: дневной лимит, остаток пробного и его длина.
   const freeLimit = cfg?.free_scan_daily_limit;
   const trialEnds = profile?.trial?.ends_at ? new Date(profile.trial.ends_at).getTime() : null;
-  // 1 = «последний день, сегодня ещё работает» — так же считает сервер (utils/scanUsage.js).
+  // 1 = «последний день, сегодня ещё работает» - так же считает сервер (utils/scanUsage.js).
   const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds - Date.now()) / 86400000)) : null;
   const fillVars = (s) => String(s || "")
     .replace(/\{limit\}/g, freeLimit != null ? freeLimit : "")
@@ -70,12 +70,12 @@ export default function Paywall() {
     .replace(/\{trial_days\}/g, profile?.trial?.days != null ? profile.trial.days : "");
 
   // Ситуация человека (доступа нет, иначе был бы редирект выше):
-  //  sub_over   — была платная подписка и закончилась;
-  //  trial_over — платной не было, пробный истёк;
-  //  daily_cap  — пробный ещё идёт, но сканы на сегодня кончились;
-  //  иначе      — нейтральный оффер (человек зашёл сам, сканы ещё есть).
-  // Причину берём из навигации (её кладёт обработчик 403 при скане) — это точный сигнал прямо
-  // в момент отказа. Если пришли иначе (диплинк из пуша бота, перезагрузка) — смотрим остаток
+  //  sub_over   - была платная подписка и закончилась;
+  //  trial_over - платной не было, пробный истёк;
+  //  daily_cap  - пробный ещё идёт, но сканы на сегодня кончились;
+  //  иначе      - нейтральный оффер (человек зашёл сам, сканы ещё есть).
+  // Причину берём из навигации (её кладёт обработчик 403 при скане) - это точный сигнал прямо
+  // в момент отказа. Если пришли иначе (диплинк из пуша бота, перезагрузка) - смотрим остаток
   // сканов из профиля: `limit` сервер отдаёт только тем, у кого нет доступа.
   const reason = location.state?.reason;
   const outOfScansToday = reason === "daily_cap" || profile?.limit?.left_today === 0;
@@ -85,13 +85,13 @@ export default function Paywall() {
     : !profile?.trial?.active
     ? fillVars(cfg?.paywall_text_trial_over || "Пробный период закончился. Оформите Bytwise PRO, чтобы продолжать считать калории без ограничений.")
     : outOfScansToday
-    ? fillVars(cfg?.paywall_text_daily_cap || "На сегодня бесплатные сканы закончились. Пробный доступ ещё идёт — можно вернуться завтра, а с Bytwise PRO сканы без ограничений доступны прямо сейчас.")
+    ? fillVars(cfg?.paywall_text_daily_cap || "На сегодня бесплатные сканы закончились. Пробный доступ ещё идёт - можно вернуться завтра, а с Bytwise PRO сканы без ограничений доступны прямо сейчас.")
     : fillVars(cfg?.paywall_text || "Безлимитное сканирование, AI-добавление текстом и полная статистика.");
 
   // Заметный оффер-блок: буллеты преимуществ Pro (редактируются в админке).
   const offerFeatures = Array.isArray(cfg?.paywall_features) ? cfg.paywall_features.filter(Boolean) : [];
 
-  if (hasAccess) return null; // пока выполняется редирект — пейволл не показываем
+  if (hasAccess) return null; // пока выполняется редирект - пейволл не показываем
 
   return (
     <div className="screen fade-in" style={{ paddingTop: 28 }}>

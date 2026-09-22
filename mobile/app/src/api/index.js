@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Пользователя заблокировали — сервер отвечает 403 { error: "blocked" } на ЛЮБОЙ запрос
+// Пользователя заблокировали - сервер отвечает 403 { error: "blocked" } на ЛЮБОЙ запрос
 // (server/src/middleware/auth.js). Сообщаем об этом приложению, чтобы оно показало заглушку
 // сразу, а не после перезагрузки: бан может случиться посреди сессии.
 let blockedHandler = null;
@@ -46,7 +46,7 @@ function stripQueryParam(name) {
   } catch { /* ignore */ }
 }
 
-// Признак «нужен код входа» — приложение по нему показывает экран входа
+// Признак «нужен код входа» - приложение по нему показывает экран входа
 // вместо ошибки (см. pages/CodeLogin).
 function needCode() {
   const e = new Error("need_code");
@@ -69,7 +69,7 @@ export async function login() {
   const devId = params.get("dev_id");
 
   // Приложение, установленное на телефон (нативная сборка или иконка на «Домой»):
-  // Telegram initData здесь взять неоткуда. Первый вход — по одноразовому коду
+  // Telegram initData здесь взять неоткуда. Первый вход - по одноразовому коду
   // из бота (/pwa), дальше живём на сохранённом токене.
   if (!initData && !devId) {
     const pwaCode = params.get("pwa");
@@ -83,12 +83,12 @@ export async function login() {
         const { data } = await api.get("/auth/me");
         return data.user;
       } catch (e) {
-        // 403 blocked пусть всплывает как есть — заглушку покажет приложение.
+        // 403 blocked пусть всплывает как есть - заглушку покажет приложение.
         if (e?.response?.status !== 401) throw e;
         setToken(null);
       }
     }
-    // Токена нет или он протух — приложение попросит код входа.
+    // Токена нет или он протух - приложение попросит код входа.
     throw needCode();
   }
 
@@ -110,7 +110,7 @@ export const Scan = {
     const fd = new FormData();
     fd.append("image", file);
     fd.append("meal_type", mealType);
-    // Распознавание фото может занять до ~минуты — даём запас по таймауту
+    // Распознавание фото может занять до ~минуты - даём запас по таймауту
     return api.post("/scan", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 90000 }).then((r) => r.data);
   },
   text: (body) => api.post("/scan/text", body).then((r) => r.data),
