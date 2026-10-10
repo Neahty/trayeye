@@ -1,7 +1,7 @@
 {
-  "name": "bytwise-server",
+  "name": "biznes-it-server",
   "version": "1.0.0",
-  "description": "Bytwise - REST API backend",
+  "description": "Бизнес - IT компания (АгроСкан) - REST API backend",
   "main": "src/index.js",
   "type": "commonjs",
   "engines": {

@@ -1,9 +1,9 @@
 {
-  "name": "bytwise-ios",
+  "name": "biznes-it-ios",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Bytwise для iPhone - нативная сборка на Capacitor. Копия client/, живёт своей жизнью.",
+  "description": "Бизнес - IT компания для iPhone - нативная сборка на Capacitor. Копия client/, живёт своей жизнью.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
