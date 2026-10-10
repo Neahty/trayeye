@@ -1,8 +1,8 @@
 name: Deploy to Ubuntu
 
 on:
-  push:
-    branches: [master]
+  # Автодеплой ОТКЛЮЧЁН: проект «Бизнес - IT компания» не связан с сервером Bytwise.
+  # push в master больше ничего не выкатывает.
   workflow_dispatch: {}   # можно запускать вручную из вкладки Actions
   workflow_call: {}       # вызывается из auto-deploy-claude.yml после мёрджа в master
 
@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: false   # деплой отключён (см. выше)
     runs-on: ubuntu-latest
     steps:
       - name: Deploy over SSH
