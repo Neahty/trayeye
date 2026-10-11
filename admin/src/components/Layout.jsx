@@ -54,7 +54,7 @@ export default function Layout({ children }) {
       {/* Мобильная шапка: видна только на телефонах (CSS). Кнопка ☰ открывает меню. */}
       <header className="mobile-topbar">
         <button className="burger" onClick={() => setOpen(true)} aria-label="Меню">☰</button>
-        <div className="brand"><span className="logo">B</span> Бизнес - IT компания</div>
+        <div className="brand"><span className="logo">T</span> TrayEye</div>
       </header>
 
       {/* Затемнение под выехавшим меню */}
@@ -62,7 +62,7 @@ export default function Layout({ children }) {
 
       <aside className={"sidebar" + (open ? " open" : "")}>
         <div className="brand">
-          <span className="logo">B</span> Бизнес - IT компания
+          <span className="logo">T</span> TrayEye
         </div>
         {NAV.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} onClick={close}

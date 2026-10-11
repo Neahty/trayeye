@@ -38,7 +38,7 @@ export default function Login() {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
-        <h1>Бизнес - IT компания · Админка</h1>
+        <h1>TrayEye · Админка</h1>
         <div className="sub">Панель управления. Вход только для администраторов.</div>
         {err && <div className="err">{err}</div>}
         <div className="field">
