@@ -15,6 +15,13 @@
 - `web/` - React 18 + Vite. Сейчас без дизайна: только логика экранов. Дизайн - по макету Figma.
 - `docs/PLAN-cabinets.md` - план и решения.
 
+## Где работает
+
+РФ-сервер Cloud.ru (`ssh rf`, vm-ce8793): `/opt/trayeye`, systemd `trayeye` (127.0.0.1:4100, пользователь trayeye),
+PostgreSQL `trayeye` там же. Снаружи: https://shekspireteam.ru/trayeye/ (Caddy Лондон → туннель → Caddy РФ :8080).
+Выкатка: `git archive HEAD | ssh rf 'rm -rf ~/trayeye-src && mkdir ~/trayeye-src && tar -x -C ~/trayeye-src'`,
+затем `ssh rf 'sudo bash ~/trayeye-src/deploy/deploy-rf.sh ~/trayeye-src'`. Подробно: `deploy/README.md`.
+
 ## Команды
 
 - `cd server && npm run seed` - пересоздать демо-данные (стирает БД!) и вывести ссылки входа.
