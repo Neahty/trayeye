@@ -1,6 +1,13 @@
 // Клиент API. Сессия (JWT после входа по ссылке) хранится в localStorage.
 
 const TOKEN_KEY = "trayeye_session";
+// Префикс приложения за прокси (vite base), без завершающего слэша: "" или "/trayeye".
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Путь от корня приложения ("/dishes/borscht.jpg") -> с учётом префикса. Внешние URL не трогаем.
+export function appUrl(path) {
+  return path && path.startsWith("/") && !path.startsWith("//") ? `${BASE}${path}` : path;
+}
 
 export function getSession() {
   return localStorage.getItem(TOKEN_KEY);
@@ -26,7 +33,7 @@ async function request(method, path, body) {
   const isForm = body instanceof FormData;
   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${BASE}/api${path}`, {
     method,
     headers,
     body: body === undefined ? undefined : isForm ? body : JSON.stringify(body)

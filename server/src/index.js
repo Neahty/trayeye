@@ -4,6 +4,8 @@ const db = require("./db");
 const vision = require("./services/vision");
 
 const PORT = Number(process.env.PORT) || 4100;
+// По умолчанию слушаем только localhost: наружу приложение выходит через Caddy.
+const HOST = process.env.HOST || "127.0.0.1";
 
 (async () => {
   try {
@@ -16,5 +18,5 @@ const PORT = Number(process.env.PORT) || 4100;
   if (!vision.isConfigured()) {
     console.warn("[startup] GEMINI_API_KEY/OPENAI_API_KEY не заданы - распознавание подносов выключено.");
   }
-  createApp().listen(PORT, () => console.log(`TrayEye API на порту ${PORT}`));
+  createApp().listen(PORT, HOST, () => console.log(`TrayEye API на ${HOST}:${PORT}`));
 })();

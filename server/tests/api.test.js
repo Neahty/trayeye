@@ -48,6 +48,14 @@ suite("API", () => {
     fs.rmSync(process.env.UPLOADS_DIR, { recursive: true, force: true });
   });
 
+  test("BASE_PATH: приложение отвечает под префиксом прокси", async () => {
+    process.env.BASE_PATH = "/trayeye";
+    const prefixed = createApp();
+    delete process.env.BASE_PATH;
+    expect((await request(prefixed).get("/trayeye/api/health")).body).toEqual({ status: "ok" });
+    expect((await request(prefixed).get("/api/health")).status).toBe(404);
+  });
+
   test("health проверяет базу", async () => {
     const res = await request(app).get("/api/health");
     expect(res.body).toEqual({ status: "ok" });

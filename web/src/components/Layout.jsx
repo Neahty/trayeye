@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useSession } from "../session.jsx";
+import { appUrl } from "../lib/api";
 
 // Пункты меню - как в макете Figma.
 const NAV = {
@@ -33,7 +34,7 @@ export default function Layout({ children }) {
     <div className="layout">
       <aside className="sidebar">
         <div className="avatar">
-          {cabinet.avatarUrl ? <img src={cabinet.avatarUrl} alt="" /> : <span>аватар</span>}
+          {cabinet.avatarUrl ? <img src={appUrl(cabinet.avatarUrl)} alt="" /> : <span>аватар</span>}
         </div>
         <nav>
           {NAV[cabinet.role].map((item) => (

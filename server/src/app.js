@@ -28,6 +28,12 @@ function serveWeb(app) {
   app.get(/^\/(?!api\/)[^.]*$/, (req, res) => res.sendFile(path.join(WEB_DIST, "index.html")));
 }
 
+// Префикс, под которым приложение живёт за прокси (например /trayeye). Пусто - корень домена.
+function basePath() {
+  const raw = (process.env.BASE_PATH || "").trim().replace(/\/+$/, "");
+  return raw && !raw.startsWith("/") ? `/${raw}` : raw;
+}
+
 function createApp() {
   const app = express();
   app.set("trust proxy", 1);
@@ -36,6 +42,22 @@ function createApp() {
   app.use(express.json({ limit: "100kb" }));
   if (process.env.NODE_ENV !== "test") app.use(morgan("tiny"));
 
+  const root = express.Router();
+  mountRoutes(root);
+  app.use(basePath() || "/", root);
+
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, _next) => {
+    const status = err.status || 500;
+    if (status >= 500) console.error(`[error] ${req.method} ${req.originalUrl}:`, err.message);
+    // Текст внутренней ошибки наружу не отдаём.
+    res.status(status).json({ error: status >= 500 ? errorCode(err) : err.expose ? err.message : "bad_request" });
+  });
+
+  return app;
+}
+
+function mountRoutes(app) {
   app.get("/api/health", async (req, res) => {
     try {
       await db.query("SELECT 1");
@@ -50,16 +72,6 @@ function createApp() {
   app.use("/api", (req, res) => res.status(404).json({ error: "not_found" }));
 
   serveWeb(app);
-
-  // eslint-disable-next-line no-unused-vars
-  app.use((err, req, res, _next) => {
-    const status = err.status || 500;
-    if (status >= 500) console.error(`[error] ${req.method} ${req.originalUrl}:`, err.message);
-    // Текст внутренней ошибки наружу не отдаём.
-    res.status(status).json({ error: status >= 500 ? errorCode(err) : err.expose ? err.message : "bad_request" });
-  });
-
-  return app;
 }
 
 // Для известных сбоев (ИИ не настроен / не ответил) отдаём их код, остальное - internal_error.

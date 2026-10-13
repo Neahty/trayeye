@@ -1,4 +1,5 @@
 // Простые кирпичики интерфейса. Оформление появится вместе с дизайном.
+import { appUrl } from "../lib/api";
 
 const ERROR_TEXT = {
   ai_not_configured: "Распознавание не настроено: на сервере нет ключа Gemini/OpenAI.",
@@ -35,7 +36,7 @@ export function Card({ title, children }) {
 export function DishImage({ src }) {
   return (
     <span className="dish-img">
-      {src && <img src={src} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
+      {src && <img src={appUrl(src)} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
     </span>
   );
 }

@@ -1,0 +1,23 @@
+[Unit]
+Description=TrayEye - кабинеты директора и комбината (РФ)
+After=network-online.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=trayeye
+Group=trayeye
+WorkingDirectory=/opt/trayeye/server
+# .env лежит в /opt/trayeye/.env и читается приложением само
+Environment=NODE_ENV=production
+ExecStart=/usr/local/bin/node src/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/trayeye/uploads
+
+[Install]
+WantedBy=multi-user.target
