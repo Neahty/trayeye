@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directories: ["/server", "/client", "/admin", "/support"]
+    directories: ["/server", "/web"]
     schedule: {interval: monthly}
     open-pull-requests-limit: 3
     groups:

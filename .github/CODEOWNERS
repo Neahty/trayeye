@@ -1,6 +1,5 @@
 # Владельцы кода: автоматически назначаются ревьюерами в Pull Request.
 *                @Neahty
 /server/         @Neahty
-/client/         @Neahty
-/admin/          @Neahty
+/web/            @Neahty
 /.github/        @Neahty
