@@ -1,11 +1,35 @@
-// Хелперы для роутов.
+// Хелперы разбора входных данных для роутов.
 
-// Безопасный разбор числового id из параметров пути.
-// Возвращает положительное целое или null (тогда роут отдаёт 400 bad_id вместо запроса с NaN,
-// который ронял Postgres в 500).
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Положительное целое или null (роут отвечает 400, а не роняет Postgres на NaN).
 function parseId(v) {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-module.exports = { parseId };
+// Целое в диапазоне [min, max] или null.
+function parseIntInRange(v, min, max) {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= min && n <= max ? n : null;
+}
+
+// Дата YYYY-MM-DD, которая реально существует в календаре, или null.
+function parseDate(v) {
+  if (typeof v !== "string" || !ISO_DATE.test(v)) return null;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v ? v : null;
+}
+
+// Непустая строка после trim, не длиннее max, или null.
+function parseText(v, max) {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return s && s.length <= max ? s : null;
+}
+
+function badRequest(res, error) {
+  return res.status(400).json({ error });
+}
+
+module.exports = { parseId, parseIntInRange, parseDate, parseText, badRequest };

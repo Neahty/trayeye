@@ -1,176 +1,38 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const db = require("../db");
 const jwtUtil = require("../utils/jwt");
-const { validateInitData } = require("../services/telegram");
-const notify = require("../services/notify");
-const channelMembership = require("../services/channelMembership");
-const channelLog = require("../services/channelLog");
-const avatarSync = require("../services/avatarSync");
-const { uniqueRefCode } = require("../utils/refcode");
-const auth = require("../middleware/auth");
-const appLoginCodes = require("../services/appLoginCodes");
-
-// Порог «возвращения после паузы» (дней) для лога reactivation.
-const REACTIVATION_DAYS = 14;
+const { findActiveLink } = require("../services/links");
+const { cabinetAuth, loadCabinet } = require("../middleware/cabinetAuth");
 
 const router = express.Router();
 
-function adminIds() {
-  return (process.env.ADMIN_TELEGRAM_IDS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+// Перебор ссылок бессмыслен (256 бит), но лимит отсекает шум и ботов.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 30;
+const loginLimiter = rateLimit({
+  windowMs: LOGIN_WINDOW_MS,
+  limit: LOGIN_MAX_ATTEMPTS,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "too_many_attempts" }
+});
 
-// POST /api/auth/telegram  { initData, dev_id? }
-router.post("/telegram", async (req, res, next) => {
+// Обмен личной ссылки на сессию.
+router.post("/link", loginLimiter, async (req, res, next) => {
   try {
-    const { initData } = req.body || {};
-    let tgUser = null;
-
-    const parsed = validateInitData(initData);
-    if (parsed && parsed.user) {
-      tgUser = parsed.user;
-    } else if (process.env.NODE_ENV !== "production" && (req.body.dev_id || req.query.dev_id)) {
-      // Dev-байпас для локального теста вне Telegram
-      const devId = String(req.body.dev_id || req.query.dev_id);
-      tgUser = { id: Number(devId), first_name: "Dev", username: `dev_${devId}` };
-    }
-
-    if (!tgUser || !tgUser.id) {
-      return res.status(401).json({ error: "invalid_init_data" });
-    }
-
-    const telegramId = String(tgUser.id);
-    const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ") || null;
-    const username = tgUser.username || null;
-    const isAdmin = adminIds().includes(telegramId);
-
-    let { rows } = await db.query("SELECT * FROM users WHERE telegram_id = $1", [telegramId]);
-    let user = rows[0];
-
-    if (!user) {
-      // ref_code оставляем - это код для ссылок-приглашений тренера (реферальной системы нет).
-      const refCode = await uniqueRefCode();
-      const ins = await db.query(
-        `INSERT INTO users (telegram_id, username, name, ref_code, is_admin, app_opened)
-         VALUES ($1,$2,$3,$4,$5,TRUE)
-         ON CONFLICT (telegram_id) DO UPDATE SET
-           username = COALESCE(EXCLUDED.username, users.username),
-           name = COALESCE(EXCLUDED.name, users.name),
-           is_admin = users.is_admin OR EXCLUDED.is_admin,
-           app_opened = TRUE
-         RETURNING *, (xmax = 0) AS inserted`,
-        [telegramId, username, name, refCode, isAdmin]
-      );
-      user = ins.rows[0];
-      const wasInserted = user.inserted;
-      await db.logAction(user.id, "login", { event: wasInserted ? "register" : "login" });
-      // Новый пользователь, попавший в базу сразу через приложение (без /start в боте).
-      // Открыть мини-апп можно только подписчику канала, поэтому отмечаем членство -
-      // markChannelJoined сам пришлёт лог «Новый пользователь» (один раз). Fire-and-forget.
-      if (wasInserted) {
-        channelMembership.markChannelJoined(user.id, "app").catch((e) =>
-          console.error("[auth] markChannelJoined:", e.message)
-        );
-      }
-    } else {
-      // Запомним прошлый вход ДО обновления - для лога «вернулся после паузы».
-      const prevLogin = user.last_login_at;
-      // Обновить базовые поля + статус админа + активность
-      const device = (req.body?.platform || req.headers["user-agent"] || "").toString().slice(0, 200) || null;
-      const upd = await db.query(
-        `UPDATE users SET username = COALESCE($2, username),
-                          name = COALESCE($3, name),
-                          is_admin = is_admin OR $4,
-                          last_login_at = NOW(),
-                          app_opened = TRUE,
-                          login_count = COALESCE(login_count, 0) + 1,
-                          device = COALESCE($5, device),
-                          tg_unreachable = FALSE
-         WHERE id = $1 RETURNING *`,
-        [user.id, username, name, isAdmin, device]
-      );
-      user = upd.rows[0];
-      await db.logAction(user.id, "login", { event: "login" });
-      // Вернулся после долгой паузы - лог в канал (один раз на возвращение).
-      if (prevLogin) {
-        const daysAway = Math.floor((Date.now() - new Date(prevLogin).getTime()) / 86400000);
-        if (daysAway >= REACTIVATION_DAYS) {
-          const who = await notify.userLabel(user.id);
-          channelLog.postFor(
-            "reactivation",
-            user.id,
-            `🔄 <b>Вернулся после паузы</b>\n\n` +
-            `${who} снова зашёл после ${daysAway} дн. без активности.\n` +
-            `Время: ${notify.fmtWhen()}`
-          ).catch(() => {});
-        }
-      }
-    }
-
-    if (user.is_blocked) {
-      return res.status(403).json({ error: "blocked" });
-    }
-
-    // Подтягиваем/обновляем аватарку из Telegram и кэшируем у себя - чтобы фото было
-    // всегда, даже если загруженный файл потерялся при миграции БД. Fire-and-forget:
-    // вход не должен ждать/падать из-за Bot API.
-    avatarSync.syncTelegramAvatar(user).catch((e) =>
-      console.error("[auth] syncTelegramAvatar:", e.message)
-    );
-
-    const token = jwtUtil.sign({ uid: user.id, telegram_id: user.telegram_id });
-    res.json({ token, user: { id: user.id, telegram_id: user.telegram_id, name: user.name, is_admin: user.is_admin } });
+    const link = await findActiveLink(db, req.body?.token);
+    if (!link) return res.status(401).json({ error: "invalid_link" });
+    await db.query("UPDATE access_links SET last_used_at = NOW() WHERE id = $1", [link.id]);
+    const cabinet = await loadCabinet(link.id);
+    res.json({ token: jwtUtil.sign({ lid: link.id }), cabinet });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/auth/pwa  { code }
-// Вход для приложения, установленного на телефон (нативная сборка или иконка
-// на экране «Домой»). Telegram initData там нет, поэтому бот по команде /pwa
-// выдаёт одноразовый код, а мы меняем его на обычный 30-дневный токен.
-router.post("/pwa", async (req, res, next) => {
-  try {
-    const { code } = req.body || {};
-    if (!code) return res.status(400).json({ error: "no_code" });
-
-    const uid = appLoginCodes.redeem(code);
-    if (!uid) return res.status(401).json({ error: "invalid_code" });
-
-    const { rows } = await db.query("SELECT * FROM users WHERE id = $1", [uid]);
-    const user = rows[0];
-    if (!user) return res.status(401).json({ error: "user_not_found" });
-    if (user.is_blocked) return res.status(403).json({ error: "blocked" });
-
-    const device = (req.headers["user-agent"] || "").toString().slice(0, 200) || null;
-    await db.query(
-      `UPDATE users SET last_login_at = NOW(),
-                        login_count = COALESCE(login_count, 0) + 1,
-                        app_opened = TRUE,
-                        device = COALESCE($2, device)
-       WHERE id = $1`,
-      [user.id, device]
-    );
-    await db.logAction(user.id, "login", { event: "login", source: "pwa" });
-
-    const token = jwtUtil.sign({ uid: user.id, telegram_id: user.telegram_id });
-    res.json({
-      token,
-      user: { id: user.id, telegram_id: user.telegram_id, name: user.name, is_admin: user.is_admin }
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// GET /api/auth/me - кто мы по сохранённому токену.
-// Нужен установленному приложению: при каждом запуске initData взять неоткуда,
-// а токен уже лежит в localStorage - просто проверяем, что он ещё живой.
-router.get("/me", auth, async (req, res) => {
-  const u = req.user;
-  res.json({ user: { id: u.id, telegram_id: u.telegram_id, name: u.name, is_admin: u.is_admin } });
+router.get("/me", cabinetAuth(), (req, res) => {
+  res.json({ cabinet: req.cabinet });
 });
 
 module.exports = router;

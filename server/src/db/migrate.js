@@ -1,14 +1,12 @@
-// Применяет schema.sql и синхронизирует админов. Запуск: npm run migrate
-require("dotenv").config({ path: require("path").resolve(__dirname, "../../../.env") });
-const db = require("./index");
+require("../env");
+const db = require(".");
 
-(async () => {
-  try {
-    await db.init();
-    console.log("[migrate] done");
-    process.exit(0);
-  } catch (err) {
+db.migrate()
+  .then(() => {
+    console.log("[migrate] schema applied");
+    return db.pool.end();
+  })
+  .catch((err) => {
     console.error("[migrate] failed:", err.message);
     process.exit(1);
-  }
-})();
+  });
