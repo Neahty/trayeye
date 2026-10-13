@@ -56,7 +56,7 @@ button.link { min-height: auto; padding: 4px; border: 0; color: var(--blue); bac
 .card { min-width: 0; padding: 22px; background: #fff; border-radius: var(--card-radius); }
 .card h3 { color: var(--green-dark); }
 .grid2 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 20px; }
-.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px; }
 .row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .big { margin: 4px 0; color: var(--green); font-size: clamp(25px, 2.6vw, 36px); font-weight: 600; }
 .error { color: #c62828; }
@@ -67,8 +67,9 @@ button.link { min-height: auto; padding: 4px; border: 0; color: var(--blue); bac
 .wide { width: 100%; }
 .dish-img { width: 58px; height: 54px; flex: 0 0 58px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; background: #f0f1f0; border-radius: 12px; }
 .dish-img img { width: 100%; height: 100%; object-fit: cover; }
-.metric-card { min-height: 142px; padding: 18px 22px; display: flex; align-items: center; gap: 22px; }
-.metric-art { width: 120px; height: 105px; flex: 0 0 120px; object-fit: contain; }
+.metric-card { min-height: 142px; padding: 18px; display: flex; align-items: center; gap: 16px; }
+.metric-card > div, .product-card > div { min-width: 0; }
+.metric-art { width: clamp(82px, 8vw, 120px); height: 105px; flex: 0 0 clamp(82px, 8vw, 120px); object-fit: contain; }
 .metric-label { margin-bottom: 4px; color: var(--green-dark); font-size: 15px; font-weight: 700; }
 .metric-note { color: var(--green); font-size: 12px; font-weight: 500; }
 .metric-card.blue .big { color: var(--blue); }
@@ -99,6 +100,7 @@ button.link { min-height: auto; padding: 4px; border: 0; color: var(--blue); bac
 .stats-report p { margin: auto 0; line-height: 1.55; }
 .product-card { min-height: 165px; display: flex; align-items: center; gap: 18px; }
 .product-card .dish-img { width: 100px; height: 90px; flex-basis: 100px; }
+.product-card .big { overflow-wrap: anywhere; }
 .product-meta { margin-top: 5px; color: var(--green); font-size: 12px; }
 .school-dot { width: 15px; height: 15px; margin-right: 9px; display: inline-block; vertical-align: -2px; background: var(--green); border-radius: 50%; }
 .dot-warning { background: var(--red); }
