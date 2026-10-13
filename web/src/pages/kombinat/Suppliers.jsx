@@ -83,21 +83,22 @@ export default function KombinatSuppliers() {
   return (
     <>
       <h1>Поставщики</h1>
-      <Status loading={suppliers.loading && !suppliers.data} error={suppliers.error} />
-      <table>
+      <Card title="Список поставщиков"><Status loading={suppliers.loading && !suppliers.data} error={suppliers.error} />
+      <div className="table-wrap"><table>
         <thead><tr><th>Поставщик</th><th>Блюд</th></tr></thead>
         <tbody>
           {suppliers.data?.suppliers.map((s) => <tr key={s.id}><td>{s.name}</td><td>{s.dishes}</td></tr>)}
         </tbody>
-      </table>
+      </table></div>
       <AddSupplier onAdded={reloadAll} />
+      </Card>
 
-      <h2>Каталог блюд</h2>
+      <Card title="Каталог блюд">
       <Status loading={dishes.loading && !dishes.data} error={dishes.error} />
       {dishes.data && (
         <AddDish suppliers={suppliers.data?.suppliers || []} categories={dishes.data.categories} onAdded={reloadAll} />
       )}
-      <table>
+      <div className="table-wrap"><table>
         <thead><tr><th /><th>Блюдо</th><th>Тип</th><th>Порция</th><th>Цена</th><th>Поставщик</th></tr></thead>
         <tbody>
           {dishes.data?.dishes.map((d) => (
@@ -111,7 +112,8 @@ export default function KombinatSuppliers() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
+      </Card>
     </>
   );
 }

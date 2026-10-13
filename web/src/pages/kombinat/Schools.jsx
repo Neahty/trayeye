@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
-import { dateTime } from "../../lib/format";
+import { dateTime, pct } from "../../lib/format";
 import { Card, Status, errorText } from "../../components/ui.jsx";
 
 // Личная ссылка директору: ФИО + номер школы. Показываем её один раз - в базе она не хранится.
-function CreateLink({ onCreated }) {
-  const [form, setForm] = useState({ full_name: "", school_number: "", school_name: "" });
+function CreateLink({ onCreated, initialSchool = null }) {
+  const [form, setForm] = useState({ full_name: "", school_number: initialSchool?.number || "", school_name: initialSchool?.name || "" });
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState(null);
+  const [open, setOpen] = useState(Boolean(initialSchool));
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
   const submit = async (e) => {
@@ -27,7 +28,9 @@ function CreateLink({ onCreated }) {
   };
 
   return (
-    <Card title="Ссылка для директора">
+    <div className="invite-control">
+    {!initialSchool && <button className="secondary" onClick={() => setOpen(!open)}>{open ? "Закрыть приглашение" : "+　Пригласить директора"}</button>}
+    {open && <Card title="Пригласить директора">
       <form className="row" onSubmit={submit}>
         <input placeholder="ФИО директора" value={form.full_name} onChange={set("full_name")} required />
         <input type="number" min="1" placeholder="№ школы" value={form.school_number} onChange={set("school_number")} required />
@@ -42,7 +45,8 @@ function CreateLink({ onCreated }) {
           <input className="wide" readOnly value={result.link.url} onFocus={(e) => e.target.select()} />
         </p>
       )}
-    </Card>
+    </Card>}
+    </div>
   );
 }
 
@@ -84,7 +88,9 @@ function Links({ links }) {
 
 export default function KombinatSchools() {
   const { data, loading, error, reload } = useApi("/kombinat/schools");
+  const dashboard = useApi("/kombinat/dashboard");
   const links = useApi("/kombinat/links");
+  const [inviteTarget, setInviteTarget] = useState(null);
   const onCreated = () => {
     reload();
     links.reload();
@@ -92,17 +98,23 @@ export default function KombinatSchools() {
 
   return (
     <>
-      <h1>Школы</h1>
+      <div className="page-heading"><h1>Школы</h1><CreateLink onCreated={onCreated} /></div>
       <Status loading={loading && !data} error={error} />
-      <table>
-        <thead><tr><th>№</th><th>Школа</th><th>Директор</th></tr></thead>
+      <div className="table-wrap"><table>
+        <thead><tr><th>Школа</th><th>Детей</th><th>Списания</th><th>Директор</th><th>Действие</th></tr></thead>
         <tbody>
           {data?.schools.map((s) => (
-            <tr key={s.id}><td>{s.number}</td><td>{s.name}</td><td>{s.director_name || "-"}</td></tr>
+            <tr key={s.id}>
+              <td><span className="school-dot" />{s.number}　{s.name}</td>
+              <td>{(() => { const kids = dashboard.data?.schools.find((item) => item.id === s.id)?.cards.kids; return kids ? `${kids.present}/${kids.students}` : "—"; })()}</td>
+              <td>{(() => { const waste = dashboard.data?.schools.find((item) => item.id === s.id)?.cards.waste; return waste ? pct(waste.pct) : "—"; })()}</td>
+              <td>{s.director_name || "Не приглашён"}</td><td><button className="link" onClick={() => setInviteTarget(s)}>Пригласить</button></td>
+            </tr>
           ))}
         </tbody>
-      </table>
-      <CreateLink onCreated={onCreated} />
+      </table></div>
+      {dashboard.error && <p className="muted">Сводные показатели по школам сейчас недоступны.</p>}
+      {inviteTarget && <CreateLink key={inviteTarget.id} initialSchool={inviteTarget} onCreated={() => { onCreated(); setInviteTarget(null); }} />}
       <Links links={links} />
     </>
   );

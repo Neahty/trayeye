@@ -32,6 +32,41 @@ export function Card({ title, children }) {
   );
 }
 
+const METRIC_ART = {
+  waste: "/figma/imgRectangle4273.png",
+  savings: "/figma/imgRectangle4274.png",
+  kids: "/figma/imgRectangle4275.png"
+};
+
+export function MetricCard({ kind, title, value, note, blue = false }) {
+  return (
+    <section className={`card metric-card${blue ? " blue" : ""}`}>
+      <img className="metric-art" src={METRIC_ART[kind]} alt="" />
+      <div>
+        <div className="metric-label">{title}</div>
+        <div className="big">{value}</div>
+        {note && <div className="metric-note">{note}</div>}
+      </div>
+    </section>
+  );
+}
+
+export function exportCsv(filename, rows) {
+  const csv = rows.map((row) => row.map((value) => {
+    const text = String(value ?? "");
+    // Treat API/user-provided labels as plain text when opened in spreadsheet apps.
+    const safe = /^[\s\u0000-\u001f]*[=+\-@]/.test(text) ? `'${text}` : text;
+    return `"${safe.replaceAll('"', '""')}"`;
+  }).join(";")).join("\r\n");
+  const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 // Картинка блюда; если файла нет - серый квадрат, как в макете.
 export function DishImage({ src }) {
   return (

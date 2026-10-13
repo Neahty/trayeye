@@ -72,6 +72,7 @@ function TrayUpload({ date, onScanned }) {
 
 export default function DirectorMenu() {
   const [date, setDate] = useState(isoDate());
+  const [addOpen, setAddOpen] = useState(false);
   const { data, loading, error, reload } = useApi(`/director/menu${qs({ date })}`);
 
   const remove = async (id) => {
@@ -81,11 +82,8 @@ export default function DirectorMenu() {
 
   return (
     <>
-      <h1>Меню</h1>
-      <div className="row">
-        <DateInput value={date} onChange={setDate} />
-      </div>
-      <AddMenuItem date={date} onAdded={reload} />
+      <div className="page-heading"><h1>Меню</h1><div className="page-tools"><DateInput value={date} onChange={setDate} /><button className="secondary" onClick={() => setAddOpen(!addOpen)}>{addOpen ? "Закрыть" : "+　Добавить меню"}</button></div></div>
+      {addOpen && <Card title="Новое блюдо в меню"><AddMenuItem date={date} onAdded={() => { reload(); setAddOpen(false); }} /></Card>}
       <Status loading={loading && !data} error={error} />
       {data && data.items.length === 0 && <p className="muted">На этот день меню нет.</p>}
       <div className="grid3">
@@ -100,7 +98,7 @@ export default function DirectorMenu() {
           </Card>
         ))}
       </div>
-      <TrayUpload date={date} onScanned={reload} />
+      <details className="optional-tools"><summary>Распознать остатки по фото подноса</summary><TrayUpload date={date} onScanned={reload} /></details>
     </>
   );
 }

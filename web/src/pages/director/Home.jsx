@@ -3,77 +3,56 @@ import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { dayLong, greeting, greetingName, pct, rub } from "../../lib/format";
-import { Card, DishImage, Status, errorText } from "../../components/ui.jsx";
+import { Card, DishImage, MetricCard, Status, errorText } from "../../components/ui.jsx";
 
 export default function DirectorHome() {
   const { data, loading, error, reload } = useApi("/director/dashboard");
   const [applyState, setApplyState] = useState(null);
-
   if (!data) return <Status loading={loading} error={error} />;
   const { cards, forecast, recommendations } = data;
 
   const applyForecast = async () => {
     setApplyState("Применяем...");
     try {
-      const r = await api.post("/director/forecast/apply");
-      setApplyState(`Заказ на ${dayLong(r.date)} обновлён по прогнозу.`);
+      const result = await api.post("/director/forecast/apply");
+      setApplyState(`Заказ на ${dayLong(result.date)} обновлён по прогнозу.`);
       reload();
-    } catch (e) {
-      setApplyState(errorText(e));
-    }
+    } catch (e) { setApplyState(errorText(e)); }
   };
 
-  return (
-    <>
-      <h1>{greeting()}, {greetingName(data.director.fullName)}!</h1>
-      <p className="muted">Сегодня {dayLong(data.date)}</p>
-
-      <div className="grid3">
-        <Card title="Списания">
-          <div className="big">{pct(cards.waste.pct)}</div>
-          <div className="muted">Было {pct(cards.waste.baselinePct)} · {rub(cards.waste.rub)}</div>
-        </Card>
-        <Card title="Экономия">
-          <div className="big">{rub(cards.savings.rub)}</div>
-          <div className="muted">За сегодня</div>
-        </Card>
-        <Card title="Детей">
-          <div className="big">{cards.kids.present}/{cards.kids.students}</div>
-          <div className="muted">{pct(cards.kids.pct)} пришли</div>
-        </Card>
-      </div>
-
-      <div className="grid2">
-        <Card title={`Прогноз на ${dayLong(forecast.date)}`}>
+  return <>
+    <div><h1>{greeting()}, {greetingName(data.director.fullName)}!</h1><p className="page-subtitle">Сегодня {dayLong(data.date)}</p></div>
+    <div className="grid3">
+      <MetricCard kind="waste" title="Списания" value={pct(cards.waste.pct)} note={`Было ${pct(cards.waste.baselinePct)} · ${rub(cards.waste.rub)}`} />
+      <MetricCard kind="savings" title="Экономия" value={rub(cards.savings.rub)} note="За сегодня" />
+      <MetricCard kind="kids" title="Детей" value={`${cards.kids.present}/${cards.kids.students}`} note={`${pct(cards.kids.pct)} пришли`} blue />
+    </div>
+    <div className="grid2">
+      <Card title={`▮　Прогноз на ${dayLong(forecast.date)}`}>
+        <div className="forecast-card">
           {forecast.items.length === 0 && <p className="muted">Меню на этот день ещё нет.</p>}
-          <table>
-            <tbody>
-              {forecast.items.map((f) => (
-                <tr key={f.dish_id}>
-                  <td><DishImage src={f.image_url} /></td>
-                  <td>{f.name}</td>
-                  <td>{f.forecast} порций (обычно {f.usual})</td>
-                  <td className={f.diff > 0 ? "good" : "bad"}>{f.diff > 0 ? `−${f.diff}` : `+${-f.diff}`}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <table className="forecast-table"><tbody>
+            {forecast.items.map((item) => <tr key={item.dish_id}>
+              <td><DishImage src={item.image_url} /></td><td>{item.name}</td>
+              <td>{item.forecast} порций <span className="muted">(обычно {item.usual})</span></td>
+              <td className={item.diff > 0 ? "good" : "bad"}>{item.diff > 0 ? `−${item.diff}` : `+${-item.diff}`} ↗</td>
+            </tr>)}
+          </tbody></table>
           {forecast.items.length > 0 && <button onClick={applyForecast}>Применить прогноз к заказу</button>}
-          {applyState && <p className="muted">{applyState}</p>}
-        </Card>
-
-        <Card title="Рекомендации">
+          {applyState && <p className="toast">{applyState}</p>}
+        </div>
+      </Card>
+      <Card title="✦　Рекомендации">
+        <div className="recommend-card">
           {recommendations.length === 0 && <p className="muted">Пока всё хорошо.</p>}
-          <ul>
-            {recommendations.map((r) => <li key={r.text}>{r.text}</li>)}
-          </ul>
-        </Card>
-      </div>
-
-      <div className="row">
-        <Link className="button" to="/director/stats">Открыть статистику</Link>
-        <Link className="button secondary" to="/director/menu">Посмотреть меню</Link>
-      </div>
-    </>
-  );
+          <ul>{recommendations.map((item) => <li key={item.text}>{item.text}</li>)}</ul>
+          <img className="recommend-art" src="/figma/imgRectangle4281.png" alt="" />
+        </div>
+      </Card>
+    </div>
+    <div className="home-actions">
+      <Link className="button" to="/director/stats">◩　Открыть статистику</Link>
+      <Link className="button secondary" to="/director/menu">◧　Посмотреть меню</Link>
+    </div>
+  </>;
 }

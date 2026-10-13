@@ -12,11 +12,12 @@ export default function DirectorStats() {
 
   return (
     <>
-      <h1>Статистика</h1>
-      <div className="row">
+      <div className="page-heading"><h1>Статистика</h1>
+      <div className="page-tools">
         <DateInput label="С" value={from} onChange={setFrom} />
         <DateInput label="по" value={to} onChange={setTo} />
-      </div>
+        {data && <button onClick={() => window.print()}>⇩　Экспорт в PDF</button>}
+      </div></div>
       <Status loading={loading && !data} error={error} />
       {data && <StatsView data={data} />}
     </>
