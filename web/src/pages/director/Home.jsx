@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../../lib/api";
+import { api, appUrl } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { dayLong, greeting, greetingName, pct, rub } from "../../lib/format";
 import { Card, DishImage, MetricCard, Status, errorText } from "../../components/ui.jsx";
@@ -46,7 +46,7 @@ export default function DirectorHome() {
         <div className="recommend-card">
           {recommendations.length === 0 && <p className="muted">Пока всё хорошо.</p>}
           <ul>{recommendations.map((item) => <li key={item.text}>{item.text}</li>)}</ul>
-          <img className="recommend-art" src="/figma/imgRectangle4281.png" alt="" />
+          <img className="recommend-art" src={appUrl("/figma/imgRectangle4281.png")} alt="" />
         </div>
       </Card>
     </div>

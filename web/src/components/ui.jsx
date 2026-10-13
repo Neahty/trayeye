@@ -41,7 +41,7 @@ const METRIC_ART = {
 export function MetricCard({ kind, title, value, note, blue = false }) {
   return (
     <section className={`card metric-card${blue ? " blue" : ""}`}>
-      <img className="metric-art" src={METRIC_ART[kind]} alt="" />
+      <img className="metric-art" src={appUrl(METRIC_ART[kind])} alt="" />
       <div>
         <div className="metric-label">{title}</div>
         <div className="big">{value}</div>

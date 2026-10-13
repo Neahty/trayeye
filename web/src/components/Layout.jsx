@@ -48,7 +48,7 @@ export default function Layout({ children }) {
             <span className="round-action" title="Поиск" aria-hidden="true">⌕</span>
             <span className="round-action" title="Уведомления" aria-hidden="true">♧</span>
             <div className="profile-pill">
-              <img src={cabinet.avatarUrl ? appUrl(cabinet.avatarUrl) : "/figma/imgRectangle4271.png"} alt="" />
+              <img src={appUrl(cabinet.avatarUrl || "/figma/imgRectangle4271.png")} alt="" />
               <span>⌄</span>
             </div>
           </div>

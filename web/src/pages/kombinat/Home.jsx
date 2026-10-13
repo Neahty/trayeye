@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { appUrl } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { dayLong, greeting, pct, rub } from "../../lib/format";
 import { Card, MetricCard, Status } from "../../components/ui.jsx";
@@ -30,7 +31,7 @@ export default function KombinatHome() {
       <Card title="✦　Рекомендации">
         <div className="recommend-card">
           {alerts.length ? alerts.slice(0, 3).map(({ school, recommendation }) => <p key={`${school.id}-${recommendation.text}`}><strong>{school.name}:</strong> {recommendation.text}</p>) : <p className="muted">Пока всё хорошо.</p>}
-          <img className="recommend-art" src="/figma/imgRectangle4281.png" alt="" />
+          <img className="recommend-art" src={appUrl("/figma/imgRectangle4281.png")} alt="" />
         </div>
       </Card>
     </div>
