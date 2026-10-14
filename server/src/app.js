@@ -11,6 +11,13 @@ const directorRouter = require("./routes/director");
 const kombinatRouter = require("./routes/kombinat");
 const { WEB_DIST } = require("./config");
 
+// Личная ссылка /l/<токен> открывает кабинет без пароля: в журнал пишем её без токена.
+function safeUrl(url) {
+  return url.replace(/\/l\/[^/?#]+/g, "/l/***");
+}
+morgan.token("safe-url", (req) => safeUrl(req.originalUrl || req.url));
+const LOG_FORMAT = ":method :safe-url :status :res[content-length] - :response-time ms";
+
 function corsOptions() {
   const origins = (process.env.CORS_ORIGIN || "")
     .split(",")
@@ -37,10 +44,21 @@ function basePath() {
 function createApp() {
   const app = express();
   app.set("trust proxy", 1);
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "same-site" } }));
+  app.use(helmet({
+    // Сессия лежит в localStorage: CSP не даёт чужим скриптам её прочитать.
+    // Картинки блюд из каталога могут быть внешними ссылками (https).
+    contentSecurityPolicy: {
+      directives: {
+        "img-src": ["'self'", "data:", "https:"],
+        "frame-ancestors": ["'none'"],
+        "upgrade-insecure-requests": null
+      }
+    },
+    crossOriginResourcePolicy: { policy: "same-site" }
+  }));
   app.use(cors(corsOptions()));
   app.use(express.json({ limit: "100kb" }));
-  if (process.env.NODE_ENV !== "test") app.use(morgan("tiny"));
+  if (process.env.NODE_ENV !== "test") app.use(morgan(LOG_FORMAT));
 
   const root = express.Router();
   mountRoutes(root);
@@ -79,4 +97,4 @@ function errorCode(err) {
   return ["ai_not_configured", "ai_failed"].includes(err.message) ? err.message : "internal_error";
 }
 
-module.exports = { createApp };
+module.exports = { createApp, safeUrl };

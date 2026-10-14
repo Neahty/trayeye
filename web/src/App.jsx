@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { SessionProvider, useSession } from "./session.jsx";
 import Layout from "./components/Layout.jsx";
+import { Loading } from "./components/ui.jsx";
 import LinkLogin from "./pages/LinkLogin.jsx";
 import NoAccess from "./pages/NoAccess.jsx";
 import DirectorHome from "./pages/director/Home.jsx";
@@ -18,17 +19,18 @@ import KombinatSettings from "./pages/kombinat/Settings.jsx";
 const HOME = { director: "/director", kombinat: "/kombinat" };
 
 // Пускает в раздел только нужную роль, остальных отправляет к себе домой.
-function RoleGate({ role, children }) {
+// Layout общий для всех страниц роли: меню и шапка не пересоздаются при переходах.
+function RoleGate({ role }) {
   const { cabinet, ready } = useSession();
-  if (!ready) return <p className="muted pad">Загрузка...</p>;
+  if (!ready) return <Loading />;
   if (!cabinet) return <Navigate to="/" replace />;
   if (cabinet.role !== role) return <Navigate to={HOME[cabinet.role]} replace />;
-  return <Layout>{children}</Layout>;
+  return <Layout />;
 }
 
 function Root() {
   const { cabinet, ready } = useSession();
-  if (!ready) return <p className="muted pad">Загрузка...</p>;
+  if (!ready) return <Loading />;
   return cabinet ? <Navigate to={HOME[cabinet.role]} replace /> : <NoAccess />;
 }
 
@@ -39,18 +41,22 @@ export default function App() {
         <Route path="/" element={<Root />} />
         <Route path="/l/:token" element={<LinkLogin />} />
 
-        <Route path="/director" element={<RoleGate role="director"><DirectorHome /></RoleGate>} />
-        <Route path="/director/classes" element={<RoleGate role="director"><DirectorClasses /></RoleGate>} />
-        <Route path="/director/stats" element={<RoleGate role="director"><DirectorStats /></RoleGate>} />
-        <Route path="/director/menu" element={<RoleGate role="director"><DirectorMenu /></RoleGate>} />
-        <Route path="/director/settings" element={<RoleGate role="director"><DirectorSettings /></RoleGate>} />
+        <Route path="/director" element={<RoleGate role="director" />}>
+          <Route index element={<DirectorHome />} />
+          <Route path="classes" element={<DirectorClasses />} />
+          <Route path="stats" element={<DirectorStats />} />
+          <Route path="menu" element={<DirectorMenu />} />
+          <Route path="settings" element={<DirectorSettings />} />
+        </Route>
 
-        <Route path="/kombinat" element={<RoleGate role="kombinat"><KombinatHome /></RoleGate>} />
-        <Route path="/kombinat/schools" element={<RoleGate role="kombinat"><KombinatSchools /></RoleGate>} />
-        <Route path="/kombinat/stats" element={<RoleGate role="kombinat"><KombinatStats /></RoleGate>} />
-        <Route path="/kombinat/products" element={<RoleGate role="kombinat"><KombinatProducts /></RoleGate>} />
-        <Route path="/kombinat/suppliers" element={<RoleGate role="kombinat"><KombinatSuppliers /></RoleGate>} />
-        <Route path="/kombinat/settings" element={<RoleGate role="kombinat"><KombinatSettings /></RoleGate>} />
+        <Route path="/kombinat" element={<RoleGate role="kombinat" />}>
+          <Route index element={<KombinatHome />} />
+          <Route path="schools" element={<KombinatSchools />} />
+          <Route path="stats" element={<KombinatStats />} />
+          <Route path="products" element={<KombinatProducts />} />
+          <Route path="suppliers" element={<KombinatSuppliers />} />
+          <Route path="settings" element={<KombinatSettings />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

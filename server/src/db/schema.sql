@@ -104,3 +104,18 @@ CREATE TABLE IF NOT EXISTS tray_items (
   leftover_pct  NUMERIC(5, 2) NOT NULL CHECK (leftover_pct BETWEEN 0 AND 100)
 );
 CREATE INDEX IF NOT EXISTS tray_items_scan ON tray_items (scan_id);
+
+-- Лента уведомлений: что нового случилось (блюдо в меню, новое блюдо в каталоге, первый вход директора...).
+-- audience = кто видит; у директора school_id = NULL значит «всем директорам комбината».
+-- link - путь страницы кабинета, куда ведёт клик по уведомлению.
+CREATE TABLE IF NOT EXISTS events (
+  id           BIGSERIAL PRIMARY KEY,
+  kombinat_id  INT NOT NULL REFERENCES kombinats(id) ON DELETE CASCADE,
+  school_id    INT REFERENCES schools(id) ON DELETE CASCADE,
+  audience     TEXT NOT NULL CHECK (audience IN ('director', 'kombinat')),
+  kind         TEXT NOT NULL,
+  text         TEXT NOT NULL,
+  link         TEXT NOT NULL CHECK (link LIKE '/%'),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS events_feed ON events (kombinat_id, audience, created_at DESC);

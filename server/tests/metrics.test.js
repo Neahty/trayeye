@@ -125,6 +125,11 @@ describe("dishStats и dailySeries", () => {
     expect(m.dishStats(rows).map((d) => d.name)).toEqual(["Винегрет", "Борщ"]);
   });
 
+  test("дни в меню считаются по датам, а не по школам", () => {
+    const rows = ["2026-10-05", "2026-10-06"].flatMap((date) => [1, 2].map((school_id) => row({ date, school_id })));
+    expect(m.dishStats(rows)[0].days).toBe(2);
+  });
+
   test("ряд по дням идёт по возрастанию дат и содержит посещаемость", () => {
     const rows = [row({ date: "2026-10-06" }), row({ date: "2026-10-05" })];
     const series = m.dailySeries(rows, [{ date: "2026-10-05", present: 90 }], 100);

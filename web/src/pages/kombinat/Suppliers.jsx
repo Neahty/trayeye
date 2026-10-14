@@ -87,7 +87,7 @@ export default function KombinatSuppliers() {
       <div className="table-wrap"><table>
         <thead><tr><th>Поставщик</th><th>Блюд</th></tr></thead>
         <tbody>
-          {suppliers.data?.suppliers.map((s) => <tr key={s.id}><td>{s.name}</td><td>{s.dishes}</td></tr>)}
+          {suppliers.data?.suppliers.map((s) => <tr key={s.id} data-focus={`supplier-${s.id}`}><td>{s.name}</td><td>{s.dishes}</td></tr>)}
         </tbody>
       </table></div>
       <AddSupplier onAdded={reloadAll} />
@@ -102,7 +102,7 @@ export default function KombinatSuppliers() {
         <thead><tr><th /><th>Блюдо</th><th>Тип</th><th>Порция</th><th>Цена</th><th>Поставщик</th></tr></thead>
         <tbody>
           {dishes.data?.dishes.map((d) => (
-            <tr key={d.id}>
+            <tr key={d.id} data-focus={`dish-${d.id}`}>
               <td><DishImage src={d.image_url} /></td>
               <td>{d.name}</td>
               <td>{CATEGORY_LABELS[d.category]}</td>

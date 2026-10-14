@@ -8,6 +8,7 @@ const { schoolOverviews } = require("../services/overview");
 const { createLink } = require("../services/links");
 const data = require("../services/schoolData");
 const metrics = require("../services/metrics");
+const events = require("../services/events");
 const { dateParam, periodParams } = require("../utils/params");
 const { parseId, parseIntInRange, parseText, badRequest } = require("../utils/http");
 
@@ -223,6 +224,13 @@ router.post("/dishes", async (req, res, next) => {
       [req.cabinet.kombinatId, d.supplierId, d.name, d.category, d.imageUrl, d.grams, d.price]
     );
     if (!rows[0]) return res.status(409).json({ error: "dish_exists" });
+    await events.record(db, {
+      kombinatId: req.cabinet.kombinatId,
+      audience: "director",
+      kind: "dish_added",
+      text: `В каталоге комбината новое блюдо «${d.name}» - можно добавить в меню`,
+      link: `/director/menu?add=${rows[0].id}`
+    });
     res.status(201).json({ id: rows[0].id });
   } catch (err) {
     next(err);
@@ -242,6 +250,13 @@ router.put("/dishes/:id", async (req, res, next) => {
       [id, req.cabinet.kombinatId, d.supplierId, d.name, d.category, d.imageUrl, d.grams, d.price]
     );
     if (!rowCount) return res.status(404).json({ error: "not_found" });
+    await events.record(db, {
+      kombinatId: req.cabinet.kombinatId,
+      audience: "director",
+      kind: "dish_changed",
+      text: `Комбинат обновил блюдо «${d.name}»: ${d.grams} г, ${d.price.toLocaleString("ru-RU")} ₽ за порцию`,
+      link: "/director/menu"
+    });
     res.json({ ok: true });
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "dish_exists" });
@@ -277,6 +292,15 @@ router.post("/suppliers", async (req, res, next) => {
     );
     if (!rows[0]) return res.status(409).json({ error: "supplier_exists" });
     res.status(201).json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Уведомления комбината: что нового в школах.
+router.get("/notifications", async (req, res, next) => {
+  try {
+    res.json({ events: await events.feed(req.cabinet) });
   } catch (err) {
     next(err);
   }

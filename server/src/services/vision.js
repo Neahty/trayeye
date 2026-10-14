@@ -69,7 +69,9 @@ function parseItems(content, menu) {
   const out = [];
   for (const it of items) {
     const id = Number(it?.dish_id);
-    const pct = Number(it?.leftover_pct);
+    const raw = it?.leftover_pct;
+    // null, "" и false не значат «съедено всё» - такую оценку отбрасываем.
+    const pct = typeof raw === "number" || (typeof raw === "string" && raw.trim() !== "") ? Number(raw) : NaN;
     if (!allowed.has(id) || seen.has(id) || !Number.isFinite(pct)) continue;
     seen.add(id);
     out.push({ dish_id: id, leftover_pct: Math.min(100, Math.max(0, Math.round(pct))) });

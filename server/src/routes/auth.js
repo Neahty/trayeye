@@ -4,6 +4,7 @@ const db = require("../db");
 const jwtUtil = require("../utils/jwt");
 const { findActiveLink } = require("../services/links");
 const { cabinetAuth, loadCabinet } = require("../middleware/cabinetAuth");
+const events = require("../services/events");
 
 const router = express.Router();
 
@@ -25,6 +26,17 @@ router.post("/link", loginLimiter, async (req, res, next) => {
     if (!link) return res.status(401).json({ error: "invalid_link" });
     await db.query("UPDATE access_links SET last_used_at = NOW() WHERE id = $1", [link.id]);
     const cabinet = await loadCabinet(link.id);
+    // Первый вход директора по выданной ссылке - комбинату видно, что приглашение дошло.
+    if (cabinet.role === "director" && !link.last_used_at) {
+      await events.record(db, {
+        kombinatId: cabinet.kombinatId,
+        schoolId: cabinet.schoolId,
+        audience: "kombinat",
+        kind: "director_joined",
+        text: `${events.schoolLabel(cabinet)}: директор вошёл в кабинет по новой ссылке (${cabinet.fullName})`,
+        link: `/kombinat/schools?focus=school-${cabinet.schoolId}`
+      });
+    }
     res.json({ token: jwtUtil.sign({ lid: link.id }), cabinet });
   } catch (err) {
     next(err);

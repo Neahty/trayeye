@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api, appUrl } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { dayLong, greeting, greetingName, pct, rub } from "../../lib/format";
-import { Card, DishImage, Icon, MetricCard, Status, errorText } from "../../components/ui.jsx";
+import { Card, DishImage, Icon, MetricCard, Status, Toast, errorText } from "../../components/ui.jsx";
 
 // Разница прогноза с обычным заказом: зелёная - можно заказать меньше, красная - нужно больше.
 export function ForecastDiff({ diff }) {
@@ -42,7 +42,7 @@ export default function DirectorHome() {
           title={`Прогноз на ${dayLong(forecast.date)}`}
           icon="chart"
           tone="blue"
-          aside={forecast.items.length > 0 && <button className="link" onClick={applyForecast}>Применить к заказу</button>}
+          aside={forecast.items.length > 0 && <button className="link" onClick={applyForecast} disabled={applyState === "Применяем..."}>Применить к заказу</button>}
         >
           <div className="forecast-card">
             {forecast.items.length === 0 && <p className="muted">Меню на этот день ещё нет.</p>}
@@ -54,7 +54,7 @@ export default function DirectorHome() {
                 <ForecastDiff diff={item.diff} />
               </tr>)}
             </tbody></table>
-            {applyState && <p className="toast">{applyState}</p>}
+            <Toast>{applyState}</Toast>
           </div>
         </Card>
         <div className="home-actions">

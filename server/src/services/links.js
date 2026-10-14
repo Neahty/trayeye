@@ -33,7 +33,7 @@ async function createLink(q, { role, kombinatId, directorId = null }) {
 async function findActiveLink(q, token) {
   if (typeof token !== "string" || token.length < 20 || token.length > 100) return null;
   const { rows } = await q.query(
-    `SELECT id, role FROM access_links WHERE token_hash = $1 AND revoked_at IS NULL`,
+    `SELECT id, role, last_used_at FROM access_links WHERE token_hash = $1 AND revoked_at IS NULL`,
     [hashToken(token)]
   );
   return rows[0] || null;

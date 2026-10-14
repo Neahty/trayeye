@@ -56,6 +56,12 @@ suite("API", () => {
     expect((await request(prefixed).get("/api/health")).status).toBe(404);
   });
 
+  test("CSP: только свои скрипты, без встраивания в чужие сайты", async () => {
+    const csp = (await request(app).get("/api/health")).headers["content-security-policy"];
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+  });
+
   test("health проверяет базу", async () => {
     const res = await request(app).get("/api/health");
     expect(res.body).toEqual({ status: "ok" });
@@ -152,6 +158,10 @@ suite("API", () => {
       const cls = classes[0];
       const tooMany = await send("put", `/api/director/classes/${cls.id}/attendance`, token, { date: "2026-10-13", present_count: cls.students_count + 1 });
       expect(tooMany.status).toBe(400);
+      for (const empty of [null, "", true]) {
+        const res = await send("put", `/api/director/classes/${cls.id}/attendance`, token, { date: "2026-10-13", present_count: empty });
+        expect(res.status).toBe(400);
+      }
       const ok = await send("put", `/api/director/classes/${cls.id}/attendance`, token, { date: "2026-10-13", present_count: cls.students_count });
       expect(ok.status).toBe(200);
     });
@@ -282,6 +292,64 @@ suite("API", () => {
       expect(res.body.summary.eatenPct).toBeGreaterThan(0);
       expect(typeof res.body.summary.savingsRub).toBe("number");
       expect(res.body.schools[0].eatenPct).toBeGreaterThan(0);
+    });
+  });
+  describe("уведомления", () => {
+    let director, otherDirector, kombinat;
+    beforeAll(async () => {
+      director = await login(tokenOf(links.directors[0].url));
+      otherDirector = await login(tokenOf(links.directors[1].url));
+      kombinat = await login(tokenOf(links.kombinat));
+    });
+
+    test("демо-лента: комбинат видит меню школ, директор - новое в каталоге", async () => {
+      const k = (await get("/api/kombinat/notifications", kombinat)).body.events;
+      expect(k.length).toBeGreaterThanOrEqual(3);
+      expect(k.every((e) => e.link.startsWith("/kombinat/"))).toBe(true);
+      const d = (await get("/api/director/notifications", director)).body.events;
+      expect(d.every((e) => e.link.startsWith("/director/"))).toBe(true);
+      expect(d.some((e) => e.kind === "dish_added")).toBe(true);
+    });
+
+    test("блюдо в меню школы приходит комбинату со ссылкой на день и блюдо", async () => {
+      const dish = (await get("/api/director/dishes", director)).body.dishes.find((x) => x.name === "Плов");
+      await send("post", "/api/director/menu", director, { date: "2026-10-16", dish_id: dish.id, planned_portions: 12 });
+      const [last] = (await get("/api/kombinat/notifications", kombinat)).body.events;
+      expect(last.kind).toBe("menu_added");
+      expect(last.text).toContain("Гимназия №33: в меню на 16 октября добавили «Плов», 12 порц.");
+      expect(last.text).toContain("«Плов»");
+      expect(last.link).toBe(`/kombinat/products?date=2026-10-16&focus=dish-${dish.id}`);
+      // Директорам события комбината не показываются.
+      expect((await get("/api/director/notifications", otherDirector)).body.events.some((e) => e.kind === "menu_added")).toBe(false);
+    });
+
+    test("новое блюдо в каталоге видят все директора комбината, но не чужого", async () => {
+      const created = await send("post", "/api/kombinat/dishes", kombinat, { name: "Ленивые голубцы", category: "main", portion_grams: 200, portion_price: 70 });
+      expect(created.status).toBe(201);
+      for (const t of [director, otherDirector]) {
+        const [last] = (await get("/api/director/notifications", t)).body.events;
+        expect(last).toEqual(expect.objectContaining({ kind: "dish_added", link: `/director/menu?add=${created.body.id}` }));
+      }
+      const other = await db.query("INSERT INTO kombinats (name) VALUES ('Соседний') RETURNING id");
+      const foreignLink = await createLink(db, { role: "kombinat", kombinatId: other.rows[0].id });
+      const foreign = await login(foreignLink.token);
+      expect((await get("/api/kombinat/notifications", foreign)).body.events).toEqual([]);
+    });
+
+    test("первый вход директора по новой ссылке виден комбинату, повторный - нет", async () => {
+      const created = await send("post", "/api/kombinat/links", kombinat, { full_name: "Петров Пётр", school_number: 77 });
+      await login(tokenOf(created.body.link.url));
+      await login(tokenOf(created.body.link.url));
+      const joined = (await get("/api/kombinat/notifications", kombinat)).body.events
+        .filter((e) => e.kind === "director_joined" && e.text.includes("№77"));
+      expect(joined).toHaveLength(1);
+      expect(joined[0].text).toContain("Петров Пётр");
+      expect(joined[0].link).toBe(`/kombinat/schools?focus=school-${created.body.school.id}`);
+    });
+
+    test("без входа и с чужой ролью - нельзя", async () => {
+      expect((await request(app).get("/api/director/notifications")).status).toBe(401);
+      expect((await get("/api/kombinat/notifications", director)).status).toBe(403);
     });
   });
 });

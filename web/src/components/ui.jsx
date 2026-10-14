@@ -1,5 +1,8 @@
 // Кирпичики интерфейса по дизайн-системе из Figma (цвета, иконки, карточки).
+import { useEffect, useState } from "react";
+import { animate, useReducedMotion } from "motion/react";
 import { appUrl } from "../lib/api";
+import { motionTokens } from "../lib/motion";
 
 const ERROR_TEXT = {
   ai_not_configured: "Распознавание не настроено: на сервере нет ключа Gemini/OpenAI.",
@@ -17,10 +20,59 @@ export function errorText(error) {
   return ERROR_TEXT[error?.code] || "Что-то пошло не так. Попробуйте ещё раз.";
 }
 
+// Заглушка на время загрузки: серые мерцающие полосы вместо «Загрузка...».
+export function Loading({ rows = 3 }) {
+  return (
+    <div className="skeleton-stack" role="status" aria-label="Загрузка">
+      {Array.from({ length: rows }, (_, i) => <div key={i} className="skeleton" />)}
+    </div>
+  );
+}
+
 export function Status({ loading, error }) {
-  if (loading) return <p className="muted">Загрузка...</p>;
-  if (error) return <p className="error">{errorText(error)}</p>;
+  if (loading) return <Loading />;
+  if (error) return <p className="error" role="alert">{errorText(error)}</p>;
   return null;
+}
+
+// Сообщение после действия. key по тексту: новое сообщение каждый раз появляется заново.
+export function Toast({ children }) {
+  if (!children) return null;
+  return <p key={String(children)} className="toast" role="status">{children}</p>;
+}
+
+// Числа внутри строки («5 400 ₽», «12.5%», «45/50»): только цифры, разряды через пробел.
+const NUMBER = /\d(?:[\d\s\u00a0\u202f]*\d)?(?:[.,]\d+)?/g;
+
+function formatLike(sample, value) {
+  const decimals = (sample.match(/[.,](\d+)$/)?.[1] || "").length;
+  const grouped = /[\s\u00a0\u202f]/.test(sample);
+  if (grouped) return Math.round(value).toLocaleString("ru-RU");
+  const text = value.toFixed(decimals);
+  return sample.includes(",") ? text.replace(".", ",") : text;
+}
+
+// Показатель «набегает» от нуля до значения. Экранный диктор читает итоговое значение.
+export function AnimatedValue({ value }) {
+  const text = String(value ?? "");
+  const reduce = useReducedMotion();
+  // Сразу с нуля, чтобы итоговое число не мелькнуло до начала анимации.
+  const [progress, setProgress] = useState(() => (reduce || !/\d/.test(text) ? 1 : 0));
+
+  useEffect(() => {
+    if (reduce || !/\d/.test(text)) { setProgress(1); return undefined; }
+    setProgress(0);
+    const controls = animate(0, 1, {
+      duration: motionTokens.duration.count,
+      ease: motionTokens.easing.smooth,
+      onUpdate: setProgress
+    });
+    return () => controls.stop();
+  }, [text, reduce]);
+
+  if (progress >= 1) return text;
+  const shown = text.replace(NUMBER, (m) => formatLike(m, Number(m.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".")) * progress));
+  return <><span aria-hidden="true">{shown}</span><span className="sr-only">{text}</span></>;
 }
 
 // Иконки из макета (web/public/figma). Рисуются маской, поэтому берут цвет текста.
@@ -56,7 +108,7 @@ export function PlusIcon() {
 
 export function Card({ title, icon, tone, className = "", aside, children }) {
   return (
-    <section className={`card ${className}`}>
+    <section className={`card enter ${className}`}>
       {title && (
         <div className="card-head">
           <h3 className={tone ? `tone-${tone}` : ""}>{icon && <Icon name={icon} size={18} />}{title}</h3>
@@ -71,7 +123,7 @@ export function Card({ title, icon, tone, className = "", aside, children }) {
 // Красная карточка «Проблемный класс/школа» с кнопкой для технолога.
 export function ProblemCard({ title, lines, action }) {
   return (
-    <section className="problem-card">
+    <section className="problem-card enter">
       <h3>
         <svg className="problem-icon" viewBox="0 0 20 20" aria-hidden="true">
           <rect x="2" y="2" width="16" height="16" rx="4" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -86,13 +138,13 @@ export function ProblemCard({ title, lines, action }) {
 }
 
 // Плитка блюда/товара: фото, название, крупное число, подписи мелким шрифтом.
-export function Tile({ image, title, value, notes = [], children }) {
+export function Tile({ image, title, value, notes = [], focusId, children }) {
   return (
-    <section className="card tile">
+    <section className="card tile enter" data-focus={focusId}>
       <DishImage src={image} />
       <div className="tile-body">
         <div className="tile-title">{title}</div>
-        <div className="tile-value">{value}</div>
+        <div className="tile-value"><AnimatedValue value={value} /></div>
         {notes.filter(Boolean).map((note) => <div className="tile-note" key={note}>{note}</div>)}
         {children}
       </div>
@@ -132,11 +184,11 @@ const METRIC_ART = {
 
 export function MetricCard({ kind, title, value, note, noteIcon = false, blue = false }) {
   return (
-    <section className={`card metric-card${blue ? " blue" : ""}`}>
+    <section className={`card metric-card enter${blue ? " blue" : ""}`}>
       <img className="metric-art" src={appUrl(METRIC_ART[kind])} alt="" />
       <div>
         <div className="metric-label">{title}</div>
-        <div className="metric-value">{value}</div>
+        <div className="metric-value"><AnimatedValue value={value} /></div>
         {note && <div className="metric-note">{noteIcon && <Icon name="trend" size={13} />}{note}</div>}
       </div>
     </section>
@@ -155,8 +207,11 @@ export function exportCsv(filename, rows) {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  // Firefox качает только ссылку из документа; URL освобождаем после старта загрузки.
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Картинка блюда; если файла нет - серый квадрат, как в макете.

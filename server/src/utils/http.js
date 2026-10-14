@@ -8,8 +8,9 @@ function parseId(v) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// Целое в диапазоне [min, max] или null.
+// Целое в диапазоне [min, max] или null. null, "", true и [5] - не числа (Number() дал бы 0/1/5).
 function parseIntInRange(v, min, max) {
+  if (typeof v !== "number" && (typeof v !== "string" || v.trim() === "")) return null;
   const n = Number(v);
   return Number.isInteger(n) && n >= min && n <= max ? n : null;
 }

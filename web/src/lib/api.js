@@ -1,6 +1,8 @@
 // Клиент API. Сессия (JWT после входа по ссылке) хранится в localStorage.
 
 const TOKEN_KEY = "trayeye_session";
+// Событие «сессия кончилась»: SessionProvider выводит из кабинета.
+export const SESSION_LOST = "trayeye:session-lost";
 // Префикс приложения за прокси (vite base), без завершающего слэша: "" или "/trayeye".
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -40,8 +42,12 @@ async function request(method, path, body) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    // Ссылку отозвали или сессия истекла - выходим.
-    if (res.status === 401) setSession(null);
+    // Ссылку отозвали или сессия истекла - выходим. Только если это всё ещё текущая сессия:
+    // поздний ответ по старому токену не должен стереть новый вход.
+    if (res.status === 401 && token && getSession() === token) {
+      setSession(null);
+      window.dispatchEvent(new Event(SESSION_LOST));
+    }
     throw new ApiError(res.status, data.error || "request_failed");
   }
   return data;

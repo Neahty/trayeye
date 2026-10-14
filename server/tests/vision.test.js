@@ -17,6 +17,11 @@ describe("parseItems", () => {
     expect(vision.parseItems("не знаю", menu)).toEqual([]);
   });
 
+  test("пустая оценка остатка не превращается в «съедено всё»", () => {
+    const content = '{"items":[{"dish_id":1,"leftover_pct":null},{"dish_id":5,"leftover_pct":""},{"dish_id":1,"leftover_pct":false},{"dish_id":5,"leftover_pct":"40"}]}';
+    expect(vision.parseItems(content, menu)).toEqual([{ dish_id: 5, leftover_pct: 40 }]);
+  });
+
   test("промпт перечисляет меню с id", () => {
     expect(vision.buildPrompt(menu)).toContain("5: Котлеты");
   });

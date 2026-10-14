@@ -1,11 +1,11 @@
-import { useState } from "react";
 import { qs } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
+import { useDateParam } from "../../lib/hooks";
 import { dayLong, isoDate } from "../../lib/format";
 import { DateInput, Status, Tile } from "../../components/ui.jsx";
 
 export default function KombinatProducts() {
-  const [date, setDate] = useState(isoDate(1));
+  const [date, setDate] = useDateParam(isoDate(1));
   const { data, loading, error } = useApi(`/kombinat/products${qs({ date })}`);
   return <>
     <div className="page-heading"><h1>Меню товаров</h1><DateInput value={date} onChange={setDate} /></div>
@@ -17,6 +17,7 @@ export default function KombinatProducts() {
         image={product.image_url}
         title={product.name}
         value={`${product.portions} шт / ${product.weightKg} кг`}
+        focusId={`dish-${product.dish_id}`}
         notes={[`Школы: ${product.school_numbers.join(", ")}`, product.supplier_name || "Поставщик не указан"]}
       />)}
     </div>

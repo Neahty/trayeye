@@ -39,6 +39,16 @@ describe("http parsers", () => {
     expect(http.parseId("1.5")).toBeNull();
     expect(http.parseIntInRange("10", 0, 5)).toBeNull();
     expect(http.parseIntInRange(0, 0, 5)).toBe(0);
+    expect(http.parseIntInRange("3", 0, 5)).toBe(3);
+    // Number(null|""|true|[2]) дал бы число - такие значения не принимаем.
+    for (const bad of [null, "", "  ", true, false, [2], undefined]) expect(http.parseIntInRange(bad, 0, 5)).toBeNull();
+  });
+
+  test("в журнал запросов токен личной ссылки не попадает", () => {
+    const { safeUrl } = require("../src/app");
+    expect(safeUrl("/trayeye/l/abcDEF123_-xyz")).toBe("/trayeye/l/***");
+    expect(safeUrl("/l/secret?x=1")).toBe("/l/***?x=1");
+    expect(safeUrl("/trayeye/api/director/menu?date=2026-10-13")).toBe("/trayeye/api/director/menu?date=2026-10-13");
   });
 
   test("parseText обрезает пробелы и режет пустое и длинное", () => {

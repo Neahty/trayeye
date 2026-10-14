@@ -4,6 +4,7 @@
 
 const { KOMBINAT, SUPPLIERS, SCHOOLS, DISHES, NEXT_DAY_MENU, WEEKDAY_APPETITE } = require("./demoData");
 const { createLink } = require("../services/links");
+const { dayLabel } = require("../services/events");
 const { addDays, isSchoolDay, nextSchoolDay, previousSchoolDays, weekday } = require("../utils/dates");
 
 const HISTORY_SCHOOL_DAYS = 30;
@@ -52,7 +53,7 @@ function menuForDay(index, byCategory) {
 
 async function resetAll(client) {
   await client.query(
-    `TRUNCATE tray_items, tray_scans, attendance, menu_items, classes, dishes,
+    `TRUNCATE events, tray_items, tray_scans, attendance, menu_items, classes, dishes,
               access_links, directors, schools, suppliers, kombinats RESTART IDENTITY CASCADE`
   );
 }
@@ -153,6 +154,15 @@ function average(values) {
 }
 
 // Полностью пересоздаёт демо-данные. scale < 1 уменьшает школы (для тестов).
+// Стартовые уведомления демо, чтобы колокольчик был не пустой.
+async function insertEvent(client, { kombinatId, schoolId = null, audience, kind, text, link, minutesAgo }) {
+  await client.query(
+    `INSERT INTO events (kombinat_id, school_id, audience, kind, text, link, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW() - make_interval(mins => $7))`,
+    [kombinatId, schoolId, audience, kind, text, link, minutesAgo]
+  );
+}
+
 async function seed(client, { today, scale = 1 }) {
   const rand = prng(RANDOM_SEED);
   await resetAll(client);
@@ -188,7 +198,18 @@ async function seed(client, { today, scale = 1 }) {
     }
     const link = await createLink(client, { role: "director", kombinatId, directorId: school.directorId });
     links.directors.push({ school: s.name, director: s.director, url: link.url });
+    await insertEvent(client, {
+      kombinatId, schoolId: school.schoolId, audience: "kombinat", kind: "menu_added", minutesAgo: 30 + links.directors.length * 7,
+      text: `${s.name}: меню на ${dayLabel(next)} готово, заказ по прогнозу`,
+      link: `/kombinat/products?date=${next}`
+    });
   }
+  const newDish = byName.get(NEXT_DAY_MENU[0]);
+  await insertEvent(client, {
+    kombinatId, audience: "director", kind: "dish_added", minutesAgo: 90,
+    text: `В каталоге комбината блюдо «${newDish.name}» - можно добавить в меню`,
+    link: `/director/menu?add=${newDish.id}`
+  });
   return { kombinatId, links, days: { from: days[0], to: lastDay, next } };
 }
 

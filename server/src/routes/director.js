@@ -10,6 +10,7 @@ const { schoolOverview } = require("../services/overview");
 const data = require("../services/schoolData");
 const metrics = require("../services/metrics");
 const vision = require("../services/vision");
+const events = require("../services/events");
 const { today } = require("../utils/dates");
 const { dateParam, periodParams } = require("../utils/params");
 const { parseId, parseIntInRange, parseDate, badRequest } = require("../utils/http");
@@ -77,7 +78,7 @@ router.post("/menu", async (req, res, next) => {
     const planned = parseIntInRange(req.body?.planned_portions, 0, MAX_PORTIONS);
     if (!date || !dishId || planned === null) return badRequest(res, "bad_menu_item");
 
-    const dish = await db.query("SELECT id FROM dishes WHERE id = $1 AND kombinat_id = $2", [dishId, req.cabinet.kombinatId]);
+    const dish = await db.query("SELECT id, name FROM dishes WHERE id = $1 AND kombinat_id = $2", [dishId, req.cabinet.kombinatId]);
     if (!dish.rows[0]) return res.status(404).json({ error: "dish_not_found" });
 
     const { rows } = await db.query(
@@ -86,6 +87,14 @@ router.post("/menu", async (req, res, next) => {
        RETURNING id, date, dish_id, planned_portions`,
       [req.cabinet.schoolId, date, dishId, planned]
     );
+    await events.record(db, {
+      kombinatId: req.cabinet.kombinatId,
+      schoolId: req.cabinet.schoolId,
+      audience: "kombinat",
+      kind: "menu_added",
+      text: `${events.schoolLabel(req.cabinet)}: в меню на ${events.dayLabel(date)} добавили «${dish.rows[0].name}», ${planned} порц.`,
+      link: `/kombinat/products?date=${date}&focus=dish-${dishId}`
+    });
     res.status(201).json({ item: rows[0] });
   } catch (err) {
     next(err);
@@ -96,8 +105,20 @@ router.delete("/menu/:id", async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (!id) return badRequest(res, "bad_id");
-    const { rowCount } = await db.query("DELETE FROM menu_items WHERE id = $1 AND school_id = $2", [id, req.cabinet.schoolId]);
-    if (!rowCount) return res.status(404).json({ error: "not_found" });
+    const { rows } = await db.query(
+      `DELETE FROM menu_items WHERE id = $1 AND school_id = $2
+       RETURNING date, (SELECT name FROM dishes WHERE dishes.id = menu_items.dish_id) AS name`,
+      [id, req.cabinet.schoolId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: "not_found" });
+    await events.record(db, {
+      kombinatId: req.cabinet.kombinatId,
+      schoolId: req.cabinet.schoolId,
+      audience: "kombinat",
+      kind: "menu_removed",
+      text: `${events.schoolLabel(req.cabinet)}: из меню на ${events.dayLabel(rows[0].date)} убрали «${rows[0].name}»`,
+      link: `/kombinat/products?date=${rows[0].date}`
+    });
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -126,6 +147,16 @@ router.post("/forecast/apply", async (req, res, next) => {
         );
       }
     });
+    if (items.length) {
+      await events.record(db, {
+        kombinatId: req.cabinet.kombinatId,
+        schoolId: req.cabinet.schoolId,
+        audience: "kombinat",
+        kind: "forecast_applied",
+        text: `${events.schoolLabel(req.cabinet)}: заказ на ${events.dayLabel(date)} пересчитан по прогнозу`,
+        link: `/kombinat/products?date=${date}`
+      });
+    }
     res.json({ date, updated: items.length });
   } catch (err) {
     next(err);
@@ -230,11 +261,28 @@ router.post("/tray", upload.single("image"), uploadErrors, async (req, res, next
       return rows[0];
     });
 
+    await events.record(db, {
+      kombinatId: req.cabinet.kombinatId,
+      schoolId,
+      audience: "kombinat",
+      kind: "tray_scanned",
+      text: `${events.schoolLabel(req.cabinet)}: распознан поднос за ${events.dayLabel(date)}`,
+      link: `/kombinat/schools?focus=school-${schoolId}`
+    });
     const names = new Map(menu.map((m) => [m.dish_id, m.name]));
     res.status(201).json({
       scan,
       items: result.items.map((it) => ({ ...it, name: names.get(it.dish_id) }))
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Уведомления директора: новое в каталоге комбината и события его школы.
+router.get("/notifications", async (req, res, next) => {
+  try {
+    res.json({ events: await events.feed(req.cabinet) });
   } catch (err) {
     next(err);
   }

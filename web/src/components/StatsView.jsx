@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CATEGORY_LABELS, dayLong, dayShort, pct, rub } from "../lib/format";
-import { Card, Icon, MetricCard, shareReport } from "./ui.jsx";
+import { Card, Icon, MetricCard, Toast, shareReport } from "./ui.jsx";
 
 const CHART = { left: 28, right: 672, top: 18, bottom: 202 };
 
@@ -27,9 +27,9 @@ function EatenChart({ series }) {
 
   return (
     <svg className="chart-svg" viewBox="0 0 700 245" role="img" aria-label="График съедаемости по дням">
-      <rect x={coords[selected][0] - 29} y={CHART.top} width="58" height={CHART.bottom - CHART.top} fill="#edfff2" />
-      <polyline className="chart-line" points={coords.map((c) => c.join(",")).join(" ")} />
-      <circle cx={coords[selected][0]} cy={coords[selected][1]} r="6" fill="white" stroke="#5c6b5f" strokeWidth="1.5" />
+      <rect className="chart-band" x={coords[selected][0] - 29} y={CHART.top} width="58" height={CHART.bottom - CHART.top} fill="#edfff2" />
+      <polyline className="chart-line" pathLength="1" points={coords.map((c) => c.join(",")).join(" ")} />
+      <circle className="chart-dot" cx={coords[selected][0]} cy={coords[selected][1]} r="6" fill="white" stroke="#5c6b5f" strokeWidth="1.5" />
       {points.map((item, i) => (i % tickStep === 0 || i === points.length - 1) && (
         <text key={item.date} className="chart-tick" x={coords[i][0]} y="229" textAnchor="middle">{dayShort(item.date)}</text>
       ))}
@@ -69,7 +69,7 @@ export function StatsView({ data, from, to, shareLabel = "Отправить в 
         </Card>
         <Card title="Отчёт за период" icon="bulb" tone="green" className="accent report-card">
           <p>Отчёт за {period} готов к отправке и сформирован в одном файле.</p>
-          {toast && <p className="toast">{toast}</p>}
+          <Toast>{toast}</Toast>
           <div className="report-actions">
             <button onClick={() => window.print()}><Icon name="arrowDown" size={18} />Экспорт в PDF</button>
             <button className="secondary" onClick={async () => setToast(await shareReport("Отчёт TrayEye", reportText))}><Icon name="stats" size={18} />{shareLabel}</button>
@@ -80,7 +80,7 @@ export function StatsView({ data, from, to, shareLabel = "Отправить в 
         <div className="table-wrap"><table>
           <thead><tr><th>Блюдо</th><th>Тип</th><th className="num">Дней в меню</th><th className="num">Съедают</th><th className="num">Списания</th><th className="num">Сумма</th></tr></thead>
           <tbody>{data.dishes.map((dish) => (
-            <tr key={dish.dish_id}><td>{dish.name}</td><td>{CATEGORY_LABELS[dish.category]}</td><td className="num">{dish.days}</td><td className="num">{pct(dish.eatenPct)}</td><td className="num">{pct(dish.wastePct)}</td><td className="num">{rub(dish.wasteRub)}</td></tr>
+            <tr key={dish.dish_id} data-focus={`dish-${dish.dish_id}`}><td>{dish.name}</td><td>{CATEGORY_LABELS[dish.category]}</td><td className="num">{dish.days}</td><td className="num">{pct(dish.eatenPct)}</td><td className="num">{pct(dish.wastePct)}</td><td className="num">{rub(dish.wasteRub)}</td></tr>
           ))}</tbody>
         </table></div>
       </Card>

@@ -244,7 +244,8 @@ function dishStats(rows) {
         name: list[0].name,
         category: list[0].category,
         image_url: list[0].image_url,
-        days: list.length,
+        // У комбината одно блюдо в двух школах за день - это один день, а не два.
+        days: new Set(list.map((r) => r.date)).size,
         planned: sum(list, "planned"),
         eatenPct: trays > 0 ? round((sum(list, "eaten") / trays) * 100) : null,
         ...wasteSummary(list)

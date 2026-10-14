@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import { useSession } from "../session.jsx";
 import { appUrl } from "../lib/api";
+import { useFocusFlash } from "../lib/hooks";
+import { motionTokens, springs } from "../lib/motion";
 import { Icon } from "./ui.jsx";
+import Topbar from "./Topbar.jsx";
 
-const NAV = {
+export const NAV = {
   director: [
     { to: "/director", label: "Главная", icon: "home", end: true },
     { to: "/director/classes", label: "Классы", icon: "users" },
@@ -23,15 +27,31 @@ const NAV = {
 
 const COLLAPSED_KEY = "trayeye_sidebar_collapsed";
 
-export default function Layout({ children }) {
+function readCollapsed() {
+  try { return localStorage.getItem(COLLAPSED_KEY) === "1"; } catch { return false; }
+}
+
+// Смена страницы: новая сразу на месте и плавно выезжает снизу. Без ожидания ухода старой
+// (mode="wait"): отзывчивость важнее плавности, и переход не зависнет, если кадры не рисуются.
+const pageMotion = {
+  initial: { opacity: 0, y: motionTokens.distance.sm },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: motionTokens.duration.normal, ease: motionTokens.easing.smooth }
+};
+
+// Каркас кабинета: меню слева, шапка, страница из вложенного маршрута.
+export default function Layout() {
   const { cabinet, logout } = useSession();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
+  const { pathname } = useLocation();
+  const [collapsed, setCollapsed] = useState(readCollapsed);
   const title = cabinet.role === "director" ? cabinet.schoolName : cabinet.kombinatName;
+  const nav = NAV[cabinet.role];
+  useFocusFlash();
 
   const onLogout = () => { logout(); navigate("/"); };
   const toggleSidebar = () => {
-    localStorage.setItem(COLLAPSED_KEY, collapsed ? "0" : "1");
+    try { localStorage.setItem(COLLAPSED_KEY, collapsed ? "0" : "1"); } catch { /* приватный режим */ }
     setCollapsed(!collapsed);
   };
 
@@ -42,9 +62,12 @@ export default function Layout({ children }) {
           {cabinet.avatarUrl ? <img src={appUrl(cabinet.avatarUrl)} alt="" /> : <span className="brand-mark">tray<br />eye</span>}
         </div>
         <nav aria-label="Основная навигация">
-          {NAV[cabinet.role].map((item) => (
+          {nav.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} title={item.label}>
-              <Icon name={item.icon} size={18} /><span className="nav-label">{item.label}</span>
+              {({ isActive }) => <>
+                {isActive && <motion.span layoutId="nav-active" className="nav-active" transition={springs.snappy} />}
+                <Icon name={item.icon} size={18} /><span className="nav-label">{item.label}</span>
+              </>}
             </NavLink>
           ))}
         </nav>
@@ -59,18 +82,10 @@ export default function Layout({ children }) {
         </button>
       </aside>
       <div className="main">
-        <header className="topbar">
-          <div className="topbar-title">{title}</div>
-          <div className="topbar-actions" aria-label="Действия">
-            <span className="round-action search-action" title="Поиск" aria-hidden="true"><Icon name="search" size={17} /></span>
-            <img className="round-action" src={appUrl("/figma/imgNotificationBellPending.svg")} title="Уведомления" alt="" />
-            <div className="profile-pill">
-              <img src={appUrl(cabinet.avatarUrl || "/figma/imgRectangle4271.png")} alt="" />
-              <Icon name="arrowDown" size={16} />
-            </div>
-          </div>
-        </header>
-        <main className="content">{children}</main>
+        <Topbar cabinet={cabinet} title={title} nav={nav} />
+        <motion.main key={pathname} className="content" {...pageMotion}>
+          <Outlet />
+        </motion.main>
       </div>
     </div>
   );
