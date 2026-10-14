@@ -11,6 +11,7 @@ import DirectorMenu from "./pages/director/Menu.jsx";
 import DirectorSettings from "./pages/director/Settings.jsx";
 import KombinatHome from "./pages/kombinat/Home.jsx";
 import KombinatSchools from "./pages/kombinat/Schools.jsx";
+import KombinatSchool from "./pages/kombinat/School.jsx";
 import KombinatStats from "./pages/kombinat/Stats.jsx";
 import KombinatProducts from "./pages/kombinat/Products.jsx";
 import KombinatSuppliers from "./pages/kombinat/Suppliers.jsx";
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/kombinat" element={<RoleGate role="kombinat" />}>
           <Route index element={<KombinatHome />} />
           <Route path="schools" element={<KombinatSchools />} />
+          <Route path="schools/:id" element={<KombinatSchool />} />
           <Route path="stats" element={<KombinatStats />} />
           <Route path="products" element={<KombinatProducts />} />
           <Route path="suppliers" element={<KombinatSuppliers />} />

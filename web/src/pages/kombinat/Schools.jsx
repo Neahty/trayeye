@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { api, qs } from "../../lib/api";
@@ -6,7 +7,7 @@ import { useApi } from "../../lib/useApi";
 import { useModal } from "../../lib/hooks";
 import { fadeMotion, motionTokens, springs } from "../../lib/motion";
 import { dateTime, isoDate, pct } from "../../lib/format";
-import { Card, Icon, PlusIcon, ProblemCard, Status, Toast, errorText, exportCsv, mailtoHref, shareReport } from "../../components/ui.jsx";
+import { Card, Icon, PlusIcon, ProblemCard, Status, Toast, errorText, exportCsv, mailtoHref, copyReport } from "../../components/ui.jsx";
 
 // Самая проблемная школа (списания за неделю не ниже порога) подсвечивается красным.
 const HIGH_WASTE_PCT = 20;
@@ -124,7 +125,17 @@ export default function KombinatSchools() {
   const dashboard = useApi("/kombinat/dashboard");
   const stats = useApi(`/kombinat/stats${qs({ from: isoDate(-STATS_DAYS), to: isoDate() })}`);
   const links = useApi("/kombinat/links");
-  const [invite, setInvite] = useState(null);
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const [manualInvite, setInvite] = useState(null);
+  // ?invite=5 со страницы школы: «Новая ссылка директору» открывает панель для этой школы.
+  const inviteId = Number(params.get("invite")) || null;
+  const invited = inviteId && data?.schools.find((s) => s.id === inviteId);
+  const invite = manualInvite || (invited ? { school: invited } : null);
+  const closeInvite = useCallback(() => {
+    setInvite(null);
+    setParams((prev) => { const copy = new URLSearchParams(prev); copy.delete("invite"); return copy; }, { replace: true });
+  }, [setParams]);
   const [toast, setToast] = useState(null);
   const onCreated = () => { reload(); links.reload(); };
 
@@ -160,12 +171,13 @@ export default function KombinatSchools() {
         <tbody>
           {rows.map((s) => {
             const bad = s.id === worst?.id;
-            return <tr key={s.id} className={bad ? "row-bad" : ""} title={s.name} data-focus={`school-${s.id}`}>
-              <td><span className={`dot${s.wastePct === null ? " none" : bad ? " bad" : ""}`} />{s.number}</td>
+            // Вся строка ведёт в карточку школы; ссылка в первой ячейке - для клавиатуры.
+            return <tr key={s.id} className={`clickable${bad ? " row-bad" : ""}`} title={s.name} data-focus={`school-${s.id}`} onClick={() => navigate(`/kombinat/schools/${s.id}`)}>
+              <td><span className={`dot${s.wastePct === null ? " none" : bad ? " bad" : ""}`} /><Link className="cell-link" to={`/kombinat/schools/${s.id}`} onClick={(e) => e.stopPropagation()}>{s.number}</Link></td>
               <td className="num">{s.students ?? "-"}</td>
               <td className="num">{pct(s.eatenPct)}</td>
               <td className="num">{pct(s.wastePct)}</td>
-              <td className="action"><button className="plain" onClick={() => setInvite({ school: s })}>Открыть</button></td>
+              <td className="action"><Link className="row-link" onClick={(e) => e.stopPropagation()} to={`/kombinat/schools/${s.id}`} aria-label={`Открыть ${s.name}`}>Открыть</Link></td>
             </tr>;
           })}
         </tbody>
@@ -181,15 +193,15 @@ export default function KombinatSchools() {
         <button onClick={() => exportCsv(`trayeye-shkoly-${isoDate()}.csv`, [["Школа", "Детей", "Съели, %", "Списали, %", "Директор"], ...rows.map((s) => [s.name, s.students, s.eatenPct, s.wastePct, s.director_name])])}>
           <Icon name="arrowDown" size={20} />Экспорт в Excel
         </button>
-        <button className="secondary" onClick={async () => setToast(await shareReport(`Школы за ${STATS_DAYS} дней`, reportText))}>
-          <Icon name="stats" size={20} />Отправить отчёт
+        <button className="secondary" onClick={async () => setToast(await copyReport(`Школы за ${STATS_DAYS} дней`, reportText))}>
+          <Icon name="stats" size={20} />Скопировать отчёт
         </button>
       </div>
       <Links links={links} />
       {/* В body: у страницы во время анимации есть transform, а он ломает position: fixed. */}
       {createPortal(
         <AnimatePresence>
-          {invite && <InvitePanel key={invite.school?.id ?? "new"} school={invite.school} onClose={() => setInvite(null)} onCreated={onCreated} />}
+          {invite && <InvitePanel key={invite.school?.id ?? "new"} school={invite.school} onClose={closeInvite} onCreated={onCreated} />}
         </AnimatePresence>,
         document.body
       )}

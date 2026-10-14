@@ -3,7 +3,7 @@ import { qs } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { isoDate } from "../../lib/format";
 import { StatsView } from "../../components/StatsView.jsx";
-import { DateInput, Status } from "../../components/ui.jsx";
+import { DateInput, Status, sendReportToKombinat } from "../../components/ui.jsx";
 
 export default function DirectorStats() {
   const [from, setFrom] = useState(isoDate(-30));
@@ -18,7 +18,7 @@ export default function DirectorStats() {
         <DateInput label="по" value={to} onChange={setTo} />
       </div></div>
       <Status loading={loading && !data} error={error} />
-      {data && <StatsView data={data} from={from} to={to} />}
+      {data && <StatsView data={data} from={data.from} to={data.to} onSend={() => sendReportToKombinat({ type: "stats", from: data.from, to: data.to })} />}
     </>
   );
 }

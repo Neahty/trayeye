@@ -1,7 +1,7 @@
 // Кирпичики интерфейса по дизайн-системе из Figma (цвета, иконки, карточки).
 import { useEffect, useState } from "react";
 import { animate, useReducedMotion } from "motion/react";
-import { appUrl } from "../lib/api";
+import { api, appUrl } from "../lib/api";
 import { motionTokens } from "../lib/motion";
 
 const ERROR_TEXT = {
@@ -13,7 +13,8 @@ const ERROR_TEXT = {
   present_exceeds_students: "Пришло больше детей, чем числится в классе.",
   cannot_revoke_own_link: "Нельзя отозвать ссылку, по которой вы вошли.",
   bad_period: "Проверьте период.",
-  too_many_attempts: "Слишком много попыток, подождите."
+  too_many_attempts: "Слишком много попыток, подождите.",
+  school_not_found: "Такой школы нет среди школ комбината."
 };
 
 export function errorText(error) {
@@ -152,21 +153,24 @@ export function Tile({ image, title, value, notes = [], focusId, children }) {
   );
 }
 
-// Отправка отчёта: системное «Поделиться», а если его нет - копия в буфер обмена.
-export async function shareReport(title, text) {
-  if (navigator.share) {
-    try {
-      await navigator.share({ title, text });
-      return "Отчёт отправлен.";
-    } catch (err) {
-      if (err?.name === "AbortError") return null;
-    }
-  }
+// «Скопировать отчёт»: текст в буфер обмена, чтобы вставить в письмо или мессенджер.
+// Системное «Поделиться» не используем: на ПК оно открывает неудобное окно Windows.
+export async function copyReport(title, text) {
   try {
     await navigator.clipboard.writeText(`${title}\n${text}`);
-    return "Отчёт скопирован в буфер обмена - вставьте его в письмо или мессенджер.";
+    return "Отчёт скопирован - вставьте его в письмо или мессенджер (Ctrl+V).";
   } catch {
-    return "Не удалось отправить отчёт: браузер не дал доступ к буферу обмена.";
+    return "Не удалось скопировать: браузер не дал доступ к буферу обмена.";
+  }
+}
+
+// «Отправить в комбинат» у директора: отчёт уходит комбинату уведомлением.
+export async function sendReportToKombinat(body) {
+  try {
+    await api.post("/director/reports", body);
+    return "Отчёт отправлен в комбинат - он придёт в уведомления.";
+  } catch (err) {
+    return errorText(err);
   }
 }
 

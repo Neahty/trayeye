@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const db = require("../db");
 const { cabinetAuth } = require("../middleware/cabinetAuth");
-const { schoolOverview } = require("../services/overview");
+const { schoolOverview, schoolStats } = require("../services/overview");
 const data = require("../services/schoolData");
 const metrics = require("../services/metrics");
 const vision = require("../services/vision");
@@ -208,19 +208,7 @@ router.get("/stats", async (req, res, next) => {
   try {
     const period = periodParams(req, res);
     if (!period) return;
-    const id = req.cabinet.schoolId;
-    const [allRows, attendance, students] = await Promise.all([
-      data.dishDays([id], period.from, period.to),
-      data.attendanceDays([id], period.from, period.to),
-      data.studentsBySchool([id])
-    ]);
-    const rows = metrics.onlyScannedDays(allRows);
-    res.json({
-      ...period,
-      summary: metrics.periodSummary(rows),
-      series: metrics.dailySeries(rows, attendance, students.get(id) || 0),
-      dishes: metrics.dishStats(rows)
-    });
+    res.json(await schoolStats(req.cabinet.schoolId, period));
   } catch (err) {
     next(err);
   }
@@ -267,13 +255,40 @@ router.post("/tray", upload.single("image"), uploadErrors, async (req, res, next
       audience: "kombinat",
       kind: "tray_scanned",
       text: `${events.schoolLabel(req.cabinet)}: распознан поднос за ${events.dayLabel(date)}`,
-      link: `/kombinat/schools?focus=school-${schoolId}`
+      link: `/kombinat/schools/${schoolId}`
     });
     const names = new Map(menu.map((m) => [m.dish_id, m.name]));
     res.status(201).json({
       scan,
       items: result.items.map((it) => ({ ...it, name: names.get(it.dish_id) }))
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// «Отправить в комбинат»: отчёт приходит комбинату уведомлением со ссылкой на данные школы.
+// Текст собирает сервер - директор присылает только тип и даты.
+router.post("/reports", async (req, res, next) => {
+  try {
+    const school = events.schoolLabel(req.cabinet);
+    let text;
+    let link = `/kombinat/schools/${req.cabinet.schoolId}`;
+    if (req.body?.type === "attendance") {
+      const date = parseDate(req.body?.date);
+      if (!date) return badRequest(res, "bad_report");
+      text = `${school}: отчёт о посещаемости за ${events.dayLabel(date)}`;
+    } else if (req.body?.type === "stats") {
+      const from = parseDate(req.body?.from);
+      const to = parseDate(req.body?.to);
+      if (!from || !to || from > to) return badRequest(res, "bad_report");
+      text = `${school}: отчёт за период ${events.dayLabel(from)} - ${events.dayLabel(to)}`;
+      link += `?from=${from}&to=${to}`;
+    } else {
+      return badRequest(res, "bad_report");
+    }
+    await events.record(db, { kombinatId: req.cabinet.kombinatId, schoolId: req.cabinet.schoolId, audience: "kombinat", kind: "report", text, link });
+    res.status(201).json({ ok: true });
   } catch (err) {
     next(err);
   }

@@ -4,7 +4,8 @@
 const express = require("express");
 const db = require("../db");
 const { cabinetAuth } = require("../middleware/cabinetAuth");
-const { schoolOverviews } = require("../services/overview");
+const { schoolOverview, schoolOverviews, schoolStats } = require("../services/overview");
+const { today } = require("../utils/dates");
 const { createLink } = require("../services/links");
 const data = require("../services/schoolData");
 const metrics = require("../services/metrics");
@@ -76,6 +77,24 @@ router.get("/dashboard", async (req, res, next) => {
 router.get("/schools", async (req, res, next) => {
   try {
     res.json({ schools: await schoolsOf(req.cabinet.kombinatId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Карточка школы («Открыть» в списке школ): сводка на день и статистика за период.
+// Только школа этого комбината - чужая отвечает 404, как несуществующая.
+router.get("/schools/:id", async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return badRequest(res, "bad_id");
+    const period = periodParams(req, res);
+    if (!period) return;
+    const school = (await schoolsOf(req.cabinet.kombinatId)).find((s) => s.id === id);
+    if (!school) return res.status(404).json({ error: "not_found" });
+    const date = today();
+    const [overview, stats] = await Promise.all([schoolOverview(id, date), schoolStats(id, period)]);
+    res.json({ school, date, ...overview, stats });
   } catch (err) {
     next(err);
   }

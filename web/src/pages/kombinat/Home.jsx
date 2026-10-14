@@ -36,7 +36,7 @@ export default function KombinatHome() {
               {schools.map((school) => {
                 const f = schoolForecast(school);
                 return <tr key={school.id}>
-                  <td colSpan={2}>{school.name}</td>
+                  <td colSpan={2}><Link className="cell-link" to={`/kombinat/schools/${school.id}`}>{school.name}</Link></td>
                   <td className="portions">{f.empty ? <span className="muted">меню ещё нет</span> : `${f.forecast} порций (обычно ${f.usual})`}</td>
                   {f.empty ? <td /> : <ForecastDiff diff={f.diff} />}
                 </tr>;

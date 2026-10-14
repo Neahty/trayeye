@@ -39,7 +39,7 @@ const SEARCH_SOURCES = {
   ],
   kombinat: [
     { path: "/kombinat/schools", group: "Школы", pick: (r) => r.schools.map((s) => ({
-      label: s.name, hint: s.director_name || "директор не назначен", to: `/kombinat/schools?focus=school-${s.id}`, extra: String(s.number) })) },
+      label: s.name, hint: s.director_name || "директор не назначен", to: `/kombinat/schools/${s.id}`, extra: String(s.number) })) },
     { path: "/kombinat/dishes", group: "Блюда", pick: (r) => r.dishes.map((d) => ({
       label: d.name, hint: d.supplier_name || CATEGORY_LABELS[d.category] || "", to: `/kombinat/suppliers?focus=dish-${d.id}` })) },
     { path: "/kombinat/suppliers", group: "Поставщики", pick: (r) => r.suppliers.map((s) => ({
@@ -160,7 +160,7 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 }
 
-const EVENT_ICON = { menu_added: "book", menu_removed: "book", dish_added: "book", dish_changed: "book", forecast_applied: "chart", tray_scanned: "stats", director_joined: "users" };
+const EVENT_ICON = { menu_added: "book", menu_removed: "book", dish_added: "book", dish_changed: "book", forecast_applied: "chart", tray_scanned: "stats", director_joined: "users", report: "stats" };
 
 function Notifications({ cabinet, open, setOpen }) {
   const navigate = useNavigate();

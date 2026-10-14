@@ -143,7 +143,21 @@ tbody tr:nth-child(even) td { background: var(--row-alt); }
 tbody tr.row-bad td { background: var(--row-bad); }
 .table-wrap { overflow-x: auto; background: white; }
 .table-wrap table { min-width: 620px; }
-.card .table-wrap { margin: 0 -22px -20px; border-radius: 0 0 var(--card-radius) var(--card-radius); }
+/* Таблица до краёв карточки. Вниз «прилипает» только если она последняя: иначе форма под ней
+   (например «Новый поставщик») наезжала на строки. */
+.card .table-wrap { margin: 0 -22px 16px; }
+.card .table-wrap:last-child { margin-bottom: -20px; border-radius: 0 0 var(--card-radius) var(--card-radius); }
+.back-link { align-self: flex-start; color: var(--green); font-size: 13px; font-weight: 600; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.add-link { text-decoration: none; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: var(--green-soft); }
+tr.clickable.row-bad:hover td { background: #f7a9a9; }
+.cell-link { color: inherit; font-weight: 600; text-decoration: none; }
+.cell-link:hover { color: var(--green); text-decoration: underline; }
+.row-link { color: var(--blue); font-size: 13px; font-weight: 500; text-decoration: none; }
+.row-link:hover { text-decoration: underline; }
+button.row-link { color: var(--blue); }
 td.num, th.num { text-align: center; }
 td.action, th.action { text-align: right; }
 .dot { width: 18px; height: 18px; margin-right: 8px; display: inline-block; vertical-align: -4px; background: var(--green); border-radius: 50%; }
@@ -223,7 +237,8 @@ td.action, th.action { text-align: right; }
   .grid3, .home-actions { grid-template-columns: 1fr; }
   .metric-card { min-height: 110px; }
   .card { padding: 16px; }
-  .card .table-wrap { margin: 0 -16px -16px; }
+  .card .table-wrap { margin: 0 -16px 14px; }
+  .card .table-wrap:last-child { margin-bottom: -16px; }
   .bottom-actions .button, .bottom-actions button { flex: 1 1 100%; }
   .side-panel { top: auto; bottom: 76px; right: 16px; }
   th, td { padding: 8px 10px; }
@@ -240,6 +255,19 @@ td.action, th.action { text-align: right; }
 /* ---------- Движение (ECC motion-foundations): только transform и opacity ---------- */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .metric-value, .tile-value { font-variant-numeric: tabular-nums; }
+/* Число показателя не рвётся посередине («1939/2 060»): на ноутбуке шрифт и картинка ужимаются. */
+.metric-value { font-size: clamp(22px, 1.9vw, 30px); white-space: nowrap; }
+/* Плитка: перенос только между словами («2532 шт /» + «316.5 кг»), не внутри числа. */
+.tile-value { font-size: clamp(22px, 1.8vw, 28px); overflow-wrap: normal; word-break: keep-all; }
+/* «Отметить» в строке таблицы: поле и кнопки под высоту строки, колонки не прыгают. */
+th.action, td.action { width: 300px; }
+td .inline input { width: 72px !important; min-height: 30px; padding: 4px 8px; font-size: 13px; }
+td .inline button { min-height: 30px; padding: 4px 12px; font-size: 13px; }
+td .inline button.link { padding: 4px; }
+@media (max-width: 1440px) {
+  .metric-card { gap: 14px; padding: 16px 18px; }
+  .metric-art { width: 96px; height: 96px; flex-basis: 96px; }
+}
 
 @keyframes enter-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

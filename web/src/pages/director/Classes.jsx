@@ -3,7 +3,7 @@ import { api, qs } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { useDateParam } from "../../lib/hooks";
 import { dayLong, isoDate, pct } from "../../lib/format";
-import { DateInput, Icon, ProblemCard, Status, Toast, errorText, exportCsv, mailtoHref, shareReport } from "../../components/ui.jsx";
+import { DateInput, Icon, ProblemCard, Status, Toast, errorText, exportCsv, mailtoHref, sendReportToKombinat } from "../../components/ui.jsx";
 
 // Ниже этого порога посещаемость класса считается проблемой (строка краснеет).
 const LOW_ATTENDANCE_PCT = 70;
@@ -38,7 +38,7 @@ function ClassRow({ cls, date, locked, onSaved }) {
             <button onClick={save} disabled={value === "" || locked}>Сохранить</button>
             <button className="link" onClick={() => setEditing(false)}>Отмена</button>
           </span>
-        : <button className="plain" onClick={() => setEditing(true)} disabled={locked}>Открыть</button>}
+        : <button className="plain row-link" onClick={() => setEditing(true)} disabled={locked} aria-label={`Отметить посещаемость: ${cls.name}`}>Отметить</button>}
       {message && <div className="error">{message}</div>}
     </td>
   </tr>;
@@ -85,7 +85,7 @@ export default function DirectorClasses() {
         <button disabled={stale} onClick={() => exportCsv(`trayeye-klassy-${date}.csv`, [["Класс", "Учеников", "Пришли", "Посещаемость, %"], ...classes.map((cls) => [cls.name, cls.students_count, cls.present_count, attendancePct(cls)])])}>
           <Icon name="arrowDown" size={20} />Экспорт в Excel
         </button>
-        <button className="secondary" disabled={stale} onClick={async () => setToast(await shareReport("Посещаемость классов", reportText))}>
+        <button className="secondary" disabled={stale} onClick={async () => setToast(await sendReportToKombinat({ type: "attendance", date: data.date }))}>
           <Icon name="stats" size={20} />Отправить в комбинат
         </button>
       </div>

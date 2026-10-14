@@ -284,6 +284,23 @@ suite("API", () => {
       expect((await send("post", "/api/kombinat/dishes", token, { ...dish, name: "Ссылка", image_url: "javascript:alert(1)" })).status).toBe(400);
     });
 
+    test("карточка школы: сводка и статистика своей школы, чужая - 404", async () => {
+      const schools = (await get("/api/kombinat/schools", token)).body.schools;
+      const s33 = schools.find((s) => s.number === 33);
+      const res = await get(`/api/kombinat/schools/${s33.id}?from=2026-10-01&to=2026-10-13`, token);
+      expect(res.status).toBe(200);
+      expect(res.body.school).toEqual(expect.objectContaining({ id: s33.id, number: 33 }));
+      expect(res.body.cards.kids.students).toBeGreaterThan(0);
+      expect(res.body.forecast.items.length).toBeGreaterThan(0);
+      expect(res.body.stats.dishes.length).toBeGreaterThan(0);
+      expect(res.body.stats.from).toBe("2026-10-01");
+
+      const other = await db.query("INSERT INTO kombinats (name) VALUES ('Четвёртый') RETURNING id");
+      const foreign = await db.query("INSERT INTO schools (kombinat_id, number, name) VALUES ($1, 500, 'Чужая') RETURNING id", [other.rows[0].id]);
+      expect((await get(`/api/kombinat/schools/${foreign.rows[0].id}`, token)).status).toBe(404);
+      expect((await get("/api/kombinat/schools/abc", token)).status).toBe(400);
+    });
+
     test("статистика по школам", async () => {
       const res = await get("/api/kombinat/stats?from=2026-10-01&to=2026-10-13", token);
       expect(res.status).toBe(200);
@@ -345,6 +362,18 @@ suite("API", () => {
       expect(joined).toHaveLength(1);
       expect(joined[0].text).toContain("Петров Пётр");
       expect(joined[0].link).toBe(`/kombinat/schools?focus=school-${created.body.school.id}`);
+    });
+
+    test("«Отправить в комбинат»: отчёт приходит комбинату со ссылкой на школу", async () => {
+      const me = (await get("/api/auth/me", director)).body.cabinet;
+      expect((await send("post", "/api/director/reports", director, { type: "stats", from: "2026-10-01", to: "2026-10-13" })).status).toBe(201);
+      const [last] = (await get("/api/kombinat/notifications", kombinat)).body.events;
+      expect(last).toEqual(expect.objectContaining({ kind: "report", link: `/kombinat/schools/${me.schoolId}?from=2026-10-01&to=2026-10-13` }));
+      expect(last.text).toContain("Гимназия №33: отчёт за период 1 октября - 13 октября");
+      expect((await send("post", "/api/director/reports", director, { type: "attendance", date: "2026-10-13" })).status).toBe(201);
+      for (const bad of [{}, { type: "other" }, { type: "attendance", date: "вчера" }, { type: "stats", from: "2026-10-13", to: "2026-10-01" }]) {
+        expect((await send("post", "/api/director/reports", director, bad)).status).toBe(400);
+      }
     });
 
     test("без входа и с чужой ролью - нельзя", async () => {

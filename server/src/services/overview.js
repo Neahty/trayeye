@@ -67,4 +67,22 @@ async function schoolOverview(schoolId, date) {
   return (await schoolOverviews([schoolId], date)).get(schoolId);
 }
 
-module.exports = { schoolOverview, schoolOverviews };
+// Статистика одной школы за период: итоги, ряд по дням, блюда.
+// Нужна директору (своя школа) и комбинату (карточка школы).
+async function schoolStats(schoolId, { from, to }) {
+  const [allRows, attendance, students] = await Promise.all([
+    data.dishDays([schoolId], from, to),
+    data.attendanceDays([schoolId], from, to),
+    data.studentsBySchool([schoolId])
+  ]);
+  const rows = metrics.onlyScannedDays(allRows);
+  return {
+    from,
+    to,
+    summary: metrics.periodSummary(rows),
+    series: metrics.dailySeries(rows, attendance, students.get(schoolId) || 0),
+    dishes: metrics.dishStats(rows)
+  };
+}
+
+module.exports = { schoolOverview, schoolOverviews, schoolStats };

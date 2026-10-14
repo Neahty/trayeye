@@ -15,7 +15,7 @@ export default function KombinatStats() {
     </div></div>
     <Status loading={loading && !data} error={error} />
     {data && <>
-      <StatsView data={data} from={from} to={to} shareLabel="Отправить отчёт" />
+      <StatsView data={data} from={from} to={to} />
       <Card title="Статистика по школам"><div className="table-wrap"><table>
         <thead><tr><th>Школа</th><th>Заказано</th><th>Списано</th><th>Списания</th></tr></thead>
         <tbody>{data.schools.map((school) => <tr key={school.id}><td>{school.name}</td><td>{rub(school.plannedRub)}</td><td>{rub(school.wasteRub)}</td><td>{pct(school.wastePct)}</td></tr>)}</tbody>

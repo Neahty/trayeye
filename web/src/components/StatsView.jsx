@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CATEGORY_LABELS, dayLong, dayShort, pct, rub } from "../lib/format";
-import { Card, Icon, MetricCard, Toast, shareReport } from "./ui.jsx";
+import { Card, Icon, MetricCard, Toast, copyReport } from "./ui.jsx";
 
 const CHART = { left: 28, right: 672, top: 18, bottom: 202 };
 
@@ -30,7 +30,7 @@ function EatenChart({ series }) {
       <rect className="chart-band" x={coords[selected][0] - 29} y={CHART.top} width="58" height={CHART.bottom - CHART.top} fill="#edfff2" />
       <polyline className="chart-line" pathLength="1" points={coords.map((c) => c.join(",")).join(" ")} />
       <circle className="chart-dot" cx={coords[selected][0]} cy={coords[selected][1]} r="6" fill="white" stroke="#5c6b5f" strokeWidth="1.5" />
-      {points.map((item, i) => (i % tickStep === 0 || i === points.length - 1) && (
+      {points.map((item, i) => ((i % tickStep === 0 && points.length - 1 - i >= tickStep / 2) || i === points.length - 1) && (
         <text key={item.date} className="chart-tick" x={coords[i][0]} y="229" textAnchor="middle">{dayShort(item.date)}</text>
       ))}
     </svg>
@@ -42,7 +42,8 @@ function signed(n) {
   return `${n > 0 ? "+" : ""}${n}%`;
 }
 
-export function StatsView({ data, from, to, shareLabel = "Отправить в комбинат" }) {
+// onSend - у директора отчёт уходит комбинату; без него кнопка копирует текст отчёта.
+export function StatsView({ data, from, to, onSend, sendLabel = onSend ? "Отправить в комбинат" : "Скопировать отчёт" }) {
   const [toast, setToast] = useState(null);
   const summary = data.summary || {};
   const eatenChange = summary.eatenPct !== null && summary.baselineEatenPct !== null && summary.baselineEatenPct !== undefined
@@ -72,7 +73,7 @@ export function StatsView({ data, from, to, shareLabel = "Отправить в 
           <Toast>{toast}</Toast>
           <div className="report-actions">
             <button onClick={() => window.print()}><Icon name="arrowDown" size={18} />Экспорт в PDF</button>
-            <button className="secondary" onClick={async () => setToast(await shareReport("Отчёт TrayEye", reportText))}><Icon name="stats" size={18} />{shareLabel}</button>
+            <button className="secondary" onClick={async () => setToast(await (onSend ? onSend() : copyReport("Отчёт TrayEye", reportText)))}><Icon name="stats" size={18} />{sendLabel}</button>
           </div>
         </Card>
       </div>
