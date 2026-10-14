@@ -12,7 +12,11 @@
   - `services/metrics.js` - все формулы (чистые функции), `services/overview.js` - сводка школы,
     `services/schoolData.js` - SQL, `services/vision.js` - распознавание подноса (Gemini → OpenAI).
   - `middleware/cabinetAuth.js` - JWT + проверка, что ссылка не отозвана, на каждом запросе.
-- `web/` - React 18 + Vite. Сейчас без дизайна: только логика экранов. Дизайн - по макету Figma.
+  - `services/events.js` - лента уведомлений (таблица `events`): запись при действиях, `GET /notifications`.
+- `web/` - React 18 + Vite, дизайн по макету Figma. `components/Topbar.jsx` - поиск (Ctrl+K), уведомления, профиль.
+  - Анимации: `motion/react`, значения только из `lib/motion.js`; появление карточек/строк - CSS в `styles.css`.
+    Анимируем только transform/opacity, «уменьшить движение» отключает всё.
+  - `?date=` и `?focus=kind-id` в адресе: уведомления и поиск открывают нужный день и подсвечивают строку.
 - `docs/PLAN-cabinets.md` - план и решения.
 
 ## Где работает
