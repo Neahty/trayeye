@@ -19,8 +19,10 @@
 
 РФ-сервер Cloud.ru (`ssh rf`, vm-ce8793): `/opt/trayeye`, systemd `trayeye` (127.0.0.1:4100, пользователь trayeye),
 PostgreSQL `trayeye` там же. Снаружи: https://shekspireteam.ru/trayeye/ (Caddy Лондон → туннель → Caddy РФ :8080).
-Выкатка: `git archive HEAD | ssh rf 'rm -rf ~/trayeye-src && mkdir ~/trayeye-src && tar -x -C ~/trayeye-src'`,
-затем `ssh rf 'sudo bash ~/trayeye-src/deploy/deploy-rf.sh ~/trayeye-src'`. Подробно: `deploy/README.md`.
+Выкатка: на РФ есть клон `~/trayeye` (push/pull через deploy key, хост `github-trayeye`):
+`ssh rf 'cd ~/trayeye && git pull --ff-only && sudo bash deploy/deploy-rf.sh ~/trayeye'`. Подробно: `deploy/README.md`.
+`user1` на РФ в группе `trayeye` и может править `/opt/trayeye` без sudo (кроме `.env`).
+С локального компа РФ доступен только через Лондон: `ssh rf` = ProxyJump `kaplun` (163.5.16.34).
 
 ## Команды
 
