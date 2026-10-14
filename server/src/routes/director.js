@@ -178,14 +178,15 @@ router.get("/stats", async (req, res, next) => {
     const period = periodParams(req, res);
     if (!period) return;
     const id = req.cabinet.schoolId;
-    const [rows, attendance, students] = await Promise.all([
+    const [allRows, attendance, students] = await Promise.all([
       data.dishDays([id], period.from, period.to),
       data.attendanceDays([id], period.from, period.to),
       data.studentsBySchool([id])
     ]);
+    const rows = metrics.onlyScannedDays(allRows);
     res.json({
       ...period,
-      summary: metrics.wasteSummary(rows),
+      summary: metrics.periodSummary(rows),
       series: metrics.dailySeries(rows, attendance, students.get(id) || 0),
       dishes: metrics.dishStats(rows)
     });

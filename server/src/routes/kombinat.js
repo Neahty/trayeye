@@ -48,12 +48,20 @@ router.get("/dashboard", async (req, res, next) => {
 
     const present = list.reduce((a, s) => a + s.cards.kids.present, 0);
     const students = list.reduce((a, s) => a + s.cards.kids.students, 0);
+    const plannedRub = list.reduce((a, s) => a + s.cards.waste.plannedRub, 0);
+    const wasteRub = list.reduce((a, s) => a + s.cards.waste.rub, 0);
+    // «Было»: исходный уровень школ, взвешенный по сумме заказа (до первых сканов - простое среднее).
+    const baselinePct = plannedRub > 0
+      ? list.reduce((a, s) => a + s.cards.waste.baselinePct * s.cards.waste.plannedRub, 0) / plannedRub
+      : list.reduce((a, s) => a + s.cards.waste.baselinePct, 0) / (list.length || 1);
     res.json({
       kombinat: kombinatInfo(req.cabinet),
       date,
       totals: {
         savingsRub: list.reduce((a, s) => a + s.cards.savings.rub, 0),
-        wasteRub: metrics.round(list.reduce((a, s) => a + s.cards.waste.rub, 0), 2),
+        wasteRub: metrics.round(wasteRub, 2),
+        wastePct: plannedRub > 0 ? metrics.round((wasteRub / plannedRub) * 100, 1) : null,
+        baselinePct: metrics.round(baselinePct, 1),
         kids: metrics.kidsSummary(present, students),
         schools: list.length
       },
@@ -281,18 +289,19 @@ router.get("/stats", async (req, res, next) => {
     if (!period) return;
     const schools = await schoolsOf(req.cabinet.kombinatId);
     const ids = schools.map((s) => s.id);
-    const [rows, attendance, students] = await Promise.all([
+    const [allRows, attendance, students] = await Promise.all([
       data.dishDays(ids, period.from, period.to),
       data.attendanceDays(ids, period.from, period.to),
       data.studentsBySchool(ids)
     ]);
+    const rows = metrics.onlyScannedDays(allRows);
     const totalStudents = [...students.values()].reduce((a, b) => a + b, 0);
     const presentByDate = new Map();
     for (const a of attendance) presentByDate.set(a.date, (presentByDate.get(a.date) || 0) + a.present);
 
     res.json({
       ...period,
-      summary: metrics.wasteSummary(rows),
+      summary: metrics.periodSummary(rows),
       series: metrics.dailySeries(
         rows,
         [...presentByDate].map(([date, present]) => ({ date, present })),
@@ -302,7 +311,7 @@ router.get("/stats", async (req, res, next) => {
         id: s.id,
         number: s.number,
         name: s.name,
-        ...metrics.wasteSummary(rows.filter((r) => r.school_id === s.id))
+        ...metrics.periodSummary(rows.filter((r) => r.school_id === s.id))
       })),
       dishes: metrics.dishStats(rows)
     });

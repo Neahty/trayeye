@@ -12,11 +12,10 @@ export default function KombinatStats() {
   return <>
     <div className="page-heading"><h1>Статистика</h1><div className="page-tools">
       <DateInput label="С" value={from} onChange={setFrom} /><DateInput label="по" value={to} onChange={setTo} />
-      {data && <button onClick={() => window.print()}>⇩　Экспорт в PDF</button>}
     </div></div>
     <Status loading={loading && !data} error={error} />
     {data && <>
-      <StatsView data={data} />
+      <StatsView data={data} from={from} to={to} shareLabel="Отправить отчёт" />
       <Card title="Статистика по школам"><div className="table-wrap"><table>
         <thead><tr><th>Школа</th><th>Заказано</th><th>Списано</th><th>Списания</th></tr></thead>
         <tbody>{data.schools.map((school) => <tr key={school.id}><td>{school.name}</td><td>{rub(school.plannedRub)}</td><td>{rub(school.wasteRub)}</td><td>{pct(school.wastePct)}</td></tr>)}</tbody>

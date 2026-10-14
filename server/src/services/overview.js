@@ -30,7 +30,9 @@ async function schoolOverviews(schoolIds, date) {
     const todayRows = rows.filter((r) => r.date === date);
     const studentsCount = students.get(id) || 0;
 
-    const day = metrics.wasteSummary(todayRows);
+    // Пока камера за день ничего не сняла, считать нечего: иначе весь заказ выглядит списанным.
+    const scanned = todayRows.some((r) => r.trays > 0);
+    const day = metrics.wasteSummary(scanned ? todayRows : []);
     const baselinePct = metrics.baselineWastePct(past);
     const present = attendance.find((a) => a.date === date)?.present || 0;
 
@@ -45,8 +47,8 @@ async function schoolOverviews(schoolIds, date) {
     result.set(id, {
       date,
       cards: {
-        waste: { pct: day.wastePct, baselinePct, rub: day.wasteRub },
-        savings: { rub: todayRows.length ? metrics.savingsRub(baselinePct, day) : 0 },
+        waste: { pct: scanned ? day.wastePct : null, baselinePct, rub: day.wasteRub, plannedRub: day.plannedRub },
+        savings: { rub: scanned ? metrics.savingsRub(baselinePct, day) : 0 },
         kids: metrics.kidsSummary(present, studentsCount)
       },
       forecast: { date: target, items: forecastItems },

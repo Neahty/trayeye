@@ -16,10 +16,9 @@ export default function DirectorStats() {
       <div className="page-tools">
         <DateInput label="С" value={from} onChange={setFrom} />
         <DateInput label="по" value={to} onChange={setTo} />
-        {data && <button onClick={() => window.print()}>⇩　Экспорт в PDF</button>}
       </div></div>
       <Status loading={loading && !data} error={error} />
-      {data && <StatsView data={data} />}
+      {data && <StatsView data={data} from={from} to={to} />}
     </>
   );
 }

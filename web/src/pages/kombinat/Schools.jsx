@@ -1,53 +1,64 @@
-import { useState } from "react";
-import { api } from "../../lib/api";
+import { useEffect, useState } from "react";
+import { api, qs } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
-import { dateTime, pct } from "../../lib/format";
-import { Card, Status, errorText } from "../../components/ui.jsx";
+import { dateTime, isoDate, pct } from "../../lib/format";
+import { Card, Icon, PlusIcon, ProblemCard, Status, errorText, exportCsv, mailtoHref, shareReport } from "../../components/ui.jsx";
 
-// Личная ссылка директору: ФИО + номер школы. Показываем её один раз - в базе она не хранится.
-function CreateLink({ onCreated, initialSchool = null }) {
-  const [form, setForm] = useState({ full_name: "", school_number: initialSchool?.number || "", school_name: initialSchool?.name || "" });
+// Самая проблемная школа (списания за неделю не ниже порога) подсвечивается красным.
+const HIGH_WASTE_PCT = 20;
+const STATS_DAYS = 7;
+
+// Панель справа «Приглашение директора»: № школы + ФИО → личная ссылка (показывается один раз).
+function InvitePanel({ school, onClose, onCreated }) {
+  const [form, setForm] = useState({ school_number: school?.number || "", full_name: "" });
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState(null);
-  const [open, setOpen] = useState(Boolean(initialSchool));
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const submit = async (e) => {
     e.preventDefault();
-    const body = { full_name: form.full_name, school_number: Number(form.school_number) };
-    if (form.school_name.trim()) body.school_name = form.school_name;
     try {
-      const r = await api.post("/kombinat/links", body);
+      const r = await api.post("/kombinat/links", { full_name: form.full_name, school_number: Number(form.school_number) });
       setResult(r);
       setMessage(null);
-      setForm({ full_name: "", school_number: "", school_name: "" });
       onCreated();
     } catch (err) {
       setMessage(errorText(err));
     }
   };
 
-  return (
-    <div className="invite-control">
-    {!initialSchool && <button className="secondary" onClick={() => setOpen(!open)}>{open ? "Закрыть приглашение" : "+　Пригласить директора"}</button>}
-    {open && <Card title="Пригласить директора">
-      <form className="row" onSubmit={submit}>
-        <input placeholder="ФИО директора" value={form.full_name} onChange={set("full_name")} required />
-        <input type="number" min="1" placeholder="№ школы" value={form.school_number} onChange={set("school_number")} required />
-        <input placeholder="Название (необязательно)" value={form.school_name} onChange={set("school_name")} />
-        <button type="submit">Создать ссылку</button>
-      </form>
-      {message && <p className="error">{message}</p>}
-      {result && (
-        <p>
-          Ссылка для {result.director.full_name} ({result.school.name}). Отправьте её директору, второй раз её не показать:
-          <br />
-          <input className="wide" readOnly value={result.link.url} onFocus={(e) => e.target.select()} />
-        </p>
-      )}
-    </Card>}
-    </div>
-  );
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(result.link.url);
+      setMessage("Ссылка скопирована. Отправьте её директору - второй раз её не показать.");
+    } catch {
+      setMessage("Скопируйте ссылку из поля вручную.");
+    }
+  };
+
+  return <>
+    <div className="side-panel-backdrop" onClick={onClose} />
+    <form className="side-panel" onSubmit={submit} role="dialog" aria-label="Приглашение директора">
+      <div className="side-panel-head">
+        <h3>Приглашение директора</h3>
+        <button type="button" className="side-panel-close" onClick={onClose} aria-label="Закрыть">×</button>
+      </div>
+      {school?.director_name && <p className="muted">Сейчас: {school.director_name}. Новая ссылка не отзывает старые.</p>}
+      <input type="number" min="1" placeholder="№ школы" value={form.school_number} onChange={set("school_number")} required />
+      <input placeholder="ФИО" value={form.full_name} onChange={set("full_name")} required />
+      <p className="hint">Школа и директор создадутся автоматически, если их ещё нет. Ссылка открывает кабинет без пароля.</p>
+      {result && <input readOnly value={result.link.url} onFocus={(e) => e.target.select()} aria-label="Ссылка приглашения" />}
+      {message && <p className="hint">{message}</p>}
+      <button type="submit">Создать ссылку приглашения</button>
+      <button type="button" className="secondary" onClick={copy} disabled={!result}>Скопировать ссылку приглашения</button>
+    </form>
+  </>;
 }
 
 function Links({ links }) {
@@ -68,7 +79,7 @@ function Links({ links }) {
     <Card title="Выданные ссылки">
       <Status loading={loading && !data} error={error} />
       {message && <p className="error">{message}</p>}
-      <table>
+      <div className="table-wrap"><table>
         <thead><tr><th>Кому</th><th>Создана</th><th>Последний вход</th><th>Статус</th><th /></tr></thead>
         <tbody>
           {data?.links.map((l) => (
@@ -77,11 +88,11 @@ function Links({ links }) {
               <td>{dateTime(l.created_at)}</td>
               <td>{dateTime(l.last_used_at)}</td>
               <td>{l.revoked_at ? "отозвана" : "активна"}</td>
-              <td>{!l.revoked_at && <button className="link" onClick={() => revoke(l.id)}>Отозвать</button>}</td>
+              <td className="action">{!l.revoked_at && <button className="link" onClick={() => revoke(l.id)}>Отозвать</button>}</td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }
@@ -89,33 +100,71 @@ function Links({ links }) {
 export default function KombinatSchools() {
   const { data, loading, error, reload } = useApi("/kombinat/schools");
   const dashboard = useApi("/kombinat/dashboard");
+  const stats = useApi(`/kombinat/stats${qs({ from: isoDate(-STATS_DAYS), to: isoDate() })}`);
   const links = useApi("/kombinat/links");
-  const [inviteTarget, setInviteTarget] = useState(null);
-  const onCreated = () => {
-    reload();
-    links.reload();
-  };
+  const [invite, setInvite] = useState(null);
+  const [toast, setToast] = useState(null);
+  const onCreated = () => { reload(); links.reload(); };
+
+  const rows = (data?.schools || []).map((s) => {
+    const week = stats.data?.schools.find((item) => item.id === s.id);
+    const today = dashboard.data?.schools.find((item) => item.id === s.id);
+    return {
+      ...s,
+      students: today?.cards.kids.students,
+      eatenPct: week?.plannedRub ? Math.round(100 - week.wastePct) : null,
+      wastePct: week?.plannedRub ? week.wastePct : null,
+      recommendations: today?.recommendations || []
+    };
+  });
+  const worst = rows.filter((s) => s.wastePct !== null && s.wastePct >= HIGH_WASTE_PCT)
+    .sort((a, b) => b.wastePct - a.wastePct)[0];
+  const problemLines = worst && [
+    `Проблемная школа: ${worst.number}.`,
+    `${pct(worst.wastePct)} еды списывается за последние ${STATS_DAYS} дней.`,
+    worst.recommendations[0] ? `Причина: ${worst.recommendations[0].text}` : null
+  ];
+  const reportText = rows.map((s) => `${s.name}: съели ${pct(s.eatenPct)}, списали ${pct(s.wastePct)}`).join("\n");
 
   return (
     <>
-      <div className="page-heading"><h1>Школы</h1><CreateLink onCreated={onCreated} /></div>
+      <div className="page-heading">
+        <h1>Школы</h1>
+        <button className="add-link" onClick={() => setInvite({ school: null })}><PlusIcon />Пригласить директора</button>
+      </div>
       <Status loading={loading && !data} error={error} />
       <div className="table-wrap"><table>
-        <thead><tr><th>Школа</th><th>Детей</th><th>Списания</th><th>Директор</th><th>Действие</th></tr></thead>
+        <thead><tr><th>Школа</th><th className="num">Детей</th><th className="num">Съели</th><th className="num">Списали</th><th className="action">Действие</th></tr></thead>
         <tbody>
-          {data?.schools.map((s) => (
-            <tr key={s.id}>
-              <td><span className="school-dot" />{s.number}　{s.name}</td>
-              <td>{(() => { const kids = dashboard.data?.schools.find((item) => item.id === s.id)?.cards.kids; return kids ? `${kids.present}/${kids.students}` : "—"; })()}</td>
-              <td>{(() => { const waste = dashboard.data?.schools.find((item) => item.id === s.id)?.cards.waste; return waste ? pct(waste.pct) : "—"; })()}</td>
-              <td>{s.director_name || "Не приглашён"}</td><td><button className="link" onClick={() => setInviteTarget(s)}>Пригласить</button></td>
-            </tr>
-          ))}
+          {rows.map((s) => {
+            const bad = s.id === worst?.id;
+            return <tr key={s.id} className={bad ? "row-bad" : ""} title={s.name}>
+              <td><span className={`dot${s.wastePct === null ? " none" : bad ? " bad" : ""}`} />{s.number}</td>
+              <td className="num">{s.students ?? "-"}</td>
+              <td className="num">{pct(s.eatenPct)}</td>
+              <td className="num">{pct(s.wastePct)}</td>
+              <td className="action"><button className="plain" onClick={() => setInvite({ school: s })}>Открыть</button></td>
+            </tr>;
+          })}
         </tbody>
       </table></div>
-      {dashboard.error && <p className="muted">Сводные показатели по школам сейчас недоступны.</p>}
-      {inviteTarget && <CreateLink key={inviteTarget.id} initialSchool={inviteTarget} onCreated={() => { onCreated(); setInviteTarget(null); }} />}
+      {(dashboard.error || stats.error) && <p className="muted">Сводные показатели по школам сейчас недоступны.</p>}
+      {worst && <ProblemCard
+        title="Проблемная школа"
+        lines={problemLines}
+        action={<a className="button" href={mailtoHref(`Списания: ${worst.name}`, problemLines.filter(Boolean).join("\n"))}>Отправить рекомендации технологу</a>}
+      />}
+      {toast && <p className="toast">{toast}</p>}
+      <div className="bottom-actions">
+        <button onClick={() => exportCsv(`trayeye-shkoly-${isoDate()}.csv`, [["Школа", "Детей", "Съели, %", "Списали, %", "Директор"], ...rows.map((s) => [s.name, s.students, s.eatenPct, s.wastePct, s.director_name])])}>
+          <Icon name="arrowDown" size={20} />Экспорт в Excel
+        </button>
+        <button className="secondary" onClick={async () => setToast(await shareReport(`Школы за ${STATS_DAYS} дней`, reportText))}>
+          <Icon name="stats" size={20} />Отправить отчёт
+        </button>
+      </div>
       <Links links={links} />
+      {invite && <InvitePanel key={invite.school?.id ?? "new"} school={invite.school} onClose={() => setInvite(null)} onCreated={onCreated} />}
     </>
   );
 }

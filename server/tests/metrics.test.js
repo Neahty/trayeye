@@ -133,3 +133,41 @@ describe("dishStats и dailySeries", () => {
     expect(series[1].kids.present).toBe(0);
   });
 });
+
+describe("periodSummary", () => {
+  test("добавляет съедаемость, исходный уровень и экономию за период", () => {
+    const days = ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"];
+    // Первые 5 дней - исходный уровень: съели 60 из 100, списания 40%.
+    const base = days.map((date) => row({ date, planned: 100, eaten: 60, trays: 100, portion_price: 10 }));
+    // Потом списания 10%: экономия (40% - 10%) * 1000 ₽ = 300 ₽.
+    const after = row({ date: "2026-10-06", planned: 100, eaten: 90, trays: 100, portion_price: 10 });
+    const s = m.periodSummary([...base, after]);
+    expect(s.baselinePct).toBe(40);
+    expect(s.baselineEatenPct).toBe(60);
+    expect(s.eatenPct).toBe(65);
+    expect(s.savingsRub).toBe(300);
+    expect(s.wastePct).toBe(35);
+  });
+
+  test("без данных возвращает нули и пустую съедаемость", () => {
+    expect(m.periodSummary([])).toMatchObject({ plannedRub: 0, wasteRub: 0, savingsRub: 0, eatenPct: null });
+  });
+
+  test("ряд по дням содержит съедаемость", () => {
+    const series = m.dailySeries([row({ trays: 80, eaten: 60 })], [], 100);
+    expect(series[0].eatenPct).toBe(75);
+  });
+});
+
+describe("onlyScannedDays", () => {
+  test("убирает дни школы, по которым камера ещё ничего не сняла", () => {
+    const rows = [
+      row({ school_id: 1, date: "2026-10-13", trays: 80 }),
+      row({ school_id: 1, date: "2026-10-14", trays: 0, eaten: 0 }),
+      row({ school_id: 2, date: "2026-10-14", trays: 5 }),
+      row({ school_id: 2, date: "2026-10-14", dish_id: 2, trays: 0, eaten: 0 })
+    ];
+    const kept = m.onlyScannedDays(rows);
+    expect(kept.map((r) => `${r.school_id}:${r.date}:${r.dish_id}`)).toEqual(["1:2026-10-13:1", "2:2026-10-14:1", "2:2026-10-14:2"]);
+  });
+});

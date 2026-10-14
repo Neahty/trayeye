@@ -103,6 +103,15 @@ suite("API", () => {
       expect(Array.isArray(res.body.recommendations)).toBe(true);
     });
 
+    test("утром до первых сканов списания не считаются стопроцентными", async () => {
+      // На 14.10 меню уже есть, а камера ещё ничего не сняла.
+      const res = await get("/api/director/dashboard?date=2026-10-14", token);
+      expect(res.status).toBe(200);
+      expect(res.body.cards.waste.pct).toBeNull();
+      expect(res.body.cards.waste.rub).toBe(0);
+      expect(res.body.cards.savings.rub).toBe(0);
+    });
+
     test("неверная дата - 400", async () => {
       expect((await get("/api/director/dashboard?date=2026-13-01", token)).status).toBe(400);
       expect((await get("/api/director/stats?from=2026-10-10&to=2026-10-01", token)).status).toBe(400);
@@ -205,6 +214,11 @@ suite("API", () => {
       expect(res.body.kombinat.name).toBe("Полиграф комбинат");
       expect(res.body.schools.map((s) => s.number)).toEqual([11, 21, 33]);
       expect(res.body.totals.schools).toBe(3);
+      expect(typeof res.body.totals.wastePct).toBe("number");
+      const morning = await get("/api/kombinat/dashboard?date=2026-10-14", token);
+      expect(morning.body.totals.wastePct).toBeNull();
+      expect(morning.body.totals.baselinePct).toBeGreaterThan(0);
+      expect(typeof res.body.totals.baselinePct).toBe("number");
     });
 
     test("меню товаров: порции, вес, школы и поставщик", async () => {
@@ -265,6 +279,9 @@ suite("API", () => {
       expect(res.status).toBe(200);
       expect(res.body.schools.length).toBeGreaterThanOrEqual(3);
       expect(res.body.summary.plannedRub).toBeGreaterThan(0);
+      expect(res.body.summary.eatenPct).toBeGreaterThan(0);
+      expect(typeof res.body.summary.savingsRub).toBe("number");
+      expect(res.body.schools[0].eatenPct).toBeGreaterThan(0);
     });
   });
 });

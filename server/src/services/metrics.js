@@ -206,6 +206,34 @@ function recommendations({ targetDate, history, attendance, forecastItems }) {
   return tips;
 }
 
+// Дни школы без единого скана подноса (например, сегодня с утра) не дают данных о списаниях.
+function onlyScannedDays(rows) {
+  const scanned = new Set(rows.filter((r) => r.trays > 0).map((r) => `${r.school_id}|${r.date}`));
+  return rows.filter((r) => scanned.has(`${r.school_id}|${r.date}`));
+}
+
+// Съедаемость набора строк: сколько съедено из взятых на подносы порций.
+function listEatenPct(rows) {
+  const trays = sum(rows, "trays");
+  return trays > 0 ? round((sum(rows, "eaten") / trays) * 100) : null;
+}
+
+// Итог за период: списания, съедаемость, исходный уровень (первые дни периода) и экономия по дням.
+function periodSummary(rows) {
+  const baseDates = new Set([...new Set(rows.map((r) => r.date))].sort().slice(0, BASELINE_DAYS));
+  const baseRows = rows.filter((r) => baseDates.has(r.date));
+  const baselinePct = wasteSummary(baseRows).wastePct;
+  const savings = [...groupBy(rows, (r) => r.date).values()]
+    .reduce((total, list) => total + savingsRub(baselinePct, wasteSummary(list)), 0);
+  return {
+    ...wasteSummary(rows),
+    eatenPct: listEatenPct(rows),
+    baselinePct,
+    baselineEatenPct: listEatenPct(baseRows),
+    savingsRub: round(savings)
+  };
+}
+
 // Сводка по блюдам за период, от самых нелюбимых к любимым.
 function dishStats(rows) {
   return [...groupBy(rows, (r) => r.dish_id).values()]
@@ -233,6 +261,7 @@ function dailySeries(rows, attendance, students) {
     .map(([date, list]) => ({
       date,
       ...wasteSummary(list),
+      eatenPct: listEatenPct(list),
       kids: kidsSummary(presentByDate.get(date) || 0, students)
     }));
 }
@@ -242,6 +271,8 @@ module.exports = {
   round,
   eatenPct,
   wasteSummary,
+  periodSummary,
+  onlyScannedDays,
   baselineWastePct,
   savingsRub,
   kidsSummary,
