@@ -117,10 +117,11 @@ function CameraUpload({ date, onScanned }) {
           <p className="muted">Модель на сервере: {s.ms_per_frame} мс на кадр, всё вместе {s.seconds} с.</p>
           <ol>
             {state.result.trays.map((t, i) => (
-              <li key={t.scan_id || `f${i}`}>
+              <li key={t.trays[0]?.scan_id || `f${i}`}>
                 {t.error ? `не разобран (${errorText({ code: t.error })})`
-                  : t.is_empty ? "всё съедено - без нейросети"
-                    : t.items.map((it) => `${it.name}: осталось ${it.leftover_pct}%`).join(", ")}
+                  : t.no_menu_dishes ? "блюд из меню дня не видно"
+                    : t.is_empty ? "всё съедено - без нейросети"
+                      : t.trays.map((tr) => tr.items.map((it) => `${it.name}: осталось ${it.leftover_pct}%`).join(", ")).join(" | ")}
               </li>
             ))}
           </ol>

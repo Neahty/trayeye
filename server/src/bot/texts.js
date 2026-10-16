@@ -102,12 +102,31 @@ function kombinatSummary(chat, date, overview) {
   return lines.join("\n");
 }
 
-// Итог по одному подносу из camera.recordTrays.
-function trayResult(result) {
-  if (result.error) return "⚠️ Нейросеть сейчас не ответила, поднос не засчитан. Пришлите фото ещё раз чуть позже.";
-  if (result.is_empty) return "✅ Поднос пустой - всё съедено. Засчитал без нейросети.";
-  const items = result.items.map((it) => `• ${it.name}: осталось ${it.leftover_pct}%`);
-  return ["🍽 Остатки на подносе:", ...items].join("\n");
+function itemsLine(items) {
+  return items.map((it) => `${it.name} ${it.leftover_pct}%`).join(", ");
+}
+
+// Итог по одному фото из camera.recordTrays: на фото бывает несколько подносов.
+// menu - блюда дня: если еды из меню на фото нет, подсказываем, что в меню сейчас.
+function trayResult(result, menu = []) {
+  if (result.error) return "⚠️ Нейросеть сейчас не ответила, фото не засчитано. Пришлите его ещё раз чуть позже.";
+  if (result.no_menu_dishes) {
+    const names = menu.map((m) => m.name).join(", ");
+    return `🤔 На фото не нашёл блюд из сегодняшнего меню${names ? ` (${names})` : ""}. Проверьте меню школы на сайте.`;
+  }
+  const trays = result.trays || [];
+  if (result.is_empty) {
+    return trays.length > 1
+      ? `✅ Пустых подносов: ${trays.length}. Всё съедено, засчитал без нейросети.`
+      : "✅ Поднос пустой - всё съедено. Засчитал без нейросети.";
+  }
+  if (trays.length === 1) {
+    return ["🍽 Осталось от порции:", ...trays[0].items.map((it) => `• ${it.name}: ${it.leftover_pct}%`)].join("\n");
+  }
+  return [
+    `🍽 Подносов на фото: ${trays.length}. Осталось от порции:`,
+    ...trays.map((t, i) => `${i + 1}. ${itemsLine(t.items)}`)
+  ].join("\n");
 }
 
 function notification(event) {

@@ -230,8 +230,13 @@ suite("API", () => {
           ]
         };
       });
+      // На кадре с остатками модель видит два подноса - записываются оба.
       const aiSpy = jest.spyOn(vision, "analyzeTrays").mockImplementation(async ({ images }) => ({
-        results: images.map(() => [{ dish_id: menu[0].dish_id, leftover_pct: 40 }]), model: "test-model"
+        results: images.map(() => [
+          [{ dish_id: menu[0].dish_id, leftover_pct: 40 }],
+          [{ dish_id: menu[0].dish_id, leftover_pct: 100 }]
+        ]),
+        model: "test-model"
       }));
       const res = await request(app).post("/api/director/camera/video")
         .set("Authorization", `Bearer ${token}`)
@@ -242,22 +247,24 @@ suite("API", () => {
 
       expect(res.status).toBe(201);
       expect(aiCalls).toBe(1);
-      expect(res.body.stats).toMatchObject({ trays: 2, skipped_ai: 1, sent_to_ai: 1, ai_requests: 1, failed: 0 });
+      expect(res.body.stats).toMatchObject({ trays: 2, saved: 3, skipped_ai: 1, sent_to_ai: 1, ai_requests: 1, failed: 0 });
       // Пустой поднос: все блюда дня съедены.
-      expect(res.body.trays[0].items.map((it) => it.leftover_pct)).toEqual(menu.map(() => 0));
-      expect(res.body.trays[1].items).toEqual([{ dish_id: menu[0].dish_id, leftover_pct: 40, name: menu[0].name }]);
+      expect(res.body.trays[0].trays[0].items.map((it) => it.leftover_pct)).toEqual(menu.map(() => 0));
+      expect(res.body.trays[1].trays.map((t) => t.items)).toEqual([
+        [{ dish_id: menu[0].dish_id, leftover_pct: 40, name: menu[0].name }],
+        [{ dish_id: menu[0].dish_id, leftover_pct: 100, name: menu[0].name }]
+      ]);
       // Видео удалено сразу после разбора.
       expect(fs.readdirSync(path.join(process.env.UPLOADS_DIR, "camera-inbox"))).toEqual([]);
 
-      const { rows } = await db.query(
-        "SELECT source, ai_model FROM tray_scans WHERE id = ANY($1) ORDER BY id",
-        [res.body.trays.map((t) => t.scan_id)]
-      );
+      const scanIds = res.body.trays.flatMap((t) => t.trays.map((tr) => tr.scan_id));
+      const { rows } = await db.query("SELECT source, ai_model FROM tray_scans WHERE id = ANY($1) ORDER BY id", [scanIds]);
       expect(rows).toEqual([
         { source: "camera", ai_model: camera.LOCAL_MODEL },
+        { source: "camera", ai_model: "test-model" },
         { source: "camera", ai_model: "test-model" }
       ]);
-      const photo = await get(`/api/director/tray/${res.body.trays[1].scan_id}/photo`, token);
+      const photo = await get(`/api/director/tray/${res.body.trays[1].trays[0].scan_id}/photo`, token);
       expect(photo.status).toBe(200);
     });
 

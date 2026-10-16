@@ -61,10 +61,22 @@ describe("тексты", () => {
     expect(text).not.toContain("Школа 3");
   });
 
-  test("итог подноса: пустой, с остатками, ошибка ИИ", () => {
-    expect(texts.trayResult({ is_empty: true })).toContain("без нейросети");
-    expect(texts.trayResult({ is_empty: false, items: [{ name: "Борщ", leftover_pct: 30 }] })).toContain("Борщ: осталось 30%");
-    expect(texts.trayResult({ error: "ai_failed" })).toContain("не засчитан");
+  test("итог фото: пустой поднос, один поднос, несколько подносов, ошибка ИИ", () => {
+    expect(texts.trayResult({ is_empty: true, trays: [{ items: [] }] })).toContain("без нейросети");
+    expect(texts.trayResult({ is_empty: false, trays: [{ items: [{ name: "Борщ", leftover_pct: 30 }] }] })).toContain("• Борщ: 30%");
+    const many = texts.trayResult({ is_empty: false, trays: [
+      { items: [{ name: "Борщ", leftover_pct: 100 }, { name: "Чай", leftover_pct: 0 }] },
+      { items: [{ name: "Борщ", leftover_pct: 50 }] }
+    ] });
+    expect(many).toContain("Подносов на фото: 2");
+    expect(many).toContain("1. Борщ 100%, Чай 0%");
+    expect(many).toContain("2. Борщ 50%");
+    expect(texts.trayResult({ error: "ai_failed" })).toContain("не засчитано");
+  });
+
+  test("еды из меню на фото нет - подсказываем, что сейчас в меню", () => {
+    const text = texts.trayResult({ no_menu_dishes: true, trays: [] }, [{ name: "Борщ" }, { name: "Салат" }]);
+    expect(text).toContain("не нашёл блюд из сегодняшнего меню (Борщ, Салат)");
   });
 });
 

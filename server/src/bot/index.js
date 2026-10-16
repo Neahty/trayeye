@@ -66,13 +66,18 @@ async function askToLink(ctx) {
 async function bind(ctx, code) {
   if (!allowCodeAttempt(ctx.chat.id)) return ctx.reply("Слишком много попыток. Подождите 10 минут.");
   const chat = await telegram.redeemCode(code, { chatId: ctx.chat.id, name: displayName(ctx.from) });
-  if (!chat) return ctx.reply(texts.wrongCode());
+  if (!chat) {
+    console.log(`[bot] чат ${ctx.chat.id}: код не подошёл`);
+    return ctx.reply(texts.wrongCode());
+  }
+  console.log(`[bot] чат ${ctx.chat.id} привязан: ${chat.role}, ${chat.school_name || chat.kombinat_name}`);
   attempts.delete(ctx.chat.id);
   return ctx.reply(texts.linked(chat), menuFor(chat));
 }
 
 async function sendSummary(ctx, chat) {
   const date = today();
+  console.log(`[bot] чат ${chat.chat_id}: сводка «Сегодня» (${chat.role})`);
   if (chat.role === "director") {
     return ctx.reply(texts.directorSummary(chat, await schoolOverview(chat.school_id, date)), { link_preview_options: { is_disabled: true } });
   }
@@ -102,9 +107,12 @@ async function flushTrays(schoolId, items) {
       await Promise.all(items.map((it) => replyTo(it.chatId, it.messageId, "На сегодня у школы нет меню - добавьте его на сайте, тогда подносы засчитаются.")));
       return;
     }
-    const { trays } = await camera.recordTrays({ schoolId, date, menu, trays: items.map((it) => it.tray) });
-    await Promise.all(trays.map((result, i) => replyTo(items[i].chatId, items[i].messageId, texts.trayResult(result))));
-    const saved = trays.filter((t) => t.scan_id).length;
+    const { trays, aiRequests } = await camera.recordTrays({
+      schoolId, date, menu, trays: items.map((it) => it.tray), source: "upload"
+    });
+    const saved = trays.reduce((n, t) => n + t.trays.length, 0);
+    console.log(`[bot] школа ${schoolId}: фото ${items.length}, подносов записано ${saved}, запросов к ИИ ${aiRequests}, не разобрано ${trays.filter((t) => t.error).length}`);
+    await Promise.all(trays.map((result, i) => replyTo(items[i].chatId, items[i].messageId, texts.trayResult(result, menu))));
     if (saved) {
       await events.record(db, {
         kombinatId: items[0].kombinatId,
@@ -147,27 +155,26 @@ async function handlePhoto(ctx, fileId) {
   if (!menu.length) return replyTo(chat.chat_id, messageId, "На сегодня у школы нет меню - добавьте его на сайте, тогда подносы засчитаются.");
 
   const buffer = await downloadFile(ctx, fileId);
-  // Сначала локальная модель (без токенов): нашла ли поднос и пустой ли он.
-  let trays = await camera.analyzeImage(buffer);
-  if (trays === null) trays = [{ is_empty: false, items: [], crop_jpeg: buffer.toString("base64") }];
-  if (!trays.length) return replyTo(chat.chat_id, messageId, "🤔 Не вижу подноса. Снимите сверху, чтобы все тарелки попали в кадр.");
+  // Сначала локальная модель (без токенов): есть ли на фото посуда и осталось ли в ней что-то.
+  // Делить фото на подносы она не умеет (подносы на столе без дообучения не различает),
+  // поэтому подносы с едой считает Gemini - по всему фото целиком.
+  const groups = await camera.analyzeImage(buffer);
+  if (groups && !groups.length) {
+    console.log(`[bot] чат ${chat.chat_id}: на фото нет посуды`);
+    return replyTo(chat.chat_id, messageId, "🤔 Не вижу тарелок. Снимите подносы сверху или под небольшим углом, чтобы посуда попала в кадр.");
+  }
+  if (groups && groups.every((g) => g.is_empty)) {
+    console.log(`[bot] чат ${chat.chat_id}: фото, посуда пустая - без ИИ`);
+    const { trays: results } = await camera.recordTrays({ schoolId: chat.school_id, date, menu, trays: groups, source: "upload" });
+    return replyTo(chat.chat_id, messageId, texts.trayResult({ is_empty: true, trays: results.flatMap((r) => r.trays) }, menu));
+  }
 
-  const empty = trays.filter((t) => t.is_empty);
-  const withFood = trays.filter((t) => !t.is_empty);
-  if (empty.length) {
-    const { trays: results } = await camera.recordTrays({ schoolId: chat.school_id, date, menu, trays: empty });
-    await replyTo(chat.chat_id, messageId, empty.length > 1
-      ? `✅ Пустых подносов на фото: ${results.filter((r) => r.scan_id).length}. Засчитал без нейросети.`
-      : texts.trayResult(results[0]));
-  }
-  if (withFood.length) {
-    await replyTo(chat.chat_id, messageId, "⏳ Вижу остатки. Отправлю в нейросеть вместе с другими подносами - ответ придёт в течение минуты.");
-    for (const tray of withFood) {
-      queue.add(chat.school_id, {
-        tray, chatId: chat.chat_id, messageId, kombinatId: chat.kombinat_id, schoolName: chat.school_name
-      });
-    }
-  }
+  console.log(`[bot] чат ${chat.chat_id}: фото с едой - в очередь к ИИ`);
+  await replyTo(chat.chat_id, messageId, "⏳ Вижу еду. Отправлю в нейросеть вместе с другими фото - ответ придёт в течение минуты.");
+  queue.add(chat.school_id, {
+    tray: { is_empty: false, items: [], crop_jpeg: buffer.toString("base64") },
+    chatId: chat.chat_id, messageId, kombinatId: chat.kombinat_id, schoolName: chat.school_name
+  });
   return null;
 }
 

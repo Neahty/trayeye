@@ -28,17 +28,25 @@ describe("parseItems", () => {
 });
 
 describe("пачка подносов", () => {
-  test("parseBatch раскладывает ответ по подносам, лишнее и чужие блюда отбрасывает", () => {
-    const content = '{"trays":[{"tray":2,"items":[{"dish_id":5,"leftover_pct":50}]},{"tray":1,"items":[{"dish_id":1,"leftover_pct":0},{"dish_id":9,"leftover_pct":10}]},{"tray":7,"items":[{"dish_id":1,"leftover_pct":5}]}]}';
+  test("parseBatch: по каждому фото - подносы, у подноса - блюда из меню", () => {
+    const content = JSON.stringify({ photos: [
+      { photo: 2, trays: [{ items: [{ dish_id: 5, leftover_pct: 100 }] }, { items: [{ dish_id: 1, leftover_pct: 50 }, { dish_id: 9, leftover_pct: 10 }] }] },
+      { photo: 1, trays: [{ items: [{ dish_id: 9, leftover_pct: 0 }] }] },
+      { photo: 7, trays: [{ items: [{ dish_id: 1, leftover_pct: 5 }] }] }
+    ] });
     expect(vision.parseBatch(content, menu, 3)).toEqual([
-      [{ dish_id: 1, leftover_pct: 0 }],
-      [{ dish_id: 5, leftover_pct: 50 }],
-      []
+      [[]],                                                         // еда есть, но не из меню
+      [[{ dish_id: 5, leftover_pct: 100 }], [{ dish_id: 1, leftover_pct: 50 }]],
+      null                                                          // про третье фото модель промолчала
     ]);
   });
 
-  test("промпт пачки называет число подносов", () => {
-    expect(vision.buildBatchPrompt(menu, 4)).toContain("Ниже 4 фото подносов");
+  test("промпт пачки: несколько подносов на фото и без подсказки «после еды»", () => {
+    const prompt = vision.buildBatchPrompt(menu, 4);
+    expect(prompt).toContain("Ниже 4 фото");
+    expect(prompt).toContain("один или несколько подносов");
+    expect(prompt).toContain("100 - порцию не трогали");
+    expect(prompt).not.toMatch(/после еды/i);
   });
 });
 
@@ -99,11 +107,13 @@ describe("analyzeTray", () => {
     process.env.GEMINI_VISION_MODELS = "gemini-test";
     delete process.env.OPENAI_API_KEY;
     process.env.AI_PROXY_URL = "http://10.0.0.1:3128";
-    axios.post.mockResolvedValueOnce({ data: { choices: [{ message: { content:
-      '{"trays":[{"tray":1,"items":[{"dish_id":1,"leftover_pct":10}]},{"tray":2,"items":[{"dish_id":5,"leftover_pct":60}]}]}' } }] } });
+    axios.post.mockResolvedValueOnce({ data: { choices: [{ message: { content: JSON.stringify({ photos: [
+      { photo: 1, trays: [{ items: [{ dish_id: 1, leftover_pct: 10 }] }] },
+      { photo: 2, trays: [{ items: [{ dish_id: 5, leftover_pct: 60 }] }] }
+    ] }) } }] } });
     const images = [{ buffer: Buffer.from("a"), mime: "image/jpeg" }, { buffer: Buffer.from("b"), mime: "image/jpeg" }];
     const result = await vision.analyzeTrays({ images, menu });
-    expect(result.results).toEqual([[{ dish_id: 1, leftover_pct: 10 }], [{ dish_id: 5, leftover_pct: 60 }]]);
+    expect(result.results).toEqual([[[{ dish_id: 1, leftover_pct: 10 }]], [[{ dish_id: 5, leftover_pct: 60 }]]]);
     expect(axios.post).toHaveBeenCalledTimes(1);
     const [, body, options] = axios.post.mock.calls[0];
     expect(body.messages[0].content.filter((c) => c.type === "image_url")).toHaveLength(2);

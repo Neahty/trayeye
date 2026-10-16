@@ -176,43 +176,50 @@ async function analyzeTray({ buffer, mime, menu }) {
   });
 }
 
-// Несколько подносов в ОДНОМ запросе: у бесплатного Gemini лимит на число запросов,
-// а не на картинки в запросе, поэтому камера шлёт подносы пачкой.
+// Несколько фото в ОДНОМ запросе: у бесплатного Gemini лимит на число запросов, а не на
+// картинки в запросе, поэтому шлём пачкой. На одном фото бывает несколько подносов (повар
+// снял ряд на столе): подносы считает сама модель - YOLOE без дообучения их не различает.
+// «После еды» в промпте не пишем: с такой подсказкой модель ставила 0% целым порциям.
 function buildBatchPrompt(menu, count) {
   const list = menu.map((m) => `${m.dish_id}: ${m.name}`).join("\n");
-  return `Ниже ${count} фото подносов из школьной столовой ПОСЛЕ еды, по порядку: поднос 1, поднос 2 и так далее.
+  return `Ниже ${count} фото из школьной столовой, по порядку: фото 1, фото 2 и так далее.
+На каждом фото может быть один или несколько подносов с едой.
 Меню на сегодня (id: название):
 ${list}
 
-Для КАЖДОГО подноса найди блюда ТОЛЬКО из этого меню и оцени, какая доля каждой порции осталась несъеденной:
-0 - тарелка пустая, 100 - порцию не трогали. Блюда, которых на подносе нет, не указывай.
-Ответь строго JSON без пояснений, по одному элементу на каждый поднос:
-{"trays":[{"tray":1,"items":[{"dish_id":0,"leftover_pct":0}]}]}`;
+Для КАЖДОГО подноса на КАЖДОМ фото найди блюда ТОЛЬКО из этого меню и оцени, сколько осталось от порции:
+100 - порцию не трогали (полная тарелка), 50 - съели половину, 0 - посуда пустая.
+Смотри на то, что реально лежит в посуде. Блюда, которых на подносе нет, не указывай.
+Ответь строго JSON без пояснений:
+{"photos":[{"photo":1,"trays":[{"items":[{"dish_id":0,"leftover_pct":0}]}]}]}`;
 }
 
-// Ответ на пачку -> массив длиной count: по каждому подносу список блюд (пустой, если модель промолчала).
+// Ответ на пачку -> массив длиной count: по каждому фото список подносов, у подноса - список блюд.
+// Поднос без блюд из меню остаётся пустым списком: модель видит еду, но не из сегодняшнего меню.
+// null на месте фото - модель про это фото ничего не сказала.
 function parseBatch(content, menu, count) {
   const parsed = extractJson(content);
-  const trays = Array.isArray(parsed?.trays) ? parsed.trays : [];
-  const out = Array.from({ length: count }, () => []);
-  trays.forEach((t, i) => {
-    const n = Number.isInteger(Number(t?.tray)) ? Number(t.tray) - 1 : i;
-    if (n < 0 || n >= count || out[n].length) return;
-    out[n] = parseItems(JSON.stringify({ items: t?.items }), menu);
+  const photos = Array.isArray(parsed?.photos) ? parsed.photos : [];
+  const out = Array.from({ length: count }, () => null);
+  photos.forEach((p, i) => {
+    const n = Number.isInteger(Number(p?.photo)) ? Number(p.photo) - 1 : i;
+    if (n < 0 || n >= count || out[n] || !Array.isArray(p?.trays)) return;
+    out[n] = p.trays.map((t) => parseItems(JSON.stringify({ items: t?.items }), menu));
   });
   return out;
 }
 
-// images: [{ buffer, mime }] -> { results: [[{ dish_id, leftover_pct }]], model }.
-// Подносы, по которым модель ничего не ответила, остаются пустыми списками - их решает вызывающий.
+// images: [{ buffer, mime }] -> { results: [[[{ dish_id, leftover_pct }]] | null], model }:
+// по каждому фото - подносы, у каждого подноса - блюда.
 async function analyzeTrays({ images, menu }) {
   const prompt = buildBatchPrompt(menu, images.length);
-  const maxTokens = 300 + 150 * images.length;
+  // На фото бывает 5-6 подносов по 5 блюд: запас токенов на каждое фото.
+  const maxTokens = 400 + 600 * images.length;
   // Пачка думает дольше одиночного фото: 6 подносов у gemini flash-lite через прокси - ~27 с.
   const timeout = Math.max(CALL_TIMEOUT_MS, 20000 + 8000 * images.length);
   return runChain(async (provider) => {
     const results = parseBatch(await callProvider(provider, prompt, images, maxTokens, timeout), menu, images.length);
-    return results.some((r) => r.length) ? { results, model: provider.model } : null;
+    return results.some((r) => r && r.length) ? { results, model: provider.model } : null;
   });
 }
 

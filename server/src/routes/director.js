@@ -292,15 +292,15 @@ router.post("/camera/video", uploadVideo, videoErrors, async (req, res, next) =>
     const found = await camera.analyzeVideo(file.path);
     await removeVideo();
     const { trays, aiRequests } = await camera.recordTrays({ schoolId, date, menu, trays: found.trays });
-    const saved = trays.filter((t) => t.scan_id);
+    const saved = trays.reduce((n, t) => n + t.trays.length, 0);
 
-    if (saved.length) {
+    if (saved) {
       await events.record(db, {
         kombinatId: req.cabinet.kombinatId,
         schoolId,
         audience: "kombinat",
         kind: "tray_scanned",
-        text: `${events.schoolLabel(req.cabinet)}: камера распознала подносов - ${saved.length} за ${events.dayLabel(date)}`,
+        text: `${events.schoolLabel(req.cabinet)}: камера распознала подносов - ${saved} за ${events.dayLabel(date)}`,
         link: `/kombinat/schools/${schoolId}`
       });
     }
@@ -310,10 +310,12 @@ router.post("/camera/video", uploadVideo, videoErrors, async (req, res, next) =>
         frames: found.frames,
         ms_per_frame: found.ms_per_frame,
         trays: trays.length,
+        saved,
         skipped_ai: trays.filter((t) => t.is_empty).length,
         sent_to_ai: trays.filter((t) => t.gpt).length,
         ai_requests: aiRequests,
         failed: trays.filter((t) => t.error).length,
+        no_menu_dishes: trays.filter((t) => t.no_menu_dishes).length,
         seconds: Math.round((Date.now() - started) / 100) / 10
       },
       trays
