@@ -137,21 +137,43 @@ function allFailed(failures) {
 
 // Возвращает { items, model }. Бросает ошибку со status 503, если ИИ не настроен,
 // и 502, если ни один провайдер не дал разборчивого ответа.
-async function analyzeTray({ buffer, mime, menu }) {
+// Google временами отвечает 503 «модель перегружена» сразу на все ключи и модели.
+// Тогда ждём и проходим цепочку ещё раз (до 3 заходов). Если хоть один отказ был
+// другим (неверный ответ, 400, ключ), повторять бессмысленно.
+const RETRY_PASSES = 3;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// attempt(provider) -> результат или null («модель ответила, но пусто»).
+async function runChain(attempt) {
   const chain = providerChain();
   if (!chain.length) throw notConfigured();
-  const prompt = buildPrompt(menu);
   const failures = [];
-  for (const provider of chain) {
-    try {
-      const items = parseItems(await callProvider(provider, prompt, [{ buffer, mime }]), menu);
-      if (items.length) return { items, model: provider.model };
-      failures.push(`${provider.model}: пустой ответ`);
-    } catch (err) {
-      failures.push(`${provider.model}: ${err.response?.status || err.message}`);
+  for (let pass = 1; pass <= RETRY_PASSES; pass += 1) {
+    let busyOnly = true;
+    for (const provider of chain) {
+      try {
+        const result = await attempt(provider);
+        if (result) return result;
+        failures.push(`${provider.model}: пустой ответ`);
+        busyOnly = false;
+      } catch (err) {
+        const status = err.response?.status;
+        failures.push(`${provider.model}: ${status || err.message}`);
+        if (status !== 503 && status !== 429) busyOnly = false;
+      }
     }
+    if (!busyOnly || pass === RETRY_PASSES) break;
+    await sleep(Number(process.env.AI_RETRY_DELAY_MS ?? 6000) * pass);
   }
   throw allFailed(failures);
+}
+
+async function analyzeTray({ buffer, mime, menu }) {
+  const prompt = buildPrompt(menu);
+  return runChain(async (provider) => {
+    const items = parseItems(await callProvider(provider, prompt, [{ buffer, mime }]), menu);
+    return items.length ? { items, model: provider.model } : null;
+  });
 }
 
 // Несколько подносов в ОДНОМ запросе: у бесплатного Gemini лимит на число запросов,
@@ -184,23 +206,14 @@ function parseBatch(content, menu, count) {
 // images: [{ buffer, mime }] -> { results: [[{ dish_id, leftover_pct }]], model }.
 // Подносы, по которым модель ничего не ответила, остаются пустыми списками - их решает вызывающий.
 async function analyzeTrays({ images, menu }) {
-  const chain = providerChain();
-  if (!chain.length) throw notConfigured();
   const prompt = buildBatchPrompt(menu, images.length);
   const maxTokens = 300 + 150 * images.length;
   // Пачка думает дольше одиночного фото: 6 подносов у gemini flash-lite через прокси - ~27 с.
   const timeout = Math.max(CALL_TIMEOUT_MS, 20000 + 8000 * images.length);
-  const failures = [];
-  for (const provider of chain) {
-    try {
-      const results = parseBatch(await callProvider(provider, prompt, images, maxTokens, timeout), menu, images.length);
-      if (results.some((r) => r.length)) return { results, model: provider.model };
-      failures.push(`${provider.model}: пустой ответ`);
-    } catch (err) {
-      failures.push(`${provider.model}: ${err.response?.status || err.message}`);
-    }
-  }
-  throw allFailed(failures);
+  return runChain(async (provider) => {
+    const results = parseBatch(await callProvider(provider, prompt, images, maxTokens, timeout), menu, images.length);
+    return results.some((r) => r.length) ? { results, model: provider.model } : null;
+  });
 }
 
 module.exports = { analyzeTray, analyzeTrays, parseItems, parseBatch, buildPrompt, buildBatchPrompt, isConfigured };

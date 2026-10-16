@@ -70,6 +70,30 @@ describe("analyzeTray", () => {
     expect(axios.post).toHaveBeenCalledTimes(2);
   });
 
+  test("все модели перегружены (503) - ждём и пробуем ещё раз", async () => {
+    process.env.GEMINI_API_KEY = "g";
+    process.env.GEMINI_VISION_MODELS = "gemini-test";
+    delete process.env.OPENAI_API_KEY;
+    process.env.AI_RETRY_DELAY_MS = "0";
+    axios.post
+      .mockRejectedValueOnce(Object.assign(new Error("busy"), { response: { status: 503 } }))
+      .mockResolvedValueOnce({ data: { choices: [{ message: { content: '{"items":[{"dish_id":1,"leftover_pct":5}]}' } }] } });
+    const result = await vision.analyzeTray({ buffer: Buffer.from("x"), mime: "image/jpeg", menu });
+    expect(result.items).toEqual([{ dish_id: 1, leftover_pct: 5 }]);
+    expect(axios.post).toHaveBeenCalledTimes(2);
+  });
+
+  test("ошибка не из-за перегрузки - без повторов", async () => {
+    process.env.GEMINI_API_KEY = "g";
+    process.env.GEMINI_VISION_MODELS = "gemini-test";
+    delete process.env.OPENAI_API_KEY;
+    process.env.AI_RETRY_DELAY_MS = "0";
+    axios.post.mockRejectedValue(Object.assign(new Error("bad"), { response: { status: 400 } }));
+    await expect(vision.analyzeTray({ buffer: Buffer.from("x"), mime: "image/jpeg", menu }))
+      .rejects.toMatchObject({ status: 502, message: "ai_failed" });
+    expect(axios.post).toHaveBeenCalledTimes(1);
+  });
+
   test("пачка: все подносы в одном запросе, через прокси из AI_PROXY_URL", async () => {
     process.env.GEMINI_API_KEY = "g";
     process.env.GEMINI_VISION_MODELS = "gemini-test";
