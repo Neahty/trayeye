@@ -287,7 +287,7 @@ function ProfileMenu({ cabinet, open, setOpen, onTelegram }) {
         aria-haspopup="menu"
         whileTap={{ scale: motionTokens.scale.press }}
       >
-        <img src={appUrl(cabinet.avatarUrl || "/figma/imgRectangle4271.png")} alt="" />
+        <img src={appUrl(cabinet.avatarUrl || "/brand/trayeye-mark.png")} alt="" />
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={springs.snappy} className="profile-arrow">
           <Icon name="arrowDown" size={16} />
         </motion.span>
@@ -296,7 +296,7 @@ function ProfileMenu({ cabinet, open, setOpen, onTelegram }) {
         {open && (
           <motion.div key="profile" className="dropdown profile-menu" role="menu" {...dropdownMotion}>
             <div className="profile-card">
-              <img src={appUrl(cabinet.avatarUrl || "/figma/imgRectangle4271.png")} alt="" />
+              <img src={appUrl(cabinet.avatarUrl || "/brand/trayeye-mark.png")} alt="" />
               <div>
                 <div className="profile-name">{isDirector ? cabinet.fullName : cabinet.kombinatName}</div>
                 <div className="profile-role">{isDirector ? `Директор · ${cabinet.schoolName}` : "Комбинат питания"}</div>

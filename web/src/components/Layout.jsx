@@ -58,8 +58,12 @@ export default function Layout() {
   return (
     <div className={`layout role-${cabinet.role}${collapsed ? " collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="avatar">
-          {cabinet.avatarUrl ? <img src={appUrl(cabinet.avatarUrl)} alt="" /> : <span className="brand-mark">tray<br />eye</span>}
+        <div className={cabinet.avatarUrl ? "avatar" : "avatar brand"}>
+          {cabinet.avatarUrl ? <img src={appUrl(cabinet.avatarUrl)} alt="" /> : <>
+            {/* Логотип от дизайнера; в свёрнутом меню остаётся только знак без надписи. */}
+            <img className="brand-logo" src={appUrl("/brand/trayeye-logo-wide.png")} alt="TrayEye" />
+            <img className="brand-icon" src={appUrl("/brand/trayeye-mark.png")} alt="TrayEye" />
+          </>}
         </div>
         <nav aria-label="Основная навигация">
           {nav.map((item) => (
