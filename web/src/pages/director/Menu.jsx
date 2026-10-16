@@ -79,6 +79,57 @@ function TrayUpload({ date, onScanned }) {
   );
 }
 
+// Камера над лентой: видео → модель на сервере находит подносы без токенов →
+// пустые записываются сразу, в нейросеть уходят только подносы с остатками.
+function CameraUpload({ date, onScanned }) {
+  const [state, setState] = useState(null);
+
+  const onFile = async (e) => {
+    const input = e.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("video", file);
+    form.append("date", date);
+    setState({ text: "Камера разбирает видео... Минута видео - примерно полминуты.", busy: true });
+    try {
+      const r = await api.post("/director/camera/video", form);
+      setState({ result: r });
+      onScanned();
+    } catch (err) {
+      setState({ text: errorText(err) });
+    } finally {
+      input.value = "";
+    }
+  };
+
+  const s = state?.result?.stats;
+  return (
+    <Card title="Видео с камеры над лентой">
+      <input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska" onChange={onFile} disabled={state?.busy} aria-label="Видео с камеры" />
+      {state?.text && <p className={state.busy ? "muted pulse" : "muted"}>{state.text}</p>}
+      {s && (
+        <>
+          <p>
+            Подносов: <b>{s.trays}</b>. Пустые, без нейросети: <b>{s.skipped_ai}</b>. В нейросеть: <b>{s.sent_to_ai}</b>
+            {s.ai_requests ? ` (запросов: ${s.ai_requests})` : ""}{s.failed ? `, не разобрано: ${s.failed}` : ""}.
+          </p>
+          <p className="muted">Модель на сервере: {s.ms_per_frame} мс на кадр, всё вместе {s.seconds} с.</p>
+          <ol>
+            {state.result.trays.map((t, i) => (
+              <li key={t.scan_id || `f${i}`}>
+                {t.error ? `не разобран (${errorText({ code: t.error })})`
+                  : t.is_empty ? "всё съедено - без нейросети"
+                    : t.items.map((it) => `${it.name}: осталось ${it.leftover_pct}%`).join(", ")}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function DirectorMenu() {
   const [date, setDate] = useDateParam(isoDate());
   const [params, setParams] = useSearchParams();
@@ -152,7 +203,11 @@ export default function DirectorMenu() {
           ))}
         </AnimatePresence>
       </div>
-      <details className="optional-tools"><summary>Распознать остатки по фото подноса</summary><TrayUpload date={date} onScanned={reload} /></details>
+      <details className="optional-tools">
+        <summary>Распознать остатки: видео с камеры или фото подноса</summary>
+        <CameraUpload date={date} onScanned={reload} />
+        <TrayUpload date={date} onScanned={reload} />
+      </details>
     </>
   );
 }

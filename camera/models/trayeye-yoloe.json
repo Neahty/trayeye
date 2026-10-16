@@ -1,0 +1,21 @@
+{
+  "source": "yoloe-26n-seg.pt",
+  "imgsz": [
+    384,
+    640
+  ],
+  "classes": [
+    "tray",
+    "plate",
+    "bowl",
+    "cup",
+    "food"
+  ],
+  "prompts": [
+    "tray",
+    "plate",
+    "bowl",
+    "cup",
+    "food"
+  ]
+}

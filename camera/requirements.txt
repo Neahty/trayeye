@@ -1,0 +1,4 @@
+# Сервер: только запуск готовой модели ONNX (~200 МБ вместе с numpy), без PyTorch.
+onnxruntime>=1.20,<2
+opencv-python-headless>=4.10
+numpy>=2.0,<3

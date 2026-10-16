@@ -22,3 +22,12 @@ claude/
 dist.new/
 dist.old/
 backups/
+
+# Камера: окружение Python, исходные веса YOLOE и тестовые видео
+.venv/
+__pycache__/
+camera/samples/
+camera/weights/
+*.pt
+# текстовый кодировщик CLIP, ultralytics качает его при экспорте; на сервере не нужен
+camera/mobileclip*.ts

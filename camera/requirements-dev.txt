@@ -1,0 +1,8 @@
+# Комп разработчика: экспорт модели и тестовые прогоны. PyTorch ставить CPU-версию:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+onnxruntime>=1.20,<2
+numpy>=2.0,<3
+ultralytics==8.4.178
+onnx
+onnxslim
+git+https://github.com/ultralytics/CLIP.git

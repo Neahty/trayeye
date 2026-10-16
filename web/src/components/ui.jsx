@@ -7,6 +7,10 @@ import { motionTokens } from "../lib/motion";
 const ERROR_TEXT = {
   ai_not_configured: "Распознавание не настроено: на сервере нет ключа Gemini/OpenAI.",
   ai_failed: "Нейросеть не смогла разобрать фото. Попробуйте другое.",
+  camera_unavailable: "Сервис камеры сейчас не запущен на сервере.",
+  camera_failed: "Не удалось разобрать видео. Попробуйте другой файл.",
+  unsupported_video_type: "Нужно видео: mp4, mov, webm, avi или mkv.",
+  file_too_large: "Файл слишком большой.",
   no_menu_for_date: "На эту дату нет меню.",
   dish_exists: "Такое блюдо уже есть.",
   supplier_exists: "Такой поставщик уже есть.",

@@ -1,0 +1,30 @@
+[Unit]
+Description=TrayEye - камера: поиск подносов на видео (YOLOE ONNX, только 127.0.0.1:4110)
+After=network-online.target
+PartOf=trayeye.service
+
+[Service]
+Type=simple
+User=trayeye
+Group=trayeye
+WorkingDirectory=/opt/trayeye/camera
+Environment=VISION_PORT=4110
+Environment=VISION_THREADS=1
+Environment=CAMERA_INBOX=/opt/trayeye/uploads/camera-inbox
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/trayeye/camera/.venv/bin/python service.py
+Restart=always
+RestartSec=3
+# Сервер слабый (2 ядра, 4 ГБ) и общий: не больше одного ядра и 700 МБ, ниже приоритет.
+CPUQuota=100%
+MemoryMax=700M
+Nice=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Видео пишет trayeye (Node), сервису камеры достаточно читать.
+ReadOnlyPaths=/opt/trayeye/uploads
+
+[Install]
+WantedBy=multi-user.target

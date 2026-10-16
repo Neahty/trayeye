@@ -3,11 +3,25 @@
 // сначала бесплатный Gemini, при сбое или квоте - платный OpenAI.
 
 const axios = require("axios");
+const { HttpsProxyAgent } = require("https-proxy-agent");
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const CALL_TIMEOUT_MS = Number(process.env.AI_CALL_TIMEOUT_MS || 30000);
 const MAX_TOKENS = 800;
+
+// Gemini и OpenAI не отвечают на запросы с российских IP. На РФ-сервере ходим через
+// прокси в Лондоне (tinyproxy, доступен только по туннелю): AI_PROXY_URL=http://10.77.88.1:3128.
+let proxyAgent = null;
+function proxyOptions() {
+  const url = process.env.AI_PROXY_URL;
+  if (!url) return {};
+  if (!proxyAgent || proxyAgent.proxyUrl !== url) {
+    proxyAgent = new HttpsProxyAgent(url);
+    proxyAgent.proxyUrl = url;
+  }
+  return { httpsAgent: proxyAgent, proxy: false };
+}
 
 function geminiKeys() {
   return [...new Set(
@@ -79,55 +93,114 @@ function parseItems(content, menu) {
   return out;
 }
 
-async function callProvider(provider, prompt, imageBase64, mime) {
+// images: [{ buffer, mime }] - в одном запросе может быть несколько подносов.
+async function callProvider(provider, prompt, images, maxTokens = MAX_TOKENS, timeout = CALL_TIMEOUT_MS) {
   const { data } = await axios.post(
     provider.url,
     {
       model: provider.model,
       temperature: 0.1,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokens,
       response_format: { type: "json_object" },
       messages: [{
         role: "user",
         content: [
           { type: "text", text: prompt },
-          { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }
+          ...images.map((img) => ({
+            type: "image_url",
+            image_url: { url: `data:${img.mime};base64,${img.buffer.toString("base64")}` }
+          }))
         ]
       }]
     },
     {
       headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
-      timeout: CALL_TIMEOUT_MS
+      timeout,
+      ...proxyOptions()
     }
   );
   return data.choices?.[0]?.message?.content || "";
+}
+
+function notConfigured() {
+  const err = new Error("ai_not_configured");
+  err.status = 503;
+  return err;
+}
+
+function allFailed(failures) {
+  console.error("[vision] все провайдеры не справились:", failures.join("; "));
+  const err = new Error("ai_failed");
+  err.status = 502;
+  return err;
 }
 
 // Возвращает { items, model }. Бросает ошибку со status 503, если ИИ не настроен,
 // и 502, если ни один провайдер не дал разборчивого ответа.
 async function analyzeTray({ buffer, mime, menu }) {
   const chain = providerChain();
-  if (!chain.length) {
-    const err = new Error("ai_not_configured");
-    err.status = 503;
-    throw err;
-  }
+  if (!chain.length) throw notConfigured();
   const prompt = buildPrompt(menu);
-  const image = buffer.toString("base64");
   const failures = [];
   for (const provider of chain) {
     try {
-      const items = parseItems(await callProvider(provider, prompt, image, mime), menu);
+      const items = parseItems(await callProvider(provider, prompt, [{ buffer, mime }]), menu);
       if (items.length) return { items, model: provider.model };
       failures.push(`${provider.model}: пустой ответ`);
     } catch (err) {
       failures.push(`${provider.model}: ${err.response?.status || err.message}`);
     }
   }
-  console.error("[vision] все провайдеры не справились:", failures.join("; "));
-  const err = new Error("ai_failed");
-  err.status = 502;
-  throw err;
+  throw allFailed(failures);
 }
 
-module.exports = { analyzeTray, parseItems, buildPrompt, isConfigured };
+// Несколько подносов в ОДНОМ запросе: у бесплатного Gemini лимит на число запросов,
+// а не на картинки в запросе, поэтому камера шлёт подносы пачкой.
+function buildBatchPrompt(menu, count) {
+  const list = menu.map((m) => `${m.dish_id}: ${m.name}`).join("\n");
+  return `Ниже ${count} фото подносов из школьной столовой ПОСЛЕ еды, по порядку: поднос 1, поднос 2 и так далее.
+Меню на сегодня (id: название):
+${list}
+
+Для КАЖДОГО подноса найди блюда ТОЛЬКО из этого меню и оцени, какая доля каждой порции осталась несъеденной:
+0 - тарелка пустая, 100 - порцию не трогали. Блюда, которых на подносе нет, не указывай.
+Ответь строго JSON без пояснений, по одному элементу на каждый поднос:
+{"trays":[{"tray":1,"items":[{"dish_id":0,"leftover_pct":0}]}]}`;
+}
+
+// Ответ на пачку -> массив длиной count: по каждому подносу список блюд (пустой, если модель промолчала).
+function parseBatch(content, menu, count) {
+  const parsed = extractJson(content);
+  const trays = Array.isArray(parsed?.trays) ? parsed.trays : [];
+  const out = Array.from({ length: count }, () => []);
+  trays.forEach((t, i) => {
+    const n = Number.isInteger(Number(t?.tray)) ? Number(t.tray) - 1 : i;
+    if (n < 0 || n >= count || out[n].length) return;
+    out[n] = parseItems(JSON.stringify({ items: t?.items }), menu);
+  });
+  return out;
+}
+
+// images: [{ buffer, mime }] -> { results: [[{ dish_id, leftover_pct }]], model }.
+// Подносы, по которым модель ничего не ответила, остаются пустыми списками - их решает вызывающий.
+async function analyzeTrays({ images, menu }) {
+  const chain = providerChain();
+  if (!chain.length) throw notConfigured();
+  const prompt = buildBatchPrompt(menu, images.length);
+  const maxTokens = 300 + 150 * images.length;
+  // Пачка думает дольше одиночного фото: 6 подносов у gemini flash-lite через прокси - ~27 с.
+  const timeout = Math.max(CALL_TIMEOUT_MS, 20000 + 8000 * images.length);
+  const failures = [];
+  for (const provider of chain) {
+    try {
+      const results = parseBatch(await callProvider(provider, prompt, images, maxTokens, timeout), menu, images.length);
+      if (results.some((r) => r.length)) return { results, model: provider.model };
+      failures.push(`${provider.model}: пустой ответ`);
+    } catch (err) {
+      failures.push(`${provider.model}: ${err.response?.status || err.message}`);
+    }
+  }
+  throw allFailed(failures);
+}
+
+module.exports = { analyzeTray, analyzeTrays, parseItems, parseBatch, buildPrompt, buildBatchPrompt, isConfigured };

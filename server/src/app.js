@@ -94,7 +94,9 @@ function mountRoutes(app) {
 
 // Для известных сбоев (ИИ не настроен / не ответил) отдаём их код, остальное - internal_error.
 function errorCode(err) {
-  return ["ai_not_configured", "ai_failed"].includes(err.message) ? err.message : "internal_error";
+  return ["ai_not_configured", "ai_failed", "camera_unavailable", "camera_failed"].includes(err.message)
+    ? err.message
+    : "internal_error";
 }
 
 module.exports = { createApp, safeUrl };

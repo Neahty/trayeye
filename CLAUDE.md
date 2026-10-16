@@ -25,6 +25,10 @@
   - Анимации: `motion/react`, значения только из `lib/motion.js`; появление карточек/строк - CSS в `styles.css`.
     Анимируем только transform/opacity, «уменьшить движение» отключает всё.
   - `?date=` и `?focus=kind-id` в адресе: уведомления и поиск открывают нужный день и подсвечивают строку.
+- `camera/` - прототип камеры над лентой (Python): YOLOE в ONNX находит подносы без токенов,
+  в ChatGPT уходят только подносы с остатками. Сервис `trayeye-vision` (127.0.0.1:4110, systemd,
+  1 ядро / 700 МБ), его зовёт `server/src/services/camera.js`. PyTorch на сервер не ставить: диск и память.
+  Подробно: `camera/README.md`.
 - `docs/PLAN-cabinets.md` - план и решения.
 
 ## Где работает
@@ -35,6 +39,8 @@ PostgreSQL `trayeye` там же. Снаружи: https://shekspireteam.ru/traye
 `ssh rf 'cd ~/trayeye && git pull --ff-only && sudo bash deploy/deploy-rf.sh ~/trayeye'`. Подробно: `deploy/README.md`.
 `user1` на РФ в группе `trayeye` и может править `/opt/trayeye` без sudo (кроме `.env`).
 С локального компа РФ доступен только через Лондон: `ssh rf` = ProxyJump `kaplun` (163.5.16.34).
+Gemini/OpenAI с РФ-IP отвечают 403/400 по стране: в `.env` TrayEye `AI_PROXY_URL=http://10.77.88.1:3128`
+(tinyproxy в Лондоне, только по туннелю). Ключи Gemini общие с Bytwise - лимит делим, камера шлёт подносы пачкой.
 
 ## Команды
 

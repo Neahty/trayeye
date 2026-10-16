@@ -15,6 +15,8 @@ const { today } = require("../utils/dates");
 const { dateParam, periodParams } = require("../utils/params");
 const { parseId, parseIntInRange, parseDate, badRequest } = require("../utils/http");
 const { imageUpload, extFor, uploadErrors } = require("../utils/imageUpload");
+const { videoUpload, videoErrors } = require("../utils/videoUpload");
+const camera = require("../services/camera");
 const { UPLOADS_ROOT } = require("../config");
 
 const router = express.Router();
@@ -22,7 +24,10 @@ router.use(cabinetAuth("director"));
 
 const MAX_PORTIONS = 5000;
 const MAX_TRAY_PHOTO_BYTES = 10 * 1024 * 1024;
+const MAX_CAMERA_VIDEO_BYTES = 200 * 1024 * 1024;
 const upload = imageUpload(MAX_TRAY_PHOTO_BYTES);
+// Папку берём при каждом запросе: в тестах UPLOADS_DIR задаётся до загрузки модулей, но так надёжнее.
+const uploadVideo = (req, res, next) => videoUpload(MAX_CAMERA_VIDEO_BYTES, camera.inboxDir()).single("video")(req, res, next);
 
 function profile(cabinet) {
   return {
@@ -264,6 +269,58 @@ router.post("/tray", upload.single("image"), uploadErrors, async (req, res, next
     });
   } catch (err) {
     next(err);
+  }
+});
+
+// Демо камеры над лентой: видео -> локальная модель находит подносы -> пустые записываем
+// сразу, в ИИ уходят только подносы с остатками.
+router.post("/camera/video", uploadVideo, videoErrors, async (req, res, next) => {
+  const file = req.file;
+  // Видео не храним: оно большое, а нужны только кадры подносов.
+  const removeVideo = () => (file ? fs.promises.unlink(file.path).catch(() => {}) : null);
+  try {
+    if (!file) return badRequest(res, "no_video");
+    const date = req.body?.date === undefined ? today() : parseDate(req.body.date);
+    if (!date) return badRequest(res, "bad_date");
+
+    const schoolId = req.cabinet.schoolId;
+    const menu = await data.dishDays([schoolId], date, date);
+    if (!menu.length) return res.status(409).json({ error: "no_menu_for_date" });
+
+    const started = Date.now();
+    const found = await camera.analyzeVideo(file.path);
+    await removeVideo();
+    const { trays, aiRequests } = await camera.recordTrays({ schoolId, date, menu, trays: found.trays });
+    const saved = trays.filter((t) => t.scan_id);
+
+    if (saved.length) {
+      await events.record(db, {
+        kombinatId: req.cabinet.kombinatId,
+        schoolId,
+        audience: "kombinat",
+        kind: "tray_scanned",
+        text: `${events.schoolLabel(req.cabinet)}: камера распознала подносов - ${saved.length} за ${events.dayLabel(date)}`,
+        link: `/kombinat/schools/${schoolId}`
+      });
+    }
+    res.status(201).json({
+      date,
+      stats: {
+        frames: found.frames,
+        ms_per_frame: found.ms_per_frame,
+        trays: trays.length,
+        skipped_ai: trays.filter((t) => t.is_empty).length,
+        sent_to_ai: trays.filter((t) => t.gpt).length,
+        ai_requests: aiRequests,
+        failed: trays.filter((t) => t.error).length,
+        seconds: Math.round((Date.now() - started) / 100) / 10
+      },
+      trays
+    });
+  } catch (err) {
+    next(err);
+  } finally {
+    await removeVideo();
   }
 });
 

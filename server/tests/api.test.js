@@ -19,6 +19,7 @@ const db = require("../src/db");
 const { seed } = require("../src/db/seed");
 const { createLink } = require("../src/services/links");
 const vision = require("../src/services/vision");
+const camera = require("../src/services/camera");
 const { createApp } = require("../src/app");
 
 const suite = TEST_DB ? describe : describe.skip;
@@ -210,6 +211,70 @@ suite("API", () => {
         .set("Authorization", `Bearer ${token}`)
         .attach("image", Buffer.from("<html>"), { filename: "x.html", contentType: "text/html" });
       expect(res.status).toBe(400);
+    });
+
+    test("видео с камеры: пустой поднос без ИИ, поднос с остатками - в ИИ", async () => {
+      const menu = (await get("/api/director/menu", token)).body.items;
+      const crop = Buffer.from("jpeg").toString("base64");
+      const camSpy = jest.spyOn(camera, "analyzeVideo").mockImplementation(async (videoPath) => {
+        expect(fs.existsSync(videoPath)).toBe(true);
+        return {
+          frames: 30,
+          ms_per_frame: 60,
+          trays: [
+            { is_empty: true, items: [{ kind: "plate", food_share: 0, leftover_pct: 0 }], crop_jpeg: crop },
+            { is_empty: false, items: [{ kind: "plate", food_share: 0.3, leftover_pct: 55 }], crop_jpeg: crop }
+          ]
+        };
+      });
+      const aiSpy = jest.spyOn(vision, "analyzeTrays").mockImplementation(async ({ images }) => ({
+        results: images.map(() => [{ dish_id: menu[0].dish_id, leftover_pct: 40 }]), model: "test-model"
+      }));
+      const res = await request(app).post("/api/director/camera/video")
+        .set("Authorization", `Bearer ${token}`)
+        .attach("video", Buffer.from("fake"), { filename: "belt.mp4", contentType: "video/mp4" });
+      const aiCalls = aiSpy.mock.calls.length;  // mockRestore() обнуляет счётчик
+      camSpy.mockRestore();
+      aiSpy.mockRestore();
+
+      expect(res.status).toBe(201);
+      expect(aiCalls).toBe(1);
+      expect(res.body.stats).toMatchObject({ trays: 2, skipped_ai: 1, sent_to_ai: 1, ai_requests: 1, failed: 0 });
+      // Пустой поднос: все блюда дня съедены.
+      expect(res.body.trays[0].items.map((it) => it.leftover_pct)).toEqual(menu.map(() => 0));
+      expect(res.body.trays[1].items).toEqual([{ dish_id: menu[0].dish_id, leftover_pct: 40, name: menu[0].name }]);
+      // Видео удалено сразу после разбора.
+      expect(fs.readdirSync(path.join(process.env.UPLOADS_DIR, "camera-inbox"))).toEqual([]);
+
+      const { rows } = await db.query(
+        "SELECT source, ai_model FROM tray_scans WHERE id = ANY($1) ORDER BY id",
+        [res.body.trays.map((t) => t.scan_id)]
+      );
+      expect(rows).toEqual([
+        { source: "camera", ai_model: camera.LOCAL_MODEL },
+        { source: "camera", ai_model: "test-model" }
+      ]);
+      const photo = await get(`/api/director/tray/${res.body.trays[1].scan_id}/photo`, token);
+      expect(photo.status).toBe(200);
+    });
+
+    test("видео: сервис камеры не запущен - 503", async () => {
+      const res = await request(app).post("/api/director/camera/video")
+        .set("Authorization", `Bearer ${token}`)
+        .attach("video", Buffer.from("fake"), { filename: "belt.mp4", contentType: "video/mp4" });
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe("camera_unavailable");
+    });
+
+    test("видео: не видео - 400, без входа - 401", async () => {
+      const bad = await request(app).post("/api/director/camera/video")
+        .set("Authorization", `Bearer ${token}`)
+        .attach("video", Buffer.from("<html>"), { filename: "x.html", contentType: "text/html" });
+      expect(bad.status).toBe(400);
+      expect(bad.body.error).toBe("unsupported_video_type");
+      const anon = await request(app).post("/api/director/camera/video")
+        .attach("video", Buffer.from("fake"), { filename: "belt.mp4", contentType: "video/mp4" });
+      expect(anon.status).toBe(401);
     });
   });
 
