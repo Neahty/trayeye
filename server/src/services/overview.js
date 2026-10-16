@@ -85,4 +85,31 @@ async function schoolStats(schoolId, { from, to }) {
   };
 }
 
-module.exports = { schoolOverview, schoolOverviews, schoolStats };
+// Итоги комбината за день по его школам (schools - из schoolData.schoolsOf):
+// главная кабинета комбината и сводка «Сегодня» в боте.
+async function kombinatOverview(schools, date) {
+  const overviews = schools.length ? await schoolOverviews(schools.map((s) => s.id), date) : new Map();
+  const list = schools.map((s) => ({ ...s, ...overviews.get(s.id) }));
+
+  const present = list.reduce((a, s) => a + s.cards.kids.present, 0);
+  const students = list.reduce((a, s) => a + s.cards.kids.students, 0);
+  const plannedRub = list.reduce((a, s) => a + s.cards.waste.plannedRub, 0);
+  const wasteRub = list.reduce((a, s) => a + s.cards.waste.rub, 0);
+  // «Было»: исходный уровень школ, взвешенный по сумме заказа (до первых сканов - простое среднее).
+  const baselinePct = plannedRub > 0
+    ? list.reduce((a, s) => a + s.cards.waste.baselinePct * s.cards.waste.plannedRub, 0) / plannedRub
+    : list.reduce((a, s) => a + s.cards.waste.baselinePct, 0) / (list.length || 1);
+  return {
+    totals: {
+      savingsRub: list.reduce((a, s) => a + s.cards.savings.rub, 0),
+      wasteRub: metrics.round(wasteRub, 2),
+      wastePct: plannedRub > 0 ? metrics.round((wasteRub / plannedRub) * 100, 1) : null,
+      baselinePct: metrics.round(baselinePct, 1),
+      kids: metrics.kidsSummary(present, students),
+      schools: list.length
+    },
+    schools: list
+  };
+}
+
+module.exports = { schoolOverview, schoolOverviews, schoolStats, kombinatOverview };

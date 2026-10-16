@@ -10,7 +10,7 @@ const db = require("../db");
 const vision = require("./vision");
 const { UPLOADS_ROOT } = require("../config");
 
-const VISION_URL = process.env.CAMERA_VISION_URL || "http://127.0.0.1:4110";
+const visionUrl = () => process.env.CAMERA_VISION_URL || "http://127.0.0.1:4110";
 const VIDEO_TIMEOUT_MS = 6 * 60 * 1000;
 // Пометка в tray_scans.ai_model: поднос разобран локально, без запроса к ИИ.
 const LOCAL_MODEL = "yoloe-local";
@@ -22,12 +22,26 @@ function inboxDir() {
 // Разбор видео локальной моделью. Бросает 503, если сервис камеры не запущен.
 async function analyzeVideo(filePath) {
   try {
-    const { data } = await axios.post(`${VISION_URL}/video`, { path: filePath, fps: 3 }, { timeout: VIDEO_TIMEOUT_MS });
+    const { data } = await axios.post(`${visionUrl()}/video`, { path: filePath, fps: 3 }, { timeout: VIDEO_TIMEOUT_MS });
     return data;
   } catch (err) {
     const e = new Error(err.code === "ECONNREFUSED" ? "camera_unavailable" : "camera_failed");
     e.status = err.code === "ECONNREFUSED" ? 503 : 502;
     throw e;
+  }
+}
+
+// Одно фото (повар в боте) -> подносы на нём. null - сервис камеры недоступен:
+// тогда фото целиком считаем одним подносом и отдаём ИИ.
+async function analyzeImage(buffer) {
+  try {
+    const { data } = await axios.post(`${visionUrl()}/image`, buffer, {
+      headers: { "Content-Type": "image/jpeg" }, timeout: 60000, maxBodyLength: 20 * 1024 * 1024
+    });
+    return data.trays;
+  } catch (err) {
+    console.error("[camera] фото не разобрано локально:", err.code || err.response?.status || err.message);
+    return null;
   }
 }
 
@@ -122,4 +136,4 @@ async function recordTrays({ schoolId, date, menu, trays }) {
   return { trays: results, aiRequests: requests };
 }
 
-module.exports = { analyzeVideo, recordTrays, inboxDir, LOCAL_MODEL };
+module.exports = { analyzeVideo, analyzeImage, recordTrays, inboxDir, LOCAL_MODEL };

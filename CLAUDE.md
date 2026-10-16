@@ -29,6 +29,10 @@
   в ChatGPT уходят только подносы с остатками. Сервис `trayeye-vision` (127.0.0.1:4110, systemd,
   1 ядро / 700 МБ), его зовёт `server/src/services/camera.js`. PyTorch на сервер не ставить: диск и память.
   Подробно: `camera/README.md`.
+- `server/src/bot/` - Telegram-бот @TrayEye_bot (systemd `trayeye-bot`, `npm run bot`). Привязка: в кабинете
+  меню профиля → «Привязать Telegram» → QR или код из 6 символов (`services/telegram.js`, таблицы `tg_codes`,
+  `tg_chats`). Роли: повар (фото подносов: YOLOE локально, остатки - в Gemini пачкой), директор и комбинат
+  (сводка «Сегодня», уведомления из `events`). Telegram с РФ ходит через тот же прокси, что и ИИ.
 - `docs/PLAN-cabinets.md` - план и решения.
 
 ## Где работает

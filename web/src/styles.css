@@ -379,6 +379,36 @@ tr.flash td { animation: row-flash 2.2s ease; }
 .search-hint { overflow: hidden; color: #7b8794; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .search-empty { padding: 16px 10px; color: #7b8794; font-size: 13px; }
 
+/* «Привязать Telegram»: QR и код для бота */
+.tg-menu-item { color: #229ed9; }
+.tg-menu-item svg { flex: none; }
+.tg-dialog { position: fixed; top: 10vh; left: 0; right: 0; z-index: 41; width: min(560px, calc(100vw - 24px)); margin: 0 auto; padding: 20px 22px; background: white; border-radius: 16px; box-shadow: 0 24px 64px #0f1f133d; }
+.tg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tg-head h2 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 18px; }
+.tg-head h2 svg { color: #229ed9; }
+.tg-close { width: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 8px; color: #7b8794; background: transparent; font-size: 22px; line-height: 1; }
+.tg-close:hover { background: #f2f2f2; }
+.tg-tabs { margin-top: 14px; padding: 4px; display: inline-flex; gap: 4px; background: #f2f6f2; border-radius: 10px; }
+.tg-tabs button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 8px; color: #445; background: transparent; font-size: 13px; font-weight: 500; }
+.tg-tabs button.active { color: var(--green); background: white; box-shadow: 0 1px 4px #0f1f131f; }
+.tg-hint { margin: 12px 0 0; color: #5b6573; font-size: 13px; line-height: 1.45; }
+.tg-body { margin-top: 16px; display: flex; align-items: center; gap: 22px; }
+.tg-qr { flex: none; width: 200px; height: 200px; padding: 8px; border: 1px solid #ececec; border-radius: 14px; background: white; }
+.tg-qr img, .tg-qr-empty { width: 100%; height: 100%; display: block; border-radius: 8px; }
+.tg-code { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.tg-code-label { color: #7b8794; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.tg-code-value { color: #1d1d1d; font: 600 34px/1.1 "SFMono-Regular", Consolas, monospace; letter-spacing: .08em; }
+.tg-code .muted, .tg-code .error { font-size: 12px; }
+.tg-actions { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.tg-open { color: #229ed9; font-size: 13px; font-weight: 500; }
+.tg-linked { margin-top: 18px; padding-top: 14px; border-top: 1px solid #ececec; }
+.tg-linked ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.tg-linked li { padding: 6px 0; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.tg-linked .muted { margin: 6px 0 0; font-size: 13px; }
+.tg-linked li .muted { margin: 0; }
+.tg-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tg-unlink { min-height: 28px; margin-left: auto; padding: 0 10px; border: 1px solid #ececec; border-radius: 8px; color: var(--red); background: white; font-size: 12px; }
+
 @media (max-width: 700px) {
   .dropdown { position: fixed; top: 64px; left: 8px; right: 8px; width: auto; max-width: none; }
   .search-dialog { top: 8px; }

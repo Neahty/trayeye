@@ -10,6 +10,7 @@ process.env.DATABASE_URL = TEST_DB;
 process.env.APP_TODAY = "2026-10-13";
 process.env.PUBLIC_URL = "http://test.local";
 process.env.UPLOADS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "trayeye-uploads-"));
+process.env.TELEGRAM_BOT_USERNAME = "TrayEye_bot";
 delete process.env.GEMINI_API_KEY;
 delete process.env.GEMINI_API_KEYS;
 delete process.env.OPENAI_API_KEY;
@@ -20,6 +21,8 @@ const { seed } = require("../src/db/seed");
 const { createLink } = require("../src/services/links");
 const vision = require("../src/services/vision");
 const camera = require("../src/services/camera");
+const telegram = require("../src/services/telegram");
+const events = require("../src/services/events");
 const { createApp } = require("../src/app");
 
 const suite = TEST_DB ? describe : describe.skip;
@@ -259,11 +262,70 @@ suite("API", () => {
     });
 
     test("видео: сервис камеры не запущен - 503", async () => {
+      // Порт 9 закрыт: на сервере настоящий trayeye-vision слушает 4110, тест его не трогает.
+      process.env.CAMERA_VISION_URL = "http://127.0.0.1:9";
       const res = await request(app).post("/api/director/camera/video")
         .set("Authorization", `Bearer ${token}`)
         .attach("video", Buffer.from("fake"), { filename: "belt.mp4", contentType: "video/mp4" });
+      delete process.env.CAMERA_VISION_URL;
       expect(res.status).toBe(503);
       expect(res.body.error).toBe("camera_unavailable");
+    });
+
+    test("Telegram: код для себя и для повара, привязка, список, отвязка", async () => {
+      const me = await send("post", "/api/director/telegram/code", token, { role: "director" });
+      expect(me.status).toBe(201);
+      expect(me.body.code).toMatch(/^[A-Z2-9]{6}$/);
+      expect(me.body.url).toBe(`https://t.me/TrayEye_bot?start=${me.body.code}`);
+      const cook = await send("post", "/api/director/telegram/code", token, { role: "cook" });
+      expect(cook.status).toBe(201);
+      expect((await send("post", "/api/director/telegram/code", token, { role: "kombinat" })).status).toBe(400);
+
+      // Код вводят в боте: с дефисом и строчными тоже подходит, второй раз - уже нет.
+      const typed = `${me.body.code.slice(0, 3)}-${me.body.code.slice(3)}`.toLowerCase();
+      const chat = await telegram.redeemCode(telegram.normalizeCode(typed), { chatId: 900001, name: "Анна" });
+      expect(chat).toMatchObject({ role: "director", tg_name: "Анна" });
+      expect(chat.school_name).toBeTruthy();
+      expect(await telegram.redeemCode(me.body.code, { chatId: 900003 })).toBeNull();
+      expect((await telegram.redeemCode(cook.body.code, { chatId: 900002, name: "Повар" })).role).toBe("cook");
+
+      const list = await get("/api/director/telegram", token);
+      expect(list.body.bot).toBe("TrayEye_bot");
+      expect(list.body.chats.map((c) => [c.chat_id, c.role])).toEqual([["900001", "director"], ["900002", "cook"]]);
+
+      // Чужой директор не видит и не отвязывает чаты этой школы.
+      const other = await login(tokenOf(links.directors[1].url));
+      expect((await get("/api/director/telegram", other)).body.chats).toEqual([]);
+      expect((await send("delete", "/api/director/telegram/900002", other)).status).toBe(404);
+
+      expect((await send("delete", "/api/director/telegram/900002", token)).status).toBe(204);
+      expect((await get("/api/director/telegram", token)).body.chats).toHaveLength(1);
+      await telegram.unlinkSelf(900001);
+    });
+
+    test("Telegram: истёкший код не подходит", async () => {
+      const res = await send("post", "/api/director/telegram/code", token, { role: "cook" });
+      await db.query("UPDATE tg_codes SET expires_at = NOW() - INTERVAL '1 minute' WHERE code_hash = $1",
+        [require("../src/services/links").hashToken(res.body.code)]);
+      expect(await telegram.redeemCode(res.body.code, { chatId: 900004 })).toBeNull();
+    });
+
+    test("Telegram: в бот приходят только новые уведомления своей школы", async () => {
+      const res = await send("post", "/api/director/telegram/code", token, { role: "director" });
+      const chat = await telegram.redeemCode(res.body.code, { chatId: 900005 });
+      // Привязались - старые события не присылаем.
+      expect(await telegram.takeNewEvents(chat)).toEqual([]);
+      const other = (await db.query("SELECT id FROM schools WHERE id <> $1 AND kombinat_id = $2 LIMIT 1",
+        [chat.school_id, chat.kombinat_id])).rows[0];
+      await events.record(db, { kombinatId: chat.kombinat_id, schoolId: chat.school_id, audience: "director", kind: "tg_test", text: "своей школе", link: "/director/menu" });
+      await events.record(db, { kombinatId: chat.kombinat_id, schoolId: other.id, audience: "director", kind: "tg_test", text: "чужой школе", link: "/director/menu" });
+      await events.record(db, { kombinatId: chat.kombinat_id, audience: "kombinat", kind: "tg_test", text: "комбинату", link: "/kombinat/schools" });
+      const fresh = await telegram.chatInfo(db, 900005);
+      expect((await telegram.takeNewEvents(fresh)).map((e) => e.text)).toEqual(["своей школе"]);
+      expect(await telegram.takeNewEvents(await telegram.chatInfo(db, 900005))).toEqual([]);
+      await telegram.unlinkSelf(900005);
+      // Чужие тестовые события не должны попадать в проверки ленты ниже.
+      await db.query("DELETE FROM events WHERE kind = 'tg_test'");
     });
 
     test("видео: не видео - 400, без входа - 401", async () => {
@@ -282,6 +344,17 @@ suite("API", () => {
     let token;
     beforeAll(async () => {
       token = await login(tokenOf(links.kombinat));
+    });
+
+    test("Telegram: код комбината и его чаты", async () => {
+      const res = await send("post", "/api/kombinat/telegram/code", token, {});
+      expect(res.status).toBe(201);
+      expect(res.body.role).toBe("kombinat");
+      const chat = await telegram.redeemCode(res.body.code, { chatId: 900010, name: "Комбинат" });
+      expect(chat).toMatchObject({ role: "kombinat", school_id: null });
+      expect(chat.kombinat_name).toBe("Полиграф комбинат");
+      expect((await get("/api/kombinat/telegram", token)).body.chats.map((c) => c.chat_id)).toEqual(["900010"]);
+      expect((await send("delete", "/api/kombinat/telegram/900010", token)).status).toBe(204);
     });
 
     test("главная: все школы и итоги", async () => {

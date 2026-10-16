@@ -10,6 +10,7 @@ Node-сервер TrayEye присылает сюда видео (путь к ф
 
     GET  /health
     POST /video   {"path": "<файл в CAMERA_INBOX>", "fps": 3}
+    POST /image   тело - JPEG одного фото (повар в боте); ответ - подносы на фото
     POST /frame?camera=<id>&ts=<секунды>   тело - JPEG; ответ - подносы, которые уехали из кадра
     POST /flush?camera=<id>                 закончить поток: отдать подносы, что ещё в кадре
 """
@@ -110,6 +111,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.video()
             if url.path == "/frame":
                 return self.frame(query)
+            if url.path == "/image":
+                return self.image()
             if url.path == "/flush":
                 state = live.pop(query.get("camera", ""), None)
                 trays = state["pipe"].flush() if state else []
@@ -128,6 +131,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(400, {"error": "bad_path"})
         fps = min(5.0, max(1.0, float(req.get("fps", 3))))
         self.reply(200, process_video(path, fps))
+
+    def image(self):
+        """Одно фото подноса (повар снял на телефон): те же подносы и пустые тарелки, без трекинга."""
+        raw = self.body(MAX_FRAME_BYTES * 4)
+        img = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR) if raw else None
+        if img is None:
+            return self.reply(400, {"error": "bad_image"})
+        pipe = TrayPipeline(detector, min_frames=1)
+        trays = pipe.process(shrink(img, 960), 0.0) + pipe.flush()
+        self.reply(200, {"trays": [tray_json(ev) for ev in trays]})
 
     def frame(self, query):
         cam = query.get("camera", "")

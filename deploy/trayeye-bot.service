@@ -1,0 +1,25 @@
+[Unit]
+Description=TrayEye - Telegram-бот (@TrayEye_bot): привязка по коду, фото подносов, сводки
+After=network-online.target postgresql.service trayeye-vision.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=trayeye
+Group=trayeye
+WorkingDirectory=/opt/trayeye/server
+# Токен и прокси берутся из /opt/trayeye/.env (TELEGRAM_BOT_TOKEN, AI_PROXY_URL)
+Environment=NODE_ENV=production
+ExecStart=/usr/local/bin/node src/bot/index.js
+Restart=always
+RestartSec=5
+MemoryMax=300M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Фото подносов от поваров сохраняются рядом с остальными
+ReadWritePaths=/opt/trayeye/uploads
+
+[Install]
+WantedBy=multi-user.target

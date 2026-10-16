@@ -66,4 +66,17 @@ async function listDishes(kombinatId) {
   return rows;
 }
 
-module.exports = { dishDays, attendanceDays, studentsBySchool, listDishes };
+// Школы комбината с директорами (кабинет комбината и сводка в боте).
+async function schoolsOf(kombinatId) {
+  const { rows } = await db.query(
+    `SELECT s.id, s.number, s.name, d.id AS director_id, d.full_name AS director_name
+       FROM schools s
+       LEFT JOIN directors d ON d.school_id = s.id
+      WHERE s.kombinat_id = $1
+      ORDER BY s.number`,
+    [kombinatId]
+  );
+  return rows;
+}
+
+module.exports = { dishDays, attendanceDays, studentsBySchool, listDishes, schoolsOf };

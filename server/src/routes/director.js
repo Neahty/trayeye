@@ -17,6 +17,7 @@ const { parseId, parseIntInRange, parseDate, badRequest } = require("../utils/ht
 const { imageUpload, extFor, uploadErrors } = require("../utils/imageUpload");
 const { videoUpload, videoErrors } = require("../utils/videoUpload");
 const camera = require("../services/camera");
+const telegram = require("../services/telegram");
 const { UPLOADS_ROOT } = require("../config");
 
 const router = express.Router();
@@ -352,6 +353,40 @@ router.post("/reports", async (req, res, next) => {
 });
 
 // Уведомления директора: новое в каталоге комбината и события его школы.
+// Telegram-бот: код привязки (QR или 6 символов) для себя или для повара школы.
+router.post("/telegram/code", async (req, res, next) => {
+  try {
+    if (!telegram.isConfigured()) return res.status(503).json({ error: "bot_not_configured" });
+    const role = req.body?.role || "director";
+    if (!["director", "cook"].includes(role)) return badRequest(res, "bad_role");
+    const { cabinet } = req;
+    res.status(201).json(await telegram.createCode(db, {
+      role, kombinatId: cabinet.kombinatId, schoolId: cabinet.schoolId,
+      directorId: role === "director" ? cabinet.directorId : null
+    }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/telegram", async (req, res, next) => {
+  try {
+    res.json({ bot: telegram.botUsername() || null, chats: await telegram.listChats(req.cabinet) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/telegram/:chatId", async (req, res, next) => {
+  try {
+    if (!/^-?\d{1,20}$/.test(req.params.chatId)) return badRequest(res, "bad_chat");
+    if (!(await telegram.unlinkChat(req.cabinet, req.params.chatId))) return res.status(404).json({ error: "not_found" });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/notifications", async (req, res, next) => {
   try {
     res.json({ events: await events.feed(req.cabinet) });

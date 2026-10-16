@@ -119,3 +119,35 @@ CREATE TABLE IF NOT EXISTS events (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS events_feed ON events (kombinat_id, audience, created_at DESC);
+
+-- Привязка Telegram-бота: в кабинете выдаётся одноразовый код (QR или 6 символов),
+-- его вводят в боте. Как и ссылки входа, храним только sha256 кода.
+-- role = 'cook' - повар школы: директор выдаёт ему код, повар присылает фото подносов.
+CREATE TABLE IF NOT EXISTS tg_codes (
+  id           BIGSERIAL PRIMARY KEY,
+  code_hash    TEXT NOT NULL UNIQUE,
+  role         TEXT NOT NULL CHECK (role IN ('director', 'kombinat', 'cook')),
+  kombinat_id  INT NOT NULL REFERENCES kombinats(id) ON DELETE CASCADE,
+  school_id    INT REFERENCES schools(id) ON DELETE CASCADE,
+  director_id  INT REFERENCES directors(id) ON DELETE CASCADE,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  used_at      TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK ((role = 'kombinat') = (school_id IS NULL))
+);
+
+-- Привязанные чаты. Один чат - одна роль; новая привязка того же чата переписывает старую.
+-- last_event_id - до какого события из ленты уведомлений бот уже прислал.
+CREATE TABLE IF NOT EXISTS tg_chats (
+  chat_id        BIGINT PRIMARY KEY,
+  role           TEXT NOT NULL CHECK (role IN ('director', 'kombinat', 'cook')),
+  kombinat_id    INT NOT NULL REFERENCES kombinats(id) ON DELETE CASCADE,
+  school_id      INT REFERENCES schools(id) ON DELETE CASCADE,
+  director_id    INT REFERENCES directors(id) ON DELETE CASCADE,
+  tg_name        TEXT,
+  last_event_id  BIGINT NOT NULL DEFAULT 0,
+  linked_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK ((role = 'kombinat') = (school_id IS NULL))
+);
+CREATE INDEX IF NOT EXISTS tg_chats_school ON tg_chats (school_id);
+CREATE INDEX IF NOT EXISTS tg_chats_kombinat ON tg_chats (kombinat_id);

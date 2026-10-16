@@ -26,10 +26,12 @@ mkdir -p "$DST/uploads/camera-inbox" && chown trayeye:trayeye "$DST/uploads/came
 [ -x "$DST/camera/.venv/bin/python" ] || sudo -u trayeye python3 -m venv "$DST/camera/.venv"
 sudo -u trayeye "$DST/camera/.venv/bin/pip" install -q --disable-pip-version-check -r "$DST/camera/requirements.txt"
 install -m 644 "$DST/deploy/trayeye-vision.service" /etc/systemd/system/trayeye-vision.service
+install -m 644 "$DST/deploy/trayeye-bot.service" /etc/systemd/system/trayeye-bot.service
 systemctl daemon-reload
-systemctl enable -q trayeye-vision
+systemctl enable -q trayeye-vision trayeye-bot
 
-systemctl restart trayeye trayeye-vision
+systemctl restart trayeye trayeye-vision trayeye-bot
 sleep 3
 curl -fsS http://127.0.0.1:4100/trayeye/api/health && echo " <- TrayEye жив"
 curl -fsS http://127.0.0.1:4110/health && echo " <- камера жива"
+systemctl is-active --quiet trayeye-bot && echo "бот запущен" || { echo "бот не запустился:"; journalctl -u trayeye-bot -n 5 --no-pager; }

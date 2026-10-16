@@ -4,12 +4,13 @@
 const express = require("express");
 const db = require("../db");
 const { cabinetAuth } = require("../middleware/cabinetAuth");
-const { schoolOverview, schoolOverviews, schoolStats } = require("../services/overview");
+const { schoolOverview, schoolStats, kombinatOverview } = require("../services/overview");
 const { today } = require("../utils/dates");
 const { createLink } = require("../services/links");
 const data = require("../services/schoolData");
 const metrics = require("../services/metrics");
 const events = require("../services/events");
+const telegram = require("../services/telegram");
 const { dateParam, periodParams } = require("../utils/params");
 const { parseId, parseIntInRange, parseText, badRequest } = require("../utils/http");
 
@@ -24,17 +25,7 @@ const MAX_PORTION_PRICE = 100000;
 const DISH_CATEGORIES = ["soup", "main", "side", "salad", "drink", "bakery", "other"];
 const GRAMS_PER_KG = 1000;
 
-async function schoolsOf(kombinatId) {
-  const { rows } = await db.query(
-    `SELECT s.id, s.number, s.name, d.id AS director_id, d.full_name AS director_name
-       FROM schools s
-       LEFT JOIN directors d ON d.school_id = s.id
-      WHERE s.kombinat_id = $1
-      ORDER BY s.number`,
-    [kombinatId]
-  );
-  return rows;
-}
+const { schoolsOf } = data;
 
 function kombinatInfo(cabinet) {
   return { id: cabinet.kombinatId, name: cabinet.kombinatName };
@@ -44,31 +35,8 @@ router.get("/dashboard", async (req, res, next) => {
   try {
     const date = dateParam(req, res);
     if (!date) return;
-    const schools = await schoolsOf(req.cabinet.kombinatId);
-    const overviews = schools.length ? await schoolOverviews(schools.map((s) => s.id), date) : new Map();
-    const list = schools.map((s) => ({ ...s, ...overviews.get(s.id) }));
-
-    const present = list.reduce((a, s) => a + s.cards.kids.present, 0);
-    const students = list.reduce((a, s) => a + s.cards.kids.students, 0);
-    const plannedRub = list.reduce((a, s) => a + s.cards.waste.plannedRub, 0);
-    const wasteRub = list.reduce((a, s) => a + s.cards.waste.rub, 0);
-    // «Было»: исходный уровень школ, взвешенный по сумме заказа (до первых сканов - простое среднее).
-    const baselinePct = plannedRub > 0
-      ? list.reduce((a, s) => a + s.cards.waste.baselinePct * s.cards.waste.plannedRub, 0) / plannedRub
-      : list.reduce((a, s) => a + s.cards.waste.baselinePct, 0) / (list.length || 1);
-    res.json({
-      kombinat: kombinatInfo(req.cabinet),
-      date,
-      totals: {
-        savingsRub: list.reduce((a, s) => a + s.cards.savings.rub, 0),
-        wasteRub: metrics.round(wasteRub, 2),
-        wastePct: plannedRub > 0 ? metrics.round((wasteRub / plannedRub) * 100, 1) : null,
-        baselinePct: metrics.round(baselinePct, 1),
-        kids: metrics.kidsSummary(present, students),
-        schools: list.length
-      },
-      schools: list
-    });
+    const { totals, schools } = await kombinatOverview(await schoolsOf(req.cabinet.kombinatId), date);
+    res.json({ kombinat: kombinatInfo(req.cabinet), date, totals, schools });
   } catch (err) {
     next(err);
   }
@@ -317,6 +285,34 @@ router.post("/suppliers", async (req, res, next) => {
 });
 
 // Уведомления комбината: что нового в школах.
+// Telegram-бот: код привязки (QR или 6 символов) для кабинета комбината.
+router.post("/telegram/code", async (req, res, next) => {
+  try {
+    if (!telegram.isConfigured()) return res.status(503).json({ error: "bot_not_configured" });
+    res.status(201).json(await telegram.createCode(db, { role: "kombinat", kombinatId: req.cabinet.kombinatId }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/telegram", async (req, res, next) => {
+  try {
+    res.json({ bot: telegram.botUsername() || null, chats: await telegram.listChats(req.cabinet) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/telegram/:chatId", async (req, res, next) => {
+  try {
+    if (!/^-?\d{1,20}$/.test(req.params.chatId)) return badRequest(res, "bad_chat");
+    if (!(await telegram.unlinkChat(req.cabinet, req.params.chatId))) return res.status(404).json({ error: "not_found" });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/notifications", async (req, res, next) => {
   try {
     res.json({ events: await events.feed(req.cabinet) });

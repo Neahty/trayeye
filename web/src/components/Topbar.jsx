@@ -8,6 +8,7 @@ import { useDismiss, useModal } from "../lib/hooks";
 import { CATEGORY_LABELS } from "../lib/format";
 import { useSession } from "../session.jsx";
 import { Icon } from "./ui.jsx";
+import TelegramDialog, { TelegramGlyph } from "./TelegramDialog.jsx";
 
 const POLL_MS = 60 * 1000;
 const RESULTS_PER_GROUP = 6;
@@ -264,7 +265,7 @@ function Notifications({ cabinet, open, setOpen }) {
 
 // ---------- Профиль ----------
 
-function ProfileMenu({ cabinet, open, setOpen }) {
+function ProfileMenu({ cabinet, open, setOpen, onTelegram }) {
   const navigate = useNavigate();
   const { logout } = useSession();
   const ref = useRef(null);
@@ -301,6 +302,9 @@ function ProfileMenu({ cabinet, open, setOpen }) {
                 <div className="profile-role">{isDirector ? `Директор · ${cabinet.schoolName}` : "Комбинат питания"}</div>
               </div>
             </div>
+            <button type="button" role="menuitem" className="menu-item tg-menu-item" onClick={() => { close(); onTelegram(); }}>
+              <TelegramGlyph size={16} />Привязать Telegram
+            </button>
             <button type="button" role="menuitem" className="menu-item" onClick={() => go(`/${cabinet.role}/settings`)}>
               <Icon name="settings" size={16} />Настройки
             </button>
@@ -323,6 +327,9 @@ function ProfileMenu({ cabinet, open, setOpen }) {
 
 export default function Topbar({ cabinet, title, nav }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [telegramOpen, setTelegramOpen] = useState(false);
+  const openTelegram = useCallback(() => setTelegramOpen(true), []);
+  const closeTelegram = useCallback(() => setTelegramOpen(false), []);
   // Открыто одно меню за раз: «bell» | «profile» | null.
   const [menu, setMenu] = useState(null);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
@@ -356,10 +363,11 @@ export default function Topbar({ cabinet, title, nav }) {
           <SearchGlyph size={17} />
         </motion.button>
         <Notifications cabinet={cabinet} open={menu === "bell"} setOpen={setBell} />
-        <ProfileMenu cabinet={cabinet} open={menu === "profile"} setOpen={setProfile} />
+        <ProfileMenu cabinet={cabinet} open={menu === "profile"} setOpen={setProfile} onTelegram={openTelegram} />
       </div>
       <AnimatePresence>
         {searchOpen && <SearchDialog key="search" nav={nav} role={cabinet.role} onClose={closeSearch} />}
+        {telegramOpen && <TelegramDialog key="telegram" role={cabinet.role} onClose={closeTelegram} />}
       </AnimatePresence>
     </header>
   );

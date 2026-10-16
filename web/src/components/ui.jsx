@@ -11,6 +11,7 @@ const ERROR_TEXT = {
   camera_failed: "Не удалось разобрать видео. Попробуйте другой файл.",
   unsupported_video_type: "Нужно видео: mp4, mov, webm, avi или mkv.",
   file_too_large: "Файл слишком большой.",
+  bot_not_configured: "Telegram-бот на сервере ещё не настроен.",
   no_menu_for_date: "На эту дату нет меню.",
   dish_exists: "Такое блюдо уже есть.",
   supplier_exists: "Такой поставщик уже есть.",
