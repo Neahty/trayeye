@@ -91,7 +91,7 @@ function CameraUpload({ date, onScanned }) {
     const form = new FormData();
     form.append("video", file);
     form.append("date", date);
-    setState({ text: "Камера разбирает видео... Минута видео - примерно полминуты.", busy: true });
+    setState({ text: "Камера разбирает видео, нейросеть смотрит подносы с остатками... Это 1-2 минуты.", busy: true });
     try {
       const r = await api.post("/director/camera/video", form);
       setState({ result: r });

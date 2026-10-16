@@ -45,15 +45,19 @@ function aiBatchSize() {
   return Math.min(16, Math.max(1, Number(process.env.CAMERA_AI_BATCH) || 8));
 }
 
+// Пачки уходят одновременно: число запросов то же, а ждать одну пачку (~1 мин у flash-lite),
+// а не все по очереди. Больше трёх сразу не шлём, чтобы не упереться в лимит в минуту.
+const AI_PARALLEL = 3;
+
 // Что ИИ сказал по каждому подносу с остатками: { items, model } или { error }.
 async function askAi(trays, menu) {
   const answers = new Map();
   const pending = trays.map((t, i) => i).filter((i) => !trays[i].is_empty);
   const batch = aiBatchSize();
-  let requests = 0;
-  for (let k = 0; k < pending.length; k += batch) {
-    const chunk = pending.slice(k, k + batch);
-    requests += 1;
+  const chunks = [];
+  for (let k = 0; k < pending.length; k += batch) chunks.push(pending.slice(k, k + batch));
+
+  const ask = async (chunk) => {
     try {
       const images = chunk.map((i) => ({ buffer: Buffer.from(trays[i].crop_jpeg, "base64"), mime: "image/jpeg" }));
       const { results, model } = await vision.analyzeTrays({ images, menu });
@@ -61,8 +65,11 @@ async function askAi(trays, menu) {
     } catch (err) {
       chunk.forEach((i) => answers.set(i, { error: err.message }));
     }
+  };
+  for (let k = 0; k < chunks.length; k += AI_PARALLEL) {
+    await Promise.all(chunks.slice(k, k + AI_PARALLEL).map(ask));
   }
-  return { answers, requests };
+  return { answers, requests: chunks.length };
 }
 
 // Подносы из видео -> tray_scans/tray_items. menu - блюда дня [{ dish_id, name }].
