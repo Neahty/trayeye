@@ -5,14 +5,14 @@ import requests
 import streamlit as st
 
 API = os.getenv("TRAYEYE_API_URL", "http://127.0.0.1:8000").rstrip("/")
-st.set_page_config(page_title="TrayEye · Контроль пищевых отходов", page_icon="🍽️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="TrayEye · Контроль пищевых отходов", page_icon="", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
 :root { color-scheme: light; }
 .stApp, [data-testid="stAppViewContainer"] { background: #f4f7f5; color: #172b25; }
 [data-testid="stHeader"] { background: rgba(244,247,245,.96); }
-[data-testid="stSidebar"] { background: #142f27; border-right: 1px solid #21483b; }
+[data-testid="stSidebar"] { background: #008E03; border-right: 1px solid #21483b; }
 [data-testid="stSidebar"] * { color: #f4faf6 !important; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label { background: transparent; border-radius: 8px; padding: .35rem .5rem; }
 h1,h2,h3,h4,p,label,span,div { }
@@ -52,7 +52,7 @@ def page_header(eyebrow, title, subtitle):
     st.markdown(f'<div class="trayeye-subtitle">{subtitle}</div>', unsafe_allow_html=True)
 
 
-st.sidebar.markdown("# 🍽️ TrayEye")
+st.sidebar.markdown("# TrayEye")
 st.sidebar.caption("Умный контроль пищевых отходов")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("НАВИГАЦИЯ", ["Обзор", "Камера и распознавание", "Меню", "Проверка событий", "Настройки"], label_visibility="visible")
