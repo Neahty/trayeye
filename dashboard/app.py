@@ -16,14 +16,14 @@ st.markdown("""
 [data-testid="stSidebar"] * { color: #f4faf6 !important; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label { background: transparent; border-radius: 8px; padding: .35rem .5rem; }
 h1,h2,h3,h4,p,label,span,div { }
-h1 { color: #153b2e !important; font-weight: 750 !important; letter-spacing: -.035em; }
-h2,h3,h4 { color: #1e4637 !important; font-weight: 700 !important; }
+h1 { color: #008E03 !important; font-weight: 750 !important; letter-spacing: -.035em; }
+h2,h3,h4 { color: #008E03 !important; font-weight: 700 !important; }
 p, label, .stMarkdown, [data-testid="stCaptionContainer"] { color: #354b42; }
 [data-testid="stMetric"] { background: #fff; border: 1px solid #dce7e0; border-radius: 14px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(20,47,39,.035); }
 [data-testid="stMetricLabel"] { color: #52675d !important; }
 [data-testid="stMetricValue"] { color: #173c2e !important; }
-div.stButton > button, div.stFormSubmitButton > button { background: #17734e; color: #fff; border: 1px solid #17734e; border-radius: 9px; font-weight: 650; min-height: 2.6rem; }
-div.stButton > button:hover, div.stFormSubmitButton > button:hover { background: #10583b; color: #fff; border-color: #10583b; }
+div.stButton > button, div.stFormSubmitButton > button { background: #008E03; color: #FFFFFF; border: 1px solid #17734e; border-radius: 9px; font-weight: 650; min-height: 2.6rem; }
+div.stButton > button:hover, div.stFormSubmitButton > button:hover { background: #008E03; color: #FFFFFF; border-color: #10583b; }
 div[data-baseweb="select"] > div, div[data-baseweb="input"] > div, textarea { background: #fff !important; border-color: #cbd9d1 !important; }
 [data-testid="stDataFrame"], [data-testid="stExpander"] { background: #fff; border: 1px solid #dce7e0; border-radius: 12px; }
 [data-testid="stFileUploader"] { background: #fff; border: 1px dashed #a9c4b4; border-radius: 12px; padding: 12px; }
