@@ -16,7 +16,7 @@ st.markdown("""
 [data-testid="stSidebar"] * { color: #f4faf6 !important; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label { background: transparent; border-radius: 8px; padding: .35rem .5rem; }
 h1,h2,h3,h4,p,label,span,div { }
-h1 { color: #008E03 !important; font-weight: 750 !important; letter-spacing: -.035em; }
+h1 { color: #1452C5 !important; font-weight: 750 !important; letter-spacing: -.035em; }
 h2,h3,h4 { color: #008E03 !important; font-weight: 700 !important; }
 p, label, .stMarkdown, [data-testid="stCaptionContainer"] { color: #354b42; }
 [data-testid="stMetric"] { background: #fff; border: 1px solid #dce7e0; border-radius: 14px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(20,47,39,.035); }
