@@ -1,0 +1,2 @@
+# Optional dependencies for model training/inference. Install separately from base app.
+ultralytics>=8.3,<9
