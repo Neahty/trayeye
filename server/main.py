@@ -112,8 +112,8 @@ async def infer_image(file: UploadFile = File(...)):
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Image limit is 10 MB.")
     try:
-        image = Image.open(BytesIO(data)).convert("RGB")
-        image.verify()
+        probe = Image.open(BytesIO(data))
+        probe.verify()
         image = Image.open(BytesIO(data)).convert("RGB")
     except Exception:
         raise HTTPException(status_code=400, detail="File is not a valid image.")
