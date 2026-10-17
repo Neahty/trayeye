@@ -6,7 +6,9 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from PIL import Image
 
-app = FastAPI(title="TrayEye API", version="0.1.0",
+from ml.inference import predict
+
+app = FastAPI(title="TrayEye API", version="0.2.0",
               description="Prototype API for cafeteria tray-waste monitoring.")
 
 # Demo-only in-memory storage. Replace with a database before production.
@@ -51,7 +53,8 @@ def meal_for_now(now: Optional[datetime] = None) -> str:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "TrayEye API", "model": "placeholder_needs_review"}
+    return {"status": "ok", "service": "TrayEye API",
+            "model_weights_configured": bool(__import__("os").getenv("TRAYEYE_MODEL_PATH"))}
 
 @app.get("/api/schedule")
 def get_schedule():
@@ -102,26 +105,34 @@ def review_event(event_id: int, payload: ReviewUpdate):
 
 @app.post("/api/infer")
 async def infer_image(file: UploadFile = File(...)):
-    """Validate image upload and enqueue manual review until trained model is installed."""
+    """Run optional trained model; if absent, enqueue for human review."""
     if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=415, detail="Upload a JPEG, PNG, or WebP image.")
     data = await file.read()
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Image limit is 10 MB.")
     try:
-        Image.open(BytesIO(data)).verify()
+        image = Image.open(BytesIO(data)).convert("RGB")
+        image.verify()
+        image = Image.open(BytesIO(data)).convert("RGB")
     except Exception:
         raise HTTPException(status_code=400, detail="File is not a valid image.")
+    try:
+        inference = predict(image)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    predictions = inference.get("predictions", [])
+    labels = sorted({p["label"] for p in predictions})
     event = {
         "id": max([e["id"] for e in events], default=1000) + 1,
         "created_at": datetime.now().isoformat(timespec="minutes"),
-        "meal": meal_for_now(), "items": [], "status": "review",
-        "confidence": None, "note": "Обученная модель пока не подключена. Проверьте изображение вручную.",
+        "meal": meal_for_now(), "items": labels, "status": "review",
+        "confidence": max([p["confidence"] for p in predictions], default=None),
+        "predictions": predictions,
+        "note": inference["message"],
         "filename": file.filename or "upload"
     }
     events.append(event)
     return {"event": event, "inference": {
-        "model_ready": False,
-        "message": "Image received; no food labels were guessed. Connect and evaluate a trained detector/segmenter.",
-        "requires_human_review": True
+        **inference, "requires_human_review": True
     }}
