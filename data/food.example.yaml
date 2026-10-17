@@ -1,0 +1,15 @@
+# Copy to data/food.yaml after preparing a dataset in YOLO detection format.
+# Example classes only; align names and class IDs with your own annotations.
+path: data/food
+train: images/train
+val: images/val
+names:
+  0: fish
+  1: vegetables
+  2: potatoes
+  3: pasta
+  4: rice
+  5: meat
+  6: soup
+  7: bread
+  8: fruit
