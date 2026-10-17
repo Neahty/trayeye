@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.pt
+*.onnx
+*.engine
+data/
+uploads/
+.DS_Store
