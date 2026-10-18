@@ -11,8 +11,10 @@ Each label file uses standard YOLO rows: class_id x_center y_center width height
 (normalized 0..1). You must create real annotations before training.
 """
 import argparse
-import os
 from pathlib import Path
+
+from ml.dataset import DatasetValidationError, validate_dataset
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -26,11 +28,11 @@ def main():
     parser.add_argument("--name", default="food-detection")
     args = parser.parse_args()
 
-    if not Path(args.data).is_file():
-        raise SystemExit(
-            f"Dataset config not found: {args.data}\n"
-            "Copy data/food.example.yaml to data/food.yaml and prepare annotated train/val images first."
-        )
+    try:
+        validate_dataset(args.data)
+    except DatasetValidationError as exc:
+        raise SystemExit(f"Dataset is not ready: {exc}") from exc
+
     try:
         from ultralytics import YOLO
     except ImportError:

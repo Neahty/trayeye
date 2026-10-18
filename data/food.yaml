@@ -1,0 +1,15 @@
+path: food
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: fish
+  1: vegetables
+  2: potatoes
+  3: pasta
+  4: rice
+  5: meat
+  6: soup
+  7: bread
+  8: fruit
+  9: empty_plate

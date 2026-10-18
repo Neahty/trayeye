@@ -114,6 +114,13 @@ elif page == "Камера и распознавание":
                 result = api("POST", "/api/infer", files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type)})
                 if result:
                     inference = result.get("inference", {})
+                    plate_status = inference.get("plate_status", "unknown")
+                    if plate_status == "empty_detected":
+                        st.info("Модель обнаружила пустую тарелку. Подтвердите результат.")
+                    elif plate_status == "food_detected":
+                        st.success("Модель обнаружила пищу. Подтвердите результат.")
+                    else:
+                        st.warning("Состояние тарелки не определено. Отсутствие детекций не означает, что тарелка пустая.")
                     st.warning(inference.get("message", "Результат требует ручной проверки."))
                     st.json(result.get("event", result))
                     st.caption("Если сервер создал событие, оно появится в очереди проверки.")
@@ -160,6 +167,11 @@ elif page == "Проверка событий":
     for event in events:
         with st.expander(f'Событие #{event["id"]} · {event["meal"]} · {event["created_at"]} · {event["status"]}', expanded=event["status"] == "review"):
             st.write("Обнаруженные продукты:", ", ".join(event.get("items") or []) or "Не определены")
+            st.write("Состояние тарелки:", {
+                "empty_detected": "Обнаружена пустая тарелка",
+                "food_detected": "Обнаружена пища",
+                "unknown": "Не определено",
+            }.get(event.get("plate_status", "unknown"), "Не определено"))
             st.write(event.get("note", ""))
             with st.form(f'review_{event["id"]}'):
                 choices = ["review", "approved", "corrected", "dismissed"]

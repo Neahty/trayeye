@@ -127,6 +127,8 @@ async def infer_image(file: UploadFile = File(...)):
         "id": max([e["id"] for e in events], default=1000) + 1,
         "created_at": datetime.now().isoformat(timespec="minutes"),
         "meal": meal_for_now(), "items": labels, "status": "review",
+        "plate_status": inference.get("plate_status", "unknown"),
+        "model_ready": inference.get("model_ready", False),
         "confidence": max([p["confidence"] for p in predictions], default=None),
         "predictions": predictions,
         "note": inference["message"],
