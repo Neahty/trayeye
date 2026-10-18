@@ -176,3 +176,27 @@ describe("onlyScannedDays", () => {
     expect(kept.map((r) => `${r.school_id}:${r.date}:${r.dish_id}`)).toEqual(["1:2026-10-13:1", "2:2026-10-14:1", "2:2026-10-14:2"]);
   });
 });
+
+describe("окупаемость подписки", () => {
+  test("экономия за 30 дней против подписки 7 800 ₽ за школу в месяц", () => {
+    expect(m.subscriptionEconomics({ savingsRub: 93600, schools: 4 })).toEqual({
+      days: 30, pricePerSchool: 7800, savingsRub: 93600, subscriptionRub: 31200,
+      netRub: 62400, ratio: 3, paybackDays: 10
+    });
+  });
+
+  test("без экономии окупаемости нет, деления на ноль тоже", () => {
+    expect(m.subscriptionEconomics({ savingsRub: 0, schools: 2 })).toMatchObject({ netRub: -15600, ratio: 0, paybackDays: null });
+    expect(m.subscriptionEconomics({ savingsRub: 500, schools: 0 })).toMatchObject({ subscriptionRub: 0, ratio: null });
+  });
+
+  test("savingsAfter считает только дни после границы и только со сканами", () => {
+    const rows = [
+      row({ date: "2026-10-01", planned: 100, eaten: 60 }),
+      row({ date: "2026-10-12", planned: 100, eaten: 80 }),
+      row({ date: "2026-10-13", planned: 100, eaten: 0, trays: 0 })
+    ];
+    // Было 40% списаний, 12-го - 20% от 5 000 ₽ заказа: сэкономили 1 000 ₽. 13-го камера ничего не сняла.
+    expect(m.savingsAfter(rows, 40, "2026-10-01")).toBe(1000);
+  });
+});

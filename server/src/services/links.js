@@ -39,4 +39,23 @@ async function findActiveLink(q, token) {
   return rows[0] || null;
 }
 
-module.exports = { generateToken, hashToken, linkUrl, createLink, findActiveLink };
+// Демо-ссылка роли (для директора - его школы): берём действующую или заводим новую.
+// Токен никому не показывается, вход по ней только через /api/auth/demo. Возвращает id ссылки.
+async function demoLink(q, { role, kombinatId, directorId = null }) {
+  const { rows } = await q.query(
+    `SELECT id FROM access_links
+      WHERE is_demo AND revoked_at IS NULL AND role = $1 AND kombinat_id = $2
+        AND director_id IS NOT DISTINCT FROM $3
+      ORDER BY id LIMIT 1`,
+    [role, kombinatId, directorId]
+  );
+  if (rows[0]) return rows[0].id;
+  const created = await q.query(
+    `INSERT INTO access_links (role, kombinat_id, director_id, token_hash, is_demo)
+     VALUES ($1, $2, $3, $4, TRUE) RETURNING id`,
+    [role, kombinatId, directorId, hashToken(generateToken())]
+  );
+  return created.rows[0].id;
+}
+
+module.exports = { generateToken, hashToken, linkUrl, createLink, findActiveLink, demoLink };

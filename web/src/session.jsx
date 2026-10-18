@@ -38,13 +38,22 @@ export function SessionProvider({ children }) {
     return r.cabinet;
   }, []);
 
+  // Демо со стартовой страницы: кабинет комбината или директора выбранной школы, только просмотр.
+  const loginDemo = useCallback(async (role, schoolId) => {
+    const r = await api.post("/auth/demo", { role, school_id: schoolId });
+    loginSeq.current += 1;
+    setSession(r.token);
+    setCabinet(r.cabinet);
+    return r.cabinet;
+  }, []);
+
   const logout = useCallback(() => {
     setSession(null);
     setCabinet(null);
   }, []);
 
   return (
-    <SessionContext.Provider value={{ cabinet, ready, loginWithLink, logout }}>
+    <SessionContext.Provider value={{ cabinet, ready, loginWithLink, loginDemo, logout }}>
       {children}
     </SessionContext.Provider>
   );

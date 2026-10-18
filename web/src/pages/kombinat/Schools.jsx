@@ -6,8 +6,8 @@ import { api, qs } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { useModal } from "../../lib/hooks";
 import { fadeMotion, motionTokens, springs } from "../../lib/motion";
-import { dateTime, isoDate, pct } from "../../lib/format";
-import { Card, Icon, PlusIcon, ProblemCard, Status, Toast, errorText, exportCsv, mailtoHref, copyReport } from "../../components/ui.jsx";
+import { WASTE_ZONES_HINT, dateTime, isoDate, pct } from "../../lib/format";
+import { Card, Icon, PlusIcon, ProblemCard, Status, Toast, ZoneChip, errorText, exportCsv, mailtoHref, copyReport } from "../../components/ui.jsx";
 
 // Самая проблемная школа (списания за неделю не ниже порога) подсвечивается красным.
 const HIGH_WASTE_PCT = 20;
@@ -176,12 +176,13 @@ export default function KombinatSchools() {
               <td><span className={`dot${s.wastePct === null ? " none" : bad ? " bad" : ""}`} /><Link className="cell-link" to={`/kombinat/schools/${s.id}`} onClick={(e) => e.stopPropagation()}>{s.number}</Link></td>
               <td className="num">{s.students ?? "-"}</td>
               <td className="num">{pct(s.eatenPct)}</td>
-              <td className="num">{pct(s.wastePct)}</td>
+              <td className="num">{pct(s.wastePct)} <ZoneChip value={s.wastePct} /></td>
               <td className="action"><Link className="row-link" onClick={(e) => e.stopPropagation()} to={`/kombinat/schools/${s.id}`} aria-label={`Открыть ${s.name}`}>Открыть</Link></td>
             </tr>;
           })}
         </tbody>
       </table></div>
+      <p className="muted zones-hint">{WASTE_ZONES_HINT} Цель пилота - вывести все школы в норму.</p>
       {(dashboard.error || stats.error) && <p className="muted">Сводные показатели по школам сейчас недоступны.</p>}
       {worst && <ProblemCard
         title="Проблемная школа"

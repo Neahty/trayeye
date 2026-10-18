@@ -3,7 +3,7 @@ import { SessionProvider, useSession } from "./session.jsx";
 import Layout from "./components/Layout.jsx";
 import { Loading } from "./components/ui.jsx";
 import LinkLogin from "./pages/LinkLogin.jsx";
-import NoAccess from "./pages/NoAccess.jsx";
+import Landing from "./pages/Landing.jsx";
 import DirectorHome from "./pages/director/Home.jsx";
 import DirectorClasses from "./pages/director/Classes.jsx";
 import DirectorStats from "./pages/director/Stats.jsx";
@@ -32,7 +32,7 @@ function RoleGate({ role }) {
 function Root() {
   const { cabinet, ready } = useSession();
   if (!ready) return <Loading />;
-  return cabinet ? <Navigate to={HOME[cabinet.role]} replace /> : <NoAccess />;
+  return cabinet ? <Navigate to={HOME[cabinet.role]} replace /> : <Landing />;
 }
 
 export default function App() {

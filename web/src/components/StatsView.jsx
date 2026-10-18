@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CATEGORY_LABELS, dayLong, dayShort, pct, rub } from "../lib/format";
-import { Card, Icon, MetricCard, Toast, copyReport } from "./ui.jsx";
+import { Card, Icon, MetricCard, Toast, ZoneChip, copyReport } from "./ui.jsx";
 
 const CHART = { left: 28, right: 672, top: 18, bottom: 202 };
 
@@ -60,7 +60,7 @@ export function StatsView({ data, from, to, onSend, sendLabel = onSend ? "Отп
   return (
     <>
       <div className="grid3">
-        <MetricCard kind="waste" title="Списания" value={pct(summary.wastePct)} note={`Было ${pct(summary.baselinePct)}`} noteIcon />
+        <MetricCard kind="waste" title="Списания" value={pct(summary.wastePct)} badge={<ZoneChip value={summary.wastePct} />} note={`Было ${pct(summary.baselinePct)}`} noteIcon />
         <MetricCard kind="savings" title="Экономия" value={rub(summary.savingsRub)} note={`Заказано на ${rub(summary.plannedRub)}`} noteIcon />
         <MetricCard kind="eaten" title="Съедаемость" value={pct(summary.eatenPct)} note={`Было ${pct(summary.baselineEatenPct)}`} noteIcon blue />
       </div>

@@ -23,7 +23,11 @@ const UNPOPULAR_MAX_TIPS = 2;
 const BASELINE_DAYS = 5;
 const SAME_WEEKDAY_WINDOW = 4;
 
-const CATEGORY_ORDER = ["soup", "main", "side", "salad", "drink", "bakery", "other"];
+// Подписка TrayEye за одну школу в месяц, ₽ (финмодель команды), и окно расчёта окупаемости.
+const SUBSCRIPTION_RUB_PER_SCHOOL = 7800;
+const ECONOMICS_DAYS = 30;
+
+const CATEGORY_ORDER =["soup", "main", "side", "salad", "drink", "bakery", "other"];
 
 function round(n, digits = 0) {
   const k = 10 ** digits;
@@ -84,6 +88,27 @@ function baselineWastePct(rows) {
 // Экономия за день: сколько выбросили бы при старом уровне списаний минус сколько выбросили.
 function savingsRub(baselinePct, day) {
   return round(((baselinePct - day.wastePct) / 100) * day.plannedRub);
+}
+
+// Экономия по дням с данными камеры строго после from: окно «последние 30 дней».
+function savingsAfter(rows, baselinePct, from) {
+  const days = groupBy(onlyScannedDays(rows.filter((r) => r.date > from)), (r) => r.date);
+  return round([...days.values()].reduce((total, list) => total + savingsRub(baselinePct, wasteSummary(list)), 0));
+}
+
+// Окупаемость для комбината: экономия за ECONOMICS_DAYS против месячной подписки на его школы.
+function subscriptionEconomics({ savingsRub: saved, schools }) {
+  const subscriptionRub = schools * SUBSCRIPTION_RUB_PER_SCHOOL;
+  const perDay = saved / ECONOMICS_DAYS;
+  return {
+    days: ECONOMICS_DAYS,
+    pricePerSchool: SUBSCRIPTION_RUB_PER_SCHOOL,
+    savingsRub: round(saved),
+    subscriptionRub,
+    netRub: round(saved - subscriptionRub),
+    ratio: subscriptionRub > 0 ? round(saved / subscriptionRub, 1) : null,
+    paybackDays: perDay > 0 ? Math.ceil(subscriptionRub / perDay) : null
+  };
 }
 
 function kidsSummary(present, students) {
@@ -276,6 +301,9 @@ module.exports = {
   onlyScannedDays,
   baselineWastePct,
   savingsRub,
+  savingsAfter,
+  subscriptionEconomics,
+  ECONOMICS_DAYS,
   kidsSummary,
   forecast,
   recommendations,

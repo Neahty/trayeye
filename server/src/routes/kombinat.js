@@ -115,7 +115,7 @@ router.get("/links", async (req, res, next) => {
          FROM access_links l
          LEFT JOIN directors d ON d.id = l.director_id
          LEFT JOIN schools s ON s.id = d.school_id
-        WHERE l.kombinat_id = $1
+        WHERE l.kombinat_id = $1 AND NOT l.is_demo
         ORDER BY l.created_at DESC`,
       [req.cabinet.kombinatId]
     );

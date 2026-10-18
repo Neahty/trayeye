@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api, appUrl } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { dayLong, greeting, greetingName, pct, rub } from "../../lib/format";
-import { Card, DishImage, Icon, MetricCard, Status, Toast, errorText } from "../../components/ui.jsx";
+import { Card, DishImage, Icon, MetricCard, Status, Toast, ZoneChip, errorText } from "../../components/ui.jsx";
 
 // Разница прогноза с обычным заказом: зелёная - можно заказать меньше, красная - нужно больше.
 export function ForecastDiff({ diff }) {
@@ -32,7 +32,7 @@ export default function DirectorHome() {
   return <>
     <div><h1>{greeting()}, {greetingName(data.director.fullName)}!</h1><p className="page-subtitle">Сегодня {dayLong(data.date)}</p></div>
     <div className="grid3">
-      <MetricCard kind="waste" title="Списания" value={pct(cards.waste.pct)} note={`Было ${pct(cards.waste.baselinePct)}`} noteIcon />
+      <MetricCard kind="waste" title="Списания" value={pct(cards.waste.pct)} badge={<ZoneChip value={cards.waste.pct} />} note={`Было ${pct(cards.waste.baselinePct)}`} noteIcon />
       <MetricCard kind="savings" title="Экономия" value={rub(cards.savings.rub)} note="За сегодня" />
       <MetricCard kind="kids" title="Детей" value={`${cards.kids.present}/${cards.kids.students}`} note={`${pct(cards.kids.pct)} пришли`} blue />
     </div>

@@ -86,6 +86,12 @@ export default function Layout() {
         </button>
       </aside>
       <div className="main">
+        {cabinet.demo && (
+          <div className="demo-bar" role="status">
+            Демо-режим: данные тестовые, смотреть можно всё, менять нельзя.
+            <button className="link" onClick={onLogout}>Выйти из демо</button>
+          </div>
+        )}
         <Topbar cabinet={cabinet} title={title} nav={nav} />
         <motion.main key={pathname} className="content" {...pageMotion}>
           <Outlet />

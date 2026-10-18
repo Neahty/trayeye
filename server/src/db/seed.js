@@ -1,6 +1,7 @@
-// Демо-данные: комбинат, 3 школы, классы, каталог блюд и история за 6 недель.
+// Демо-данные: комбинат, школы, классы, каталог блюд и история за 6 недель.
 // Первые 2 недели - «до системы» (заказ по списку учеников), дальше - заказ по прогнозу.
 // Генератор детерминированный: одинаковые цифры при каждом запуске на ту же дату.
+// topUpDemo дописывает новые учебные дни, чтобы демо не устаревало между пересозданиями.
 
 const { KOMBINAT, SUPPLIERS, SCHOOLS, DISHES, NEXT_DAY_MENU, WEEKDAY_APPETITE } = require("./demoData");
 const { createLink } = require("../services/links");
@@ -17,6 +18,12 @@ const ORDER_MARGIN = 0.03;
 // «До системы» комбинат заказывает на 90% списочного состава.
 const BASELINE_ORDER_SHARE = 0.9;
 const RANDOM_SEED = 33;
+// Блюдо, добавленное в каталог вручную (его нет в demoData): средний аппетит.
+const DEFAULT_TAKE = 0.85;
+const DEFAULT_EAT = 0.85;
+// Дольше этого topUpDemo не догоняет: после долгого простоя демо проще пересоздать.
+const MAX_TOP_UP_SCHOOL_DAYS = 60;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // mulberry32: маленький детерминированный ГПСЧ.
 function prng(seed) {
@@ -31,6 +38,7 @@ function prng(seed) {
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const dayNumber = (iso) => Math.round(Date.parse(`${iso}T00:00:00Z`) / MS_PER_DAY);
 
 // Классы 1А..11Г так, чтобы сумма учеников совпала с students.
 function buildClasses(students) {
@@ -78,6 +86,19 @@ async function insertCatalog(client) {
   return { kombinatId, dishes };
 }
 
+// Каталог комбината из базы с аппетитом из demoData (по названию блюда).
+async function loadCatalog(client, kombinatId) {
+  const { rows } = await client.query("SELECT id, name, category FROM dishes WHERE kombinat_id = $1 ORDER BY id", [kombinatId]);
+  const demo = new Map(DISHES.map((d) => [d.name, d]));
+  return rows.map((r) => ({ take: DEFAULT_TAKE, eat: DEFAULT_EAT, ...demo.get(r.name), ...r }));
+}
+
+function groupByCategory(dishes) {
+  const byCategory = {};
+  for (const d of dishes) (byCategory[d.category] ||= []).push(d);
+  return byCategory;
+}
+
 async function insertSchool(client, kombinatId, s, scale) {
   const school = await client.query(
     "INSERT INTO schools (kombinat_id, number, name) VALUES ($1, $2, $3) RETURNING id",
@@ -100,26 +121,32 @@ async function insertSchool(client, kombinatId, s, scale) {
 }
 
 // Один учебный день школы: посещаемость, меню, подносы.
-async function insertDay(client, { schoolId, classes, date, menu, isBaseline, rand }) {
+// planned - уже заказанное меню дня (Map dishId -> порций): тогда меню не создаём, только «едим».
+async function insertDay(client, { schoolId, classes, date, menu, isBaseline, rand, planned: ordered = null }) {
   let present = 0;
   for (const c of classes) {
     const p = Math.round(c.students * clamp(BASE_ATTENDANCE + (rand() - 0.5) * 0.08, 0, 1));
     present += p;
-    await client.query("INSERT INTO attendance (class_id, date, present_count) VALUES ($1, $2, $3)", [c.id, date, p]);
+    await client.query(
+      "INSERT INTO attendance (class_id, date, present_count) VALUES ($1, $2, $3) ON CONFLICT (class_id, date) DO NOTHING",
+      [c.id, date, p]
+    );
   }
   const students = classes.reduce((a, c) => a + c.students, 0);
   const appetite = WEEKDAY_APPETITE[weekday(date)] || 1;
 
   // Заказ: «до системы» - по списку учеников, потом - по прогнозу (сколько детей возьмёт) с запасом.
-  const planned = new Map(menu.map((d) => [
+  const planned = ordered || new Map(menu.map((d) => [
     d.id,
     isBaseline ? Math.round(students * BASELINE_ORDER_SHARE) : Math.ceil(present * d.take * (1 + ORDER_MARGIN))
   ]));
-  for (const d of menu) {
-    await client.query(
-      "INSERT INTO menu_items (school_id, date, dish_id, planned_portions) VALUES ($1, $2, $3, $4)",
-      [schoolId, date, d.id, planned.get(d.id)]
-    );
+  if (!ordered) {
+    for (const d of menu) {
+      await client.query(
+        "INSERT INTO menu_items (school_id, date, dish_id, planned_portions) VALUES ($1, $2, $3, $4)",
+        [schoolId, date, d.id, planned.get(d.id)]
+      );
+    }
   }
 
   const scans = await client.query(
@@ -153,7 +180,6 @@ function average(values) {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
 
-// Полностью пересоздаёт демо-данные. scale < 1 уменьшает школы (для тестов).
 // Стартовые уведомления демо, чтобы колокольчик был не пустой.
 async function insertEvent(client, { kombinatId, schoolId = null, audience, kind, text, link, minutesAgo }) {
   await client.query(
@@ -163,13 +189,37 @@ async function insertEvent(client, { kombinatId, schoolId = null, audience, kind
   );
 }
 
+// Школа с историей за days и меню на next. Возвращает id школы, директора и классы.
+async function seedSchool(client, { kombinatId, s, days, next, byCategory, byName, scale, rand }) {
+  const school = await insertSchool(client, kombinatId, s, scale);
+  // Сколько порций каждого блюда заказывали после перехода на прогноз - это «обычно».
+  const ordered = new Map();
+  for (let i = 0; i < days.length; i++) {
+    const isBaseline = i < BASELINE_SCHOOL_DAYS;
+    const planned = await insertDay(client, { ...school, date: days[i], menu: menuForDay(i, byCategory), isBaseline, rand });
+    if (isBaseline) continue;
+    for (const [dishId, n] of planned) ordered.set(dishId, [...(ordered.get(dishId) || []), n]);
+  }
+  const students = school.classes.reduce((a, c) => a + c.students, 0);
+  for (const name of NEXT_DAY_MENU) {
+    const dish = byName.get(name);
+    if (!dish) continue;
+    const usual = Math.round(average(ordered.get(dish.id) || []) ?? students);
+    await client.query(
+      "INSERT INTO menu_items (school_id, date, dish_id, planned_portions) VALUES ($1, $2, $3, $4)",
+      [school.schoolId, next, dish.id, usual]
+    );
+  }
+  return school;
+}
+
+// Полностью пересоздаёт демо-данные. scale < 1 уменьшает школы (для тестов).
 async function seed(client, { today, scale = 1 }) {
   const rand = prng(RANDOM_SEED);
   await resetAll(client);
   const { kombinatId, dishes } = await insertCatalog(client);
 
-  const byCategory = {};
-  for (const d of dishes) (byCategory[d.category] ||= []).push(d);
+  const byCategory = groupByCategory(dishes);
   const byName = new Map(dishes.map((d) => [d.name, d]));
 
   const lastDay = isSchoolDay(today) ? today : previousSchoolDays(today, 1)[0];
@@ -178,24 +228,7 @@ async function seed(client, { today, scale = 1 }) {
 
   const links = { kombinat: (await createLink(client, { role: "kombinat", kombinatId })).url, directors: [] };
   for (const s of SCHOOLS) {
-    const school = await insertSchool(client, kombinatId, s, scale);
-    // Сколько порций каждого блюда заказывали после перехода на прогноз - это «обычно».
-    const ordered = new Map();
-    for (let i = 0; i < days.length; i++) {
-      const isBaseline = i < BASELINE_SCHOOL_DAYS;
-      const planned = await insertDay(client, { ...school, date: days[i], menu: menuForDay(i, byCategory), isBaseline, rand });
-      if (isBaseline) continue;
-      for (const [dishId, n] of planned) ordered.set(dishId, [...(ordered.get(dishId) || []), n]);
-    }
-    const students = school.classes.reduce((a, c) => a + c.students, 0);
-    for (const name of NEXT_DAY_MENU) {
-      const dishId = byName.get(name).id;
-      const usual = Math.round(average(ordered.get(dishId) || []) ?? students);
-      await client.query(
-        "INSERT INTO menu_items (school_id, date, dish_id, planned_portions) VALUES ($1, $2, $3, $4)",
-        [school.schoolId, next, dishId, usual]
-      );
-    }
+    const school = await seedSchool(client, { kombinatId, s, days, next, byCategory, byName, scale, rand });
     const link = await createLink(client, { role: "director", kombinatId, directorId: school.directorId });
     links.directors.push({ school: s.name, director: s.director, url: link.url });
     await insertEvent(client, {
@@ -213,4 +246,79 @@ async function seed(client, { today, scale = 1 }) {
   return { kombinatId, links, days: { from: days[0], to: lastDay, next } };
 }
 
-module.exports = { seed, buildClasses, prng };
+// Сколько порций блюда школа заказывала в последние 30 дней - «обычный» заказ.
+async function usualOrders(client, schoolId, before) {
+  const { rows } = await client.query(
+    `SELECT dish_id, ROUND(AVG(planned_portions))::int AS usual
+       FROM menu_items WHERE school_id = $1 AND date < $2 AND date >= $3
+      GROUP BY dish_id`,
+    [schoolId, before, addDays(before, -30)]
+  );
+  return new Map(rows.map((r) => [r.dish_id, r.usual]));
+}
+
+// Догоняет демо до today: недостающие школы из demoData (с историей), учебные дни
+// без единого скана (подносы по уже заказанному меню или по циклу) и меню на следующий день.
+// Ничего не стирает: настоящие сканы и правки меню остаются. Возвращает число дописанных дней.
+async function topUpDemo(client, { today, scale = 1 }) {
+  const k = await client.query("SELECT id FROM kombinats ORDER BY id LIMIT 1");
+  if (!k.rows[0]) return 0;
+  const kombinatId = k.rows[0].id;
+  const dishes = await loadCatalog(client, kombinatId);
+  const byCategory = groupByCategory(dishes);
+  if (!["soup", "main", "side", "salad", "drink"].every((c) => byCategory[c]?.length)) return 0;
+  const byId = new Map(dishes.map((d) => [d.id, d]));
+  const byName = new Map(dishes.map((d) => [d.name, d]));
+  const lastDay = isSchoolDay(today) ? today : previousSchoolDays(today, 1)[0];
+  const next = nextSchoolDay(today);
+
+  const existing = await client.query("SELECT number FROM schools WHERE kombinat_id = $1", [kombinatId]);
+  const numbers = new Set(existing.rows.map((r) => r.number));
+  for (const s of SCHOOLS.filter((item) => !numbers.has(item.number))) {
+    const days = previousSchoolDays(addDays(lastDay, 1), HISTORY_SCHOOL_DAYS);
+    await seedSchool(client, { kombinatId, s, days, next, byCategory, byName, scale, rand: prng(RANDOM_SEED + s.number) });
+  }
+
+  let added = 0;
+  const schools = await client.query(
+    `SELECT s.id, MAX(ts.scan_date)::text AS last_scan
+       FROM schools s LEFT JOIN tray_scans ts ON ts.school_id = s.id
+      WHERE s.kombinat_id = $1 GROUP BY s.id`,
+    [kombinatId]
+  );
+  for (const { id: schoolId, last_scan: lastScan } of schools.rows) {
+    const classes = (await client.query("SELECT id, students_count AS students FROM classes WHERE school_id = $1", [schoolId])).rows;
+    // Школы без истории (заведённые вручную) не трогаем: им нечего «продолжать».
+    if (!classes.length || !lastScan) continue;
+    const days = [];
+    for (let d = nextSchoolDay(lastScan); d <= lastDay && days.length < MAX_TOP_UP_SCHOOL_DAYS; d = nextSchoolDay(d)) days.push(d);
+
+    for (const date of days) {
+      const rand = prng(RANDOM_SEED + schoolId * 100003 + dayNumber(date));
+      const menuRows = (await client.query("SELECT dish_id, planned_portions FROM menu_items WHERE school_id = $1 AND date = $2", [schoolId, date])).rows;
+      const known = menuRows.filter((r) => byId.has(r.dish_id));
+      if (known.length) {
+        const planned = new Map(known.map((r) => [r.dish_id, r.planned_portions]));
+        await insertDay(client, { schoolId, classes, date, menu: known.map((r) => byId.get(r.dish_id)), isBaseline: false, rand, planned });
+      } else {
+        await insertDay(client, { schoolId, classes, date, menu: menuForDay(dayNumber(date), byCategory), isBaseline: false, rand });
+      }
+      added++;
+    }
+
+    const hasNext = await client.query("SELECT 1 FROM menu_items WHERE school_id = $1 AND date = $2 LIMIT 1", [schoolId, next]);
+    if (!hasNext.rows.length) {
+      const usual = await usualOrders(client, schoolId, next);
+      const students = classes.reduce((a, c) => a + c.students, 0);
+      for (const d of menuForDay(dayNumber(next), byCategory)) {
+        await client.query(
+          "INSERT INTO menu_items (school_id, date, dish_id, planned_portions) VALUES ($1, $2, $3, $4)",
+          [schoolId, next, d.id, usual.get(d.id) ?? Math.round(students * d.take)]
+        );
+      }
+    }
+  }
+  return added;
+}
+
+module.exports = { seed, topUpDemo, buildClasses, prng };

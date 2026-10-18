@@ -11,6 +11,17 @@ export function pct(n) {
   return n === null || n === undefined ? "-" : `${n}%`;
 }
 
+// Индекс несъедаемости (несъеденное / приготовленное) по методике Роспотребнадзора:
+// до 10% - норма, 10-30% - риск, больше 30% - высокий риск. Наши «списания» считаются так же.
+export const WASTE_ZONES_HINT = "Индекс несъедаемости по методике Роспотребнадзора: до 10% - норма, 10-30% - риск, больше 30% - высокий риск.";
+
+export function wasteZone(value) {
+  if (value === null || value === undefined) return null;
+  if (value < 10) return { key: "norm", label: "норма" };
+  if (value <= 30) return { key: "risk", label: "риск" };
+  return { key: "high", label: "высокий риск" };
+}
+
 function parseIso(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));

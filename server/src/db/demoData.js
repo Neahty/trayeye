@@ -8,7 +8,9 @@ const SUPPLIERS = ["ООО «МясоПтица»", "ООО «Овощная б�
 const SCHOOLS = [
   { number: 33, name: "Гимназия №33", director: "Смирнова Анна Петровна", students: 900 },
   { number: 11, name: "Школа №11", director: "Козлов Сергей Иванович", students: 640 },
-  { number: 21, name: "Школа №21", director: "Морозова Елена Викторовна", students: 520 }
+  { number: 21, name: "Школа №21", director: "Морозова Елена Викторовна", students: 520 },
+  { number: 30, name: "Школа №30", director: "Волкова Ирина Сергеевна", students: 720 },
+  { number: 15, name: "МАОУ СОШ №15", director: "Чмыхалов Дмитрий Александрович", students: 800 }
 ];
 
 const DISHES = [

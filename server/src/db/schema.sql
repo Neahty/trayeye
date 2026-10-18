@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS access_links (
   revoked_at    TIMESTAMPTZ,
   CHECK ((role = 'director') = (director_id IS NOT NULL))
 );
+-- Демо-вход со стартовой страницы: ссылка без выданного токена, сессия только на просмотр.
+ALTER TABLE access_links ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS classes (
   id              SERIAL PRIMARY KEY,

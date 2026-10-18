@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { appUrl } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { dayLong, greeting, pct, rub } from "../../lib/format";
-import { Card, Icon, MetricCard, Status } from "../../components/ui.jsx";
+import { AnimatedValue, Card, Icon, MetricCard, Status, ZoneChip } from "../../components/ui.jsx";
 import { ForecastDiff } from "../director/Home.jsx";
 
 // Прогноз комбината - сумма прогнозов по блюдам каждой школы.
@@ -23,7 +23,7 @@ export default function KombinatHome() {
   return <>
     <div><h1>{greeting()}, коллеги!</h1><p className="page-subtitle">Сегодня {dayLong(data.date)}</p></div>
     <div className="grid3">
-      <MetricCard kind="waste" title="Списания" value={pct(totals.wastePct)} note={`Было ${pct(totals.baselinePct)}`} noteIcon />
+      <MetricCard kind="waste" title="Списания" value={pct(totals.wastePct)} badge={<ZoneChip value={totals.wastePct} />} note={`Было ${pct(totals.baselinePct)}`} noteIcon />
       <MetricCard kind="savings" title="Экономия" value={rub(totals.savingsRub)} note="За сегодня" />
       <MetricCard kind="kids" title="Детей" value={`${totals.kids.present}/${totals.kids.students}`} note={`${pct(totals.kids.pct)} пришли`} blue />
     </div>
@@ -55,5 +55,37 @@ export default function KombinatHome() {
         <img className="recommend-art" src={appUrl("/figma/imgRectangle4281.png")} alt="" />
       </Card>
     </div>
+    <Economics economics={totals.economics} schools={totals.schools} />
   </>;
+}
+
+// Окупаемость подписки: экономия на списаниях за 30 дней против месячной оплаты за все школы.
+function Economics({ economics: e, schools }) {
+  if (!e) return null;
+  return (
+    <Card title={`Окупаемость TrayEye за ${e.days} дней`} icon="trend" tone="green">
+      <div className="roi-grid">
+        <div>
+          <div className="metric-label">Сэкономили</div>
+          <div className="roi-value good"><AnimatedValue value={rub(e.savingsRub)} /></div>
+          <div className="muted">столько меньше ушло в списания, чем до TrayEye</div>
+        </div>
+        <div>
+          <div className="metric-label">Подписка</div>
+          <div className="roi-value"><AnimatedValue value={rub(e.subscriptionRub)} /></div>
+          <div className="muted">{schools} шк. × {rub(e.pricePerSchool)} в месяц</div>
+        </div>
+        <div>
+          <div className="metric-label">Чистая выгода</div>
+          <div className={`roi-value ${e.netRub >= 0 ? "good" : "bad"}`}><AnimatedValue value={rub(e.netRub)} /></div>
+          <div className="muted">{e.ratio ? `экономия в ${String(e.ratio).replace(".", ",")} раза больше подписки` : "данных пока мало"}</div>
+        </div>
+        <div>
+          <div className="metric-label">Подписка окупается за</div>
+          <div className="roi-value">{e.paybackDays ? `${e.paybackDays} дн.` : "-"}</div>
+          <div className="muted">месяц оплаты отбивается экономией</div>
+        </div>
+      </div>
+    </Card>
+  );
 }

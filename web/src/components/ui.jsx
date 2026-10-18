@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { animate, useReducedMotion } from "motion/react";
 import { api, appUrl } from "../lib/api";
 import { motionTokens } from "../lib/motion";
+import { WASTE_ZONES_HINT, wasteZone } from "../lib/format";
 
 const ERROR_TEXT = {
   ai_not_configured: "Распознавание не настроено: на сервере нет ключа Gemini/OpenAI.",
@@ -19,7 +20,10 @@ const ERROR_TEXT = {
   cannot_revoke_own_link: "Нельзя отозвать ссылку, по которой вы вошли.",
   bad_period: "Проверьте период.",
   too_many_attempts: "Слишком много попыток, подождите.",
-  school_not_found: "Такой школы нет среди школ комбината."
+  school_not_found: "Такой школы нет среди школ комбината.",
+  demo_readonly: "Это демо: смотреть можно всё, а менять данные нельзя.",
+  demo_disabled: "Демо-вход сейчас выключен.",
+  bad_demo_request: "Выберите школу для кабинета директора."
 };
 
 export function errorText(error) {
@@ -191,12 +195,19 @@ const METRIC_ART = {
   eaten: "/figma/eaten-plate.png"
 };
 
-export function MetricCard({ kind, title, value, note, noteIcon = false, blue = false }) {
+// Зона индекса несъедаемости рядом с процентом списаний: норма / риск / высокий риск.
+export function ZoneChip({ value }) {
+  const zone = wasteZone(value);
+  if (!zone) return null;
+  return <span className={`zone zone-${zone.key}`} title={WASTE_ZONES_HINT}>{zone.label}</span>;
+}
+
+export function MetricCard({ kind, title, value, note, noteIcon = false, blue = false, badge = null }) {
   return (
     <section className={`card metric-card enter${blue ? " blue" : ""}`}>
       <img className="metric-art" src={appUrl(METRIC_ART[kind])} alt="" />
       <div>
-        <div className="metric-label">{title}</div>
+        <div className="metric-label">{title}{badge}</div>
         <div className="metric-value"><AnimatedValue value={value} /></div>
         {note && <div className="metric-note">{noteIcon && <Icon name="trend" size={13} />}{note}</div>}
       </div>

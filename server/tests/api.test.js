@@ -17,7 +17,7 @@ delete process.env.OPENAI_API_KEY;
 
 const request = require("supertest");
 const db = require("../src/db");
-const { seed } = require("../src/db/seed");
+const { seed, topUpDemo } = require("../src/db/seed");
 const { createLink } = require("../src/services/links");
 const vision = require("../src/services/vision");
 const camera = require("../src/services/camera");
@@ -367,8 +367,10 @@ suite("API", () => {
     test("главная: все школы и итоги", async () => {
       const res = await get("/api/kombinat/dashboard", token);
       expect(res.body.kombinat.name).toBe("Полиграф комбинат");
-      expect(res.body.schools.map((s) => s.number)).toEqual([11, 21, 33]);
-      expect(res.body.totals.schools).toBe(3);
+      expect(res.body.schools.map((s) => s.number)).toEqual([11, 15, 21, 30, 33]);
+      expect(res.body.totals.schools).toBe(5);
+      expect(res.body.totals.economics).toMatchObject({ days: 30, pricePerSchool: 7800, subscriptionRub: 5 * 7800 });
+      expect(res.body.totals.economics.savingsRub).toBeGreaterThan(0);
       expect(typeof res.body.totals.wastePct).toBe("number");
       const morning = await get("/api/kombinat/dashboard?date=2026-10-14", token);
       expect(morning.body.totals.wastePct).toBeNull();
@@ -379,9 +381,10 @@ suite("API", () => {
     test("меню товаров: порции, вес, школы и поставщик", async () => {
       const res = await get("/api/kombinat/products?date=2026-10-14", token);
       const borscht = res.body.products.find((p) => p.name === "Борщ");
-      expect(borscht.school_numbers).toEqual([11, 21, 33]);
+      expect(borscht.school_numbers).toEqual([11, 15, 21, 30, 33]);
       expect(borscht.supplier_name).toBe("ООО «Овощная база»");
-      expect(borscht.weightKg).toBeCloseTo((borscht.portions * 250) / 1000, 1);
+      // Вес округлён до 0,1 кг: 26,75 → 26,8.
+      expect(Math.abs(borscht.weightKg - (borscht.portions * 250) / 1000)).toBeLessThanOrEqual(0.05 + 1e-9);
     });
 
     test("личная ссылка: новый директор входит и видит только свою школу; отзыв закрывает доступ", async () => {
@@ -524,6 +527,72 @@ suite("API", () => {
     test("без входа и с чужой ролью - нельзя", async () => {
       expect((await request(app).get("/api/director/notifications")).status).toBe(401);
       expect((await get("/api/kombinat/notifications", director)).status).toBe(403);
+    });
+  });
+
+  describe("демо-вход со стартовой страницы", () => {
+    const demo = (body) => request(app).post("/api/auth/demo").send(body);
+
+    test("стартовая страница получает комбинат, школы и окупаемость", async () => {
+      const res = await request(app).get("/api/auth/demo");
+      expect(res.status).toBe(200);
+      expect(res.body.kombinat.name).toBe("Полиграф комбинат");
+      expect(res.body.schools.map((s) => s.name)).toEqual(expect.arrayContaining(["МАОУ СОШ №15", "Школа №30"]));
+      expect(res.body.schools.find((s) => s.name === "МАОУ СОШ №15").director_name).toBe("Чмыхалов Дмитрий Александрович");
+      expect(res.body.totals.economics.subscriptionRub).toBe(res.body.totals.schools * 7800);
+    });
+
+    test("комбинат: смотреть можно, менять нельзя; демо-ссылка не видна среди выданных", async () => {
+      const res = await demo({ role: "kombinat" });
+      expect(res.status).toBe(200);
+      expect(res.body.cabinet).toMatchObject({ role: "kombinat", demo: true });
+      const token = res.body.token;
+      expect((await get("/api/kombinat/dashboard", token)).status).toBe(200);
+      const write = await send("post", "/api/kombinat/suppliers", token, { name: "Демо-поставщик" });
+      expect(write.status).toBe(403);
+      expect(write.body.error).toBe("demo_readonly");
+      expect((await send("delete", "/api/kombinat/links/1", token)).status).toBe(403);
+
+      expect((await demo({ role: "kombinat" })).body.cabinet.linkId).toBe(res.body.cabinet.linkId);
+      const real = await login(tokenOf(links.kombinat));
+      const listed = (await get("/api/kombinat/links", real)).body.links.map((l) => l.id);
+      expect(listed).not.toContain(res.body.cabinet.linkId);
+    });
+
+    test("директор выбранной школы; без школы и с чужой ролью - 400", async () => {
+      const schools = (await request(app).get("/api/auth/demo")).body.schools;
+      const res = await demo({ role: "director", school_id: schools.find((s) => s.name === "Гимназия №33").id });
+      expect(res.status).toBe(200);
+      expect(res.body.cabinet).toMatchObject({ role: "director", schoolNumber: 33, demo: true });
+      expect((await get("/api/director/dashboard", res.body.token)).status).toBe(200);
+      expect((await send("post", "/api/director/reports", res.body.token, {})).status).toBe(403);
+      expect((await demo({ role: "director" })).status).toBe(400);
+      expect((await demo({ role: "admin" })).status).toBe(400);
+    });
+
+    test("DEMO_LOGIN=0 выключает демо-вход", async () => {
+      process.env.DEMO_LOGIN = "0";
+      try {
+        expect((await request(app).get("/api/auth/demo")).status).toBe(404);
+        expect((await demo({ role: "kombinat" })).status).toBe(404);
+      } finally {
+        delete process.env.DEMO_LOGIN;
+      }
+    });
+  });
+
+  describe("автопродление демо", () => {
+    test("дописывает пропущенные учебные дни и меню на следующий, повторно - ничего", async () => {
+      const added = await db.withTx((client) => topUpDemo(client, { today: "2026-10-16", scale: 0.05 }));
+      expect(added).toBeGreaterThan(0);
+      const s33 = (await db.query("SELECT id FROM schools WHERE number = 33 ORDER BY id LIMIT 1")).rows[0].id;
+      const days = await db.query(
+        "SELECT DISTINCT scan_date::text AS d FROM tray_scans WHERE school_id = $1 AND scan_date > $2 ORDER BY 1", [s33, "2026-10-13"]
+      );
+      expect(days.rows.map((r) => r.d)).toEqual(["2026-10-14", "2026-10-15", "2026-10-16"]);
+      const next = await db.query("SELECT COUNT(*)::int AS n FROM menu_items WHERE school_id = $1 AND date = $2", [s33, "2026-10-19"]);
+      expect(next.rows[0].n).toBeGreaterThan(0);
+      expect(await db.withTx((client) => topUpDemo(client, { today: "2026-10-16", scale: 0.05 }))).toBe(0);
     });
   });
 });

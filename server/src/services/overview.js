@@ -48,7 +48,10 @@ async function schoolOverviews(schoolIds, date) {
       date,
       cards: {
         waste: { pct: scanned ? day.wastePct : null, baselinePct, rub: day.wasteRub, plannedRub: day.plannedRub },
-        savings: { rub: scanned ? metrics.savingsRub(baselinePct, day) : 0 },
+        savings: {
+          rub: scanned ? metrics.savingsRub(baselinePct, day) : 0,
+          monthRub: metrics.savingsAfter(past, baselinePct, addDays(date, -metrics.ECONOMICS_DAYS))
+        },
         kids: metrics.kidsSummary(present, studentsCount)
       },
       forecast: { date: target, items: forecastItems },
@@ -106,7 +109,11 @@ async function kombinatOverview(schools, date) {
       wastePct: plannedRub > 0 ? metrics.round((wasteRub / plannedRub) * 100, 1) : null,
       baselinePct: metrics.round(baselinePct, 1),
       kids: metrics.kidsSummary(present, students),
-      schools: list.length
+      schools: list.length,
+      economics: metrics.subscriptionEconomics({
+        savingsRub: list.reduce((a, s) => a + s.cards.savings.monthRub, 0),
+        schools: list.length
+      })
     },
     schools: list
   };

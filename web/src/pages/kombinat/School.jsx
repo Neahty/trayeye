@@ -4,7 +4,7 @@ import { useApi } from "../../lib/useApi";
 import { useDateParam } from "../../lib/hooks";
 import { dayLong, isoDate, pct, rub } from "../../lib/format";
 import { StatsView } from "../../components/StatsView.jsx";
-import { Card, DateInput, DishImage, MetricCard, PlusIcon, Status } from "../../components/ui.jsx";
+import { Card, DateInput, DishImage, MetricCard, PlusIcon, Status, ZoneChip } from "../../components/ui.jsx";
 import { ForecastDiff } from "../director/Home.jsx";
 
 // Карточка школы для комбината: что сегодня, прогноз на завтра, рекомендации и статистика за период.
@@ -33,7 +33,7 @@ export default function KombinatSchool() {
     </div>
 
     <div className="grid3">
-      <MetricCard kind="waste" title="Списания сегодня" value={pct(cards.waste.pct)} note={`Было ${pct(cards.waste.baselinePct)}`} noteIcon />
+      <MetricCard kind="waste" title="Списания сегодня" value={pct(cards.waste.pct)} badge={<ZoneChip value={cards.waste.pct} />} note={`Было ${pct(cards.waste.baselinePct)}`} noteIcon />
       <MetricCard kind="savings" title="Экономия сегодня" value={rub(cards.savings.rub)} note="За сегодня" />
       <MetricCard kind="kids" title="Детей" value={`${cards.kids.present}/${cards.kids.students}`} note={`${pct(cards.kids.pct)} пришли`} blue />
     </div>

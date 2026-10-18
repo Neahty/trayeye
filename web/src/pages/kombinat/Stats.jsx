@@ -3,7 +3,7 @@ import { qs } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { isoDate, pct, rub } from "../../lib/format";
 import { StatsView } from "../../components/StatsView.jsx";
-import { DateInput, Status, Card } from "../../components/ui.jsx";
+import { DateInput, Status, Card, ZoneChip } from "../../components/ui.jsx";
 
 export default function KombinatStats() {
   const [from, setFrom] = useState(isoDate(-30));
@@ -18,7 +18,7 @@ export default function KombinatStats() {
       <StatsView data={data} from={from} to={to} />
       <Card title="Статистика по школам"><div className="table-wrap"><table>
         <thead><tr><th>Школа</th><th>Заказано</th><th>Списано</th><th>Списания</th></tr></thead>
-        <tbody>{data.schools.map((school) => <tr key={school.id}><td>{school.name}</td><td>{rub(school.plannedRub)}</td><td>{rub(school.wasteRub)}</td><td>{pct(school.wastePct)}</td></tr>)}</tbody>
+        <tbody>{data.schools.map((school) => <tr key={school.id}><td>{school.name}</td><td>{rub(school.plannedRub)}</td><td>{rub(school.wasteRub)}</td><td>{pct(school.wastePct)} <ZoneChip value={school.wastePct} /></td></tr>)}</tbody>
       </table></div></Card>
     </>}
   </>;

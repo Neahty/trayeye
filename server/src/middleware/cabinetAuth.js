@@ -1,11 +1,13 @@
 const db = require("../db");
 const jwtUtil = require("../utils/jwt");
 
+const READ_METHODS = new Set(["GET", "HEAD"]);
+
 // Кто вошёл: роль и то, к чему у него доступ. Ссылку проверяем на каждом запросе,
 // поэтому отзыв ссылки комбинатом сразу закрывает уже выданные сессии.
 async function loadCabinet(linkId) {
   const { rows } = await db.query(
-    `SELECT l.id AS link_id, l.role, l.kombinat_id, k.name AS kombinat_name,
+    `SELECT l.id AS link_id, l.role, l.is_demo, l.kombinat_id, k.name AS kombinat_name,
             d.id AS director_id, d.full_name, d.avatar_url,
             s.id AS school_id, s.number AS school_number, s.name AS school_name
        FROM access_links l
@@ -20,6 +22,7 @@ async function loadCabinet(linkId) {
   return {
     linkId: r.link_id,
     role: r.role,
+    demo: r.is_demo,
     kombinatId: r.kombinat_id,
     kombinatName: r.kombinat_name,
     directorId: r.director_id,
@@ -50,6 +53,10 @@ function cabinetAuth(requiredRole = null) {
       if (!cabinet) return res.status(401).json({ error: "link_revoked" });
       if (requiredRole && cabinet.role !== requiredRole) {
         return res.status(403).json({ error: "forbidden" });
+      }
+      // Демо со стартовой страницы открыто всем: смотреть можно всё, менять - ничего.
+      if (cabinet.demo && !READ_METHODS.has(req.method)) {
+        return res.status(403).json({ error: "demo_readonly" });
       }
 
       req.cabinet = cabinet;
