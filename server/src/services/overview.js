@@ -15,10 +15,11 @@ function forSchool(schoolId, rows) {
 async function schoolOverviews(schoolIds, date) {
   const target = nextSchoolDay(date);
   const from = addDays(date, -HISTORY_DAYS);
-  const [allRows, allAttendance, students] = await Promise.all([
+  const [allRows, allAttendance, students, rules] = await Promise.all([
     data.dishDays(schoolIds, from, target),
     data.attendanceDays(schoolIds, from, date),
-    data.studentsBySchool(schoolIds)
+    data.studentsBySchool(schoolIds),
+    data.forecastRules(schoolIds)
   ]);
 
   const result = new Map();
@@ -41,7 +42,8 @@ async function schoolOverviews(schoolIds, date) {
       menu: rows.filter((r) => r.date === target),
       history: past,
       attendance,
-      students: studentsCount
+      students: studentsCount,
+      margin: rules.margin
     });
 
     result.set(id, {
@@ -59,7 +61,8 @@ async function schoolOverviews(schoolIds, date) {
         targetDate: target,
         history: past,
         attendance,
-        forecastItems
+        forecastItems,
+        unpopularTake: rules.unpopularTake
       })
     });
   }

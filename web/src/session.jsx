@@ -47,13 +47,19 @@ export function SessionProvider({ children }) {
     return r.cabinet;
   }, []);
 
+  // После правок профиля (например, названия комбината) перечитать, кто вошёл.
+  const refreshCabinet = useCallback(async () => {
+    const r = await api.get("/auth/me");
+    setCabinet(r.cabinet);
+  }, []);
+
   const logout = useCallback(() => {
     setSession(null);
     setCabinet(null);
   }, []);
 
   return (
-    <SessionContext.Provider value={{ cabinet, ready, loginWithLink, loginDemo, logout }}>
+    <SessionContext.Provider value={{ cabinet, ready, loginWithLink, loginDemo, refreshCabinet, logout }}>
       {children}
     </SessionContext.Provider>
   );

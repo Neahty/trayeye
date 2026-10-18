@@ -206,7 +206,10 @@ router.post("/dishes", async (req, res, next) => {
     const { rows } = await db.query(
       `INSERT INTO dishes (kombinat_id, supplier_id, name, category, image_url, portion_grams, portion_price)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (kombinat_id, name) DO NOTHING
+       ON CONFLICT (kombinat_id, name) DO UPDATE
+         SET supplier_id = EXCLUDED.supplier_id, category = EXCLUDED.category, image_url = EXCLUDED.image_url,
+             portion_grams = EXCLUDED.portion_grams, portion_price = EXCLUDED.portion_price, archived_at = NULL
+         WHERE dishes.archived_at IS NOT NULL
        RETURNING id`,
       [req.cabinet.kombinatId, d.supplierId, d.name, d.category, d.imageUrl, d.grams, d.price]
     );
@@ -233,7 +236,7 @@ router.put("/dishes/:id", async (req, res, next) => {
     const { rowCount } = await db.query(
       `UPDATE dishes SET supplier_id = $3, name = $4, category = $5, image_url = $6,
               portion_grams = $7, portion_price = $8
-        WHERE id = $1 AND kombinat_id = $2`,
+        WHERE id = $1 AND kombinat_id = $2 AND archived_at IS NULL`,
       [id, req.cabinet.kombinatId, d.supplierId, d.name, d.category, d.imageUrl, d.grams, d.price]
     );
     if (!rowCount) return res.status(404).json({ error: "not_found" });
@@ -251,12 +254,42 @@ router.put("/dishes/:id", async (req, res, next) => {
   }
 });
 
+// «Удалить блюдо»: прячем в архив, чтобы не потерять историю подносов и статистику.
+// Из будущих меню школ блюдо убираем, директорам приходит уведомление.
+router.delete("/dishes/:id", async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return badRequest(res, "bad_id");
+    const { rows } = await db.query(
+      `UPDATE dishes SET archived_at = NOW()
+        WHERE id = $1 AND kombinat_id = $2 AND archived_at IS NULL RETURNING name`,
+      [id, req.cabinet.kombinatId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: "not_found" });
+    await db.query(
+      `DELETE FROM menu_items m USING schools s
+        WHERE m.school_id = s.id AND s.kombinat_id = $1 AND m.dish_id = $2 AND m.date > $3`,
+      [req.cabinet.kombinatId, id, today()]
+    );
+    await events.record(db, {
+      kombinatId: req.cabinet.kombinatId,
+      audience: "director",
+      kind: "dish_removed",
+      text: `Комбинат убрал блюдо «${rows[0].name}» из каталога и из меню на будущие дни`,
+      link: "/director/menu"
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/suppliers", async (req, res, next) => {
   try {
     const { rows } = await db.query(
       `SELECT s.id, s.name, COUNT(d.id)::int AS dishes
          FROM suppliers s
-         LEFT JOIN dishes d ON d.supplier_id = s.id
+         LEFT JOIN dishes d ON d.supplier_id = s.id AND d.archived_at IS NULL
         WHERE s.kombinat_id = $1
         GROUP BY s.id
         ORDER BY s.name`,
@@ -279,6 +312,74 @@ router.post("/suppliers", async (req, res, next) => {
     );
     if (!rows[0]) return res.status(409).json({ error: "supplier_exists" });
     res.status(201).json({ id: rows[0].id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Удаление поставщика: его блюда остаются в каталоге без поставщика.
+router.delete("/suppliers/:id", async (req, res, next) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return badRequest(res, "bad_id");
+    const { rowCount } = await db.query("DELETE FROM suppliers WHERE id = $1 AND kombinat_id = $2", [id, req.cabinet.kombinatId]);
+    if (!rowCount) return res.status(404).json({ error: "not_found" });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Настройки комбината: название и правила прогноза. Подписка - справочно, из финмодели.
+const SETTINGS_LIMITS = {
+  forecastMarginPct: [0, 20],
+  problemWastePct: [5, 60],
+  unpopularTakePct: [20, 90]
+};
+
+async function settingsResponse(kombinatId) {
+  const [settings, schools, chats] = await Promise.all([
+    data.kombinatSettings(kombinatId),
+    schoolsOf(kombinatId),
+    db.query("SELECT COUNT(*)::int AS n FROM tg_chats WHERE kombinat_id = $1 AND role = 'kombinat'", [kombinatId])
+  ]);
+  return {
+    ...settings,
+    limits: SETTINGS_LIMITS,
+    subscription: {
+      pricePerSchool: metrics.SUBSCRIPTION_RUB_PER_SCHOOL,
+      schools: schools.length,
+      monthRub: schools.length * metrics.SUBSCRIPTION_RUB_PER_SCHOOL
+    },
+    telegramChats: chats.rows[0].n
+  };
+}
+
+// Процент в допустимых пределах с шагом 0,5 или null.
+function parsePct(v, [min, max]) {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return Number.isFinite(n) && n >= min && n <= max ? Math.round(n * 2) / 2 : null;
+}
+
+router.get("/settings", async (req, res, next) => {
+  try {
+    res.json(await settingsResponse(req.cabinet.kombinatId));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/settings", async (req, res, next) => {
+  try {
+    const name = parseText(req.body?.name, MAX_NAME);
+    const values = Object.fromEntries(Object.entries(SETTINGS_LIMITS).map(([key, range]) => [key, parsePct(req.body?.[key], range)]));
+    if (!name || Object.values(values).some((v) => v === null)) return badRequest(res, "bad_settings");
+    await db.query(
+      `UPDATE kombinats SET name = $2, forecast_margin_pct = $3, problem_waste_pct = $4, unpopular_take_pct = $5
+        WHERE id = $1`,
+      [req.cabinet.kombinatId, name, values.forecastMarginPct, values.problemWastePct, values.unpopularTakePct]
+    );
+    res.json(await settingsResponse(req.cabinet.kombinatId));
   } catch (err) {
     next(err);
   }

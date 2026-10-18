@@ -11,7 +11,7 @@ const data = require("../services/schoolData");
 const metrics = require("../services/metrics");
 const vision = require("../services/vision");
 const events = require("../services/events");
-const { today } = require("../utils/dates");
+const { addDays, today } = require("../utils/dates");
 const { dateParam, periodParams } = require("../utils/params");
 const { parseId, parseIntInRange, parseDate, badRequest } = require("../utils/http");
 const { imageUpload, extFor, uploadErrors } = require("../utils/imageUpload");
@@ -84,7 +84,10 @@ router.post("/menu", async (req, res, next) => {
     const planned = parseIntInRange(req.body?.planned_portions, 0, MAX_PORTIONS);
     if (!date || !dishId || planned === null) return badRequest(res, "bad_menu_item");
 
-    const dish = await db.query("SELECT id, name FROM dishes WHERE id = $1 AND kombinat_id = $2", [dishId, req.cabinet.kombinatId]);
+    const dish = await db.query(
+      "SELECT id, name FROM dishes WHERE id = $1 AND kombinat_id = $2 AND archived_at IS NULL",
+      [dishId, req.cabinet.kombinatId]
+    );
     if (!dish.rows[0]) return res.status(404).json({ error: "dish_not_found" });
 
     const { rows } = await db.query(
@@ -384,6 +387,43 @@ router.delete("/telegram/:chatId", async (req, res, next) => {
     if (!/^-?\d{1,20}$/.test(req.params.chatId)) return badRequest(res, "bad_chat");
     if (!(await telegram.unlinkChat(req.cabinet, req.params.chatId))) return res.status(404).json({ error: "not_found" });
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Настройки директора: правила прогноза комбината (справочно), камера столовой и Telegram.
+// Камера: последний поднос и сколько подносов увидели сегодня и за 7 дней, по источникам.
+router.get("/settings", async (req, res, next) => {
+  try {
+    const date = today();
+    const [settings, last, counts, chats] = await Promise.all([
+      data.kombinatSettings(req.cabinet.kombinatId),
+      db.query(
+        "SELECT created_at, source FROM tray_scans WHERE school_id = $1 AND source <> 'seed' ORDER BY created_at DESC LIMIT 1",
+        [req.cabinet.schoolId]
+      ),
+      db.query(
+        `SELECT COUNT(*) FILTER (WHERE scan_date = $2)::int AS today, COUNT(*)::int AS week
+           FROM tray_scans WHERE school_id = $1 AND scan_date > $3 AND scan_date <= $2`,
+        [req.cabinet.schoolId, date, addDays(date, -7)]
+      ),
+      db.query("SELECT role, COUNT(*)::int AS n FROM tg_chats WHERE school_id = $1 GROUP BY role", [req.cabinet.schoolId])
+    ]);
+    res.json({
+      kombinat: {
+        name: settings.name,
+        forecastMarginPct: settings.forecastMarginPct,
+        unpopularTakePct: settings.unpopularTakePct
+      },
+      camera: {
+        lastScanAt: last.rows[0]?.created_at || null,
+        lastSource: last.rows[0]?.source || null,
+        todayTrays: counts.rows[0].today,
+        weekTrays: counts.rows[0].week
+      },
+      telegram: Object.fromEntries(chats.rows.map((r) => [r.role, r.n]))
+    });
   } catch (err) {
     next(err);
   }

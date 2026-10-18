@@ -7,6 +7,12 @@ CREATE TABLE IF NOT EXISTS kombinats (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Настройки комбината (страница «Настройки»): запас к прогнозу заказа, порог «проблемной» школы
+-- по списаниям и доля детей, ниже которой блюдо считается нелюбимым. Всё в процентах.
+ALTER TABLE kombinats ADD COLUMN IF NOT EXISTS forecast_margin_pct NUMERIC(4, 1) NOT NULL DEFAULT 3;
+ALTER TABLE kombinats ADD COLUMN IF NOT EXISTS problem_waste_pct NUMERIC(4, 1) NOT NULL DEFAULT 20;
+ALTER TABLE kombinats ADD COLUMN IF NOT EXISTS unpopular_take_pct NUMERIC(4, 1) NOT NULL DEFAULT 60;
+
 CREATE TABLE IF NOT EXISTS suppliers (
   id           SERIAL PRIMARY KEY,
   kombinat_id  INT NOT NULL REFERENCES kombinats(id) ON DELETE CASCADE,
@@ -66,6 +72,8 @@ CREATE TABLE IF NOT EXISTS dishes (
   portion_price  NUMERIC(10, 2) NOT NULL CHECK (portion_price >= 0),
   UNIQUE (kombinat_id, name)
 );
+-- «Удалить блюдо» прячет его в архив: история подносов и статистика по нему остаются.
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 
 -- Меню школы на день: какие блюда и сколько порций заказано.
 CREATE TABLE IF NOT EXISTS menu_items (

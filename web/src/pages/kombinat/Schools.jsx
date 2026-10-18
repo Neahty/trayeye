@@ -9,8 +9,8 @@ import { fadeMotion, motionTokens, springs } from "../../lib/motion";
 import { WASTE_ZONES_HINT, dateTime, isoDate, pct } from "../../lib/format";
 import { Card, Icon, PlusIcon, ProblemCard, Status, Toast, ZoneChip, errorText, exportCsv, mailtoHref, copyReport } from "../../components/ui.jsx";
 
-// Самая проблемная школа (списания за неделю не ниже порога) подсвечивается красным.
-const HIGH_WASTE_PCT = 20;
+// Самая проблемная школа (списания за неделю не ниже порога из настроек комбината) подсвечивается красным.
+const DEFAULT_PROBLEM_WASTE_PCT = 20;
 const STATS_DAYS = 7;
 
 // Панель справа «Приглашение директора»: № школы + ФИО → личная ссылка (показывается один раз).
@@ -125,6 +125,8 @@ export default function KombinatSchools() {
   const dashboard = useApi("/kombinat/dashboard");
   const stats = useApi(`/kombinat/stats${qs({ from: isoDate(-STATS_DAYS), to: isoDate() })}`);
   const links = useApi("/kombinat/links");
+  const settings = useApi("/kombinat/settings");
+  const problemPct = settings.data?.problemWastePct ?? DEFAULT_PROBLEM_WASTE_PCT;
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [manualInvite, setInvite] = useState(null);
@@ -150,7 +152,7 @@ export default function KombinatSchools() {
       recommendations: today?.recommendations || []
     };
   });
-  const worst = rows.filter((s) => s.wastePct !== null && s.wastePct >= HIGH_WASTE_PCT)
+  const worst = rows.filter((s) => s.wastePct !== null && s.wastePct >= problemPct)
     .sort((a, b) => b.wastePct - a.wastePct)[0];
   const problemLines = worst && [
     `Проблемная школа: ${worst.number}.`,

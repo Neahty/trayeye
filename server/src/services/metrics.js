@@ -150,7 +150,8 @@ function weekdayFactor(targetDate, ratios) {
 
 // Прогноз заказа на targetDate по меню этого дня: сколько детей возьмёт каждое блюдо.
 // menu: [{ dish_id, name, category, image_url, portion_price, planned }], planned = «обычно».
-function forecast({ targetDate, menu, history, attendance, students }) {
+// margin - запас к прогнозу из настроек комбината (доля), по умолчанию FORECAST_SAFETY_MARGIN.
+function forecast({ targetDate, menu, history, attendance, students, margin = FORECAST_SAFETY_MARGIN }) {
   const ratios = takeRatios(history, new Map(attendance.map((a) => [a.date, a.present])));
   const overallRate = mean(ratios.map((r) => r.ratio)) ?? 1;
   const factor = weekdayFactor(targetDate, ratios);
@@ -162,7 +163,7 @@ function forecast({ targetDate, menu, history, attendance, students }) {
         mean(ratios.filter((r) => r.dish_id === m.dish_id).map((r) => r.ratio)) ??
         mean(ratios.filter((r) => r.category === m.category).map((r) => r.ratio)) ??
         overallRate;
-      const predicted = Math.ceil(present * rate * factor * (1 + FORECAST_SAFETY_MARGIN));
+      const predicted = Math.ceil(present * rate * factor * (1 + margin));
       return {
         dish_id: m.dish_id,
         name: m.name,
@@ -182,29 +183,30 @@ function capitalize(s) {
 }
 
 // Блюда, которые дети не берут или оставляют на подносе.
-function unpopularDishes(history, presentByDate) {
+function unpopularDishes(history, presentByDate, unpopularTake) {
   const out = [];
   for (const rows of groupBy(history.filter((r) => r.trays > 0), (r) => r.dish_id).values()) {
     if (rows.length < UNPOPULAR_MIN_DAYS) continue;
     const present = rows.reduce((a, r) => a + (presentByDate.get(r.date) || 0), 0);
     const takePct = present > 0 ? sum(rows, "trays") / present : 1;
     const leftover = 1 - sum(rows, "eaten") / sum(rows, "trays");
-    if (takePct <= UNPOPULAR_TAKE || leftover >= UNPOPULAR_LEFTOVER) {
+    if (takePct <= unpopularTake || leftover >= UNPOPULAR_LEFTOVER) {
       out.push({ name: rows[0].name, takePct, leftover, score: (1 - takePct) + leftover });
     }
   }
   return out.sort((a, b) => b.score - a.score).slice(0, UNPOPULAR_MAX_TIPS);
 }
 
-function unpopularText(d) {
-  if (d.takePct <= UNPOPULAR_TAKE) {
+function unpopularText(d, unpopularTake) {
+  if (d.takePct <= unpopularTake) {
     return `«${d.name}» берут только ${round(d.takePct * 100)}% детей. Замените блюдо в меню.`;
   }
   return `«${d.name}»: на подносах остаётся ${round(d.leftover * 100)}%. Уменьшите порцию или замените блюдо.`;
 }
 
 // Рекомендации по правилам поверх статистики. Каждая - { type, text }.
-function recommendations({ targetDate, history, attendance, forecastItems }) {
+// unpopularTake - доля детей из настроек комбината, ниже которой блюдо «не едят».
+function recommendations({ targetDate, history, attendance, forecastItems, unpopularTake = UNPOPULAR_TAKE }) {
   const tips = [];
   const presentByDate = new Map(attendance.map((a) => [a.date, a.present]));
   const shares = eatShares(history);
@@ -217,7 +219,7 @@ function recommendations({ targetDate, history, attendance, forecastItems }) {
     });
   }
 
-  for (const d of unpopularDishes(history, presentByDate)) tips.push({ type: "dish", text: unpopularText(d) });
+  for (const d of unpopularDishes(history, presentByDate, unpopularTake)) tips.push({ type: "dish", text: unpopularText(d, unpopularTake) });
 
   const extra = forecastItems.filter((f) => f.diff > 0);
   if (extra.length) {
@@ -294,6 +296,8 @@ function dailySeries(rows, attendance, students) {
 
 module.exports = {
   FORECAST_SAFETY_MARGIN,
+  UNPOPULAR_TAKE,
+  SUBSCRIPTION_RUB_PER_SCHOOL,
   round,
   eatenPct,
   wasteSummary,

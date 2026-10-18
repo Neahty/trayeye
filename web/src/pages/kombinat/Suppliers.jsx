@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
 import { CATEGORY_LABELS, rub } from "../../lib/format";
-import { Card, DishImage, Status, errorText } from "../../components/ui.jsx";
+import { Card, DishImage, Status, Toast, errorText } from "../../components/ui.jsx";
 
 const EMPTY_DISH = { name: "", category: "main", supplier_id: "", portion_grams: "", portion_price: "", image_url: "" };
 
@@ -75,19 +75,43 @@ function AddDish({ suppliers, categories, onAdded }) {
 export default function KombinatSuppliers() {
   const suppliers = useApi("/kombinat/suppliers");
   const dishes = useApi("/kombinat/dishes");
+  const [message, setMessage] = useState(null);
   const reloadAll = () => {
     suppliers.reload();
     dishes.reload();
   };
 
+  // Удаление необратимо для поставщика и прячет блюдо в архив, поэтому сначала спрашиваем.
+  const remove = async (path, question, done) => {
+    if (!window.confirm(question)) return;
+    try {
+      await api.del(path);
+      setMessage(done);
+      reloadAll();
+    } catch (err) {
+      setMessage(errorText(err));
+    }
+  };
+  const removeSupplier = (s) => remove(
+    `/kombinat/suppliers/${s.id}`,
+    `Удалить поставщика «${s.name}»?${s.dishes ? ` Его блюда (${s.dishes}) останутся в каталоге без поставщика.` : ""}`,
+    `Поставщик «${s.name}» удалён.`
+  );
+  const removeDish = (d) => remove(
+    `/kombinat/dishes/${d.id}`,
+    `Удалить блюдо «${d.name}»? Оно пропадёт из каталога и из меню школ на будущие дни. Статистика за прошлые дни сохранится.`,
+    `Блюдо «${d.name}» удалено из каталога.`
+  );
+
   return (
     <>
       <h1>Поставщики</h1>
+      <Toast>{message}</Toast>
       <Card title="Список поставщиков"><Status loading={suppliers.loading && !suppliers.data} error={suppliers.error} />
       <div className="table-wrap"><table>
-        <thead><tr><th>Поставщик</th><th>Блюд</th></tr></thead>
+        <thead><tr><th>Поставщик</th><th>Блюд</th><th className="action" /></tr></thead>
         <tbody>
-          {suppliers.data?.suppliers.map((s) => <tr key={s.id} data-focus={`supplier-${s.id}`}><td>{s.name}</td><td>{s.dishes}</td></tr>)}
+          {suppliers.data?.suppliers.map((s) => <tr key={s.id} data-focus={`supplier-${s.id}`}><td>{s.name}</td><td>{s.dishes}</td><td className="action"><button className="link danger-link" onClick={() => removeSupplier(s)}>Удалить</button></td></tr>)}
         </tbody>
       </table></div>
       <AddSupplier onAdded={reloadAll} />
@@ -99,7 +123,7 @@ export default function KombinatSuppliers() {
         <AddDish suppliers={suppliers.data?.suppliers || []} categories={dishes.data.categories} onAdded={reloadAll} />
       )}
       <div className="table-wrap"><table>
-        <thead><tr><th /><th>Блюдо</th><th>Тип</th><th>Порция</th><th>Цена</th><th>Поставщик</th></tr></thead>
+        <thead><tr><th /><th>Блюдо</th><th>Тип</th><th>Порция</th><th>Цена</th><th>Поставщик</th><th className="action" /></tr></thead>
         <tbody>
           {dishes.data?.dishes.map((d) => (
             <tr key={d.id} data-focus={`dish-${d.id}`}>
@@ -109,6 +133,7 @@ export default function KombinatSuppliers() {
               <td>{d.portion_grams} г</td>
               <td>{rub(d.portion_price)}</td>
               <td>{d.supplier_name || "-"}</td>
+              <td className="action"><button className="link danger-link" onClick={() => removeDish(d)}>Удалить</button></td>
             </tr>
           ))}
         </tbody>

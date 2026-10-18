@@ -581,6 +581,59 @@ suite("API", () => {
     });
   });
 
+  describe("настройки и удаление", () => {
+    const valid = { name: "Полиграф комбинат", forecastMarginPct: 3, problemWastePct: 20, unpopularTakePct: 60 };
+    let token;
+    beforeAll(async () => {
+      token = await login(tokenOf(links.kombinat));
+    });
+    const forecastTotal = async () => (await get("/api/kombinat/dashboard", token)).body.schools
+      .reduce((a, school) => a + school.forecast.items.reduce((b, item) => b + item.forecast, 0), 0);
+
+    test("настройки комбината: чтение, сохранение, пределы; запас меняет прогноз", async () => {
+      const before = await get("/api/kombinat/settings", token);
+      expect(before.body).toMatchObject(valid);
+      expect(before.body.subscription).toMatchObject({ pricePerSchool: 7800, monthRub: before.body.subscription.schools * 7800 });
+
+      const usual = await forecastTotal();
+      const saved = await send("put", "/api/kombinat/settings", token, { ...valid, forecastMarginPct: 10, problemWastePct: 25 });
+      expect(saved.status).toBe(200);
+      expect(saved.body).toMatchObject({ forecastMarginPct: 10, problemWastePct: 25 });
+      expect(await forecastTotal()).toBeGreaterThan(usual);
+
+      expect((await send("put", "/api/kombinat/settings", token, { ...valid, forecastMarginPct: 50 })).status).toBe(400);
+      expect((await send("put", "/api/kombinat/settings", token, { ...valid, name: " " })).status).toBe(400);
+      expect((await send("put", "/api/kombinat/settings", token, valid)).status).toBe(200);
+    });
+
+    test("директор видит правила комбината и камеру своей школы", async () => {
+      const director = await login(tokenOf(links.directors[0].url));
+      const res = await get("/api/director/settings", director);
+      expect(res.status).toBe(200);
+      expect(res.body.kombinat).toMatchObject({ forecastMarginPct: 3, unpopularTakePct: 60 });
+      expect(res.body.camera).toMatchObject({ todayTrays: expect.any(Number), weekTrays: expect.any(Number) });
+    });
+
+    test("удаление: поставщик - насовсем, блюдо - в архив с историей, повторное добавление возвращает его", async () => {
+      const supplier = await send("post", "/api/kombinat/suppliers", token, { name: "ООО «На удаление»" });
+      expect((await send("delete", `/api/kombinat/suppliers/${supplier.body.id}`, token)).status).toBe(200);
+      expect((await send("delete", `/api/kombinat/suppliers/${supplier.body.id}`, token)).status).toBe(404);
+
+      const borscht = (await get("/api/kombinat/dishes", token)).body.dishes.find((d) => d.name === "Борщ");
+      const trays = "SELECT COUNT(*)::int AS n FROM tray_items WHERE dish_id = $1";
+      const history = (await db.query(trays, [borscht.id])).rows[0].n;
+      expect((await send("delete", `/api/kombinat/dishes/${borscht.id}`, token)).status).toBe(200);
+      expect((await get("/api/kombinat/dishes", token)).body.dishes.map((d) => d.name)).not.toContain("Борщ");
+      expect((await db.query(trays, [borscht.id])).rows[0].n).toBe(history);
+      const future = await db.query("SELECT COUNT(*)::int AS n FROM menu_items WHERE dish_id = $1 AND date > $2", [borscht.id, "2026-10-13"]);
+      expect(future.rows[0].n).toBe(0);
+
+      const again = await send("post", "/api/kombinat/dishes", token, { name: "Борщ", category: "soup", portion_grams: 250, portion_price: 48 });
+      expect(again.status).toBe(201);
+      expect(again.body.id).toBe(borscht.id);
+    });
+  });
+
   describe("автопродление демо", () => {
     test("дописывает пропущенные учебные дни и меню на следующий, повторно - ничего", async () => {
       const added = await db.withTx((client) => topUpDemo(client, { today: "2026-10-16", scale: 0.05 }));

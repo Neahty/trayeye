@@ -1,7 +1,8 @@
 // «Привязать Telegram»: QR-код (сканировать телефоном) или код из 6 символов для бота.
 // Директор привязывает себя или выдаёт код повару, комбинат - себя.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "motion/react";
 import QRCode from "qrcode";
 import { api } from "../lib/api";
 import { fadeMotion, motionTokens, springs } from "../lib/motion";
@@ -153,5 +154,21 @@ export default function TelegramDialog({ role, onClose }) {
         )}
       </div>
     </motion.div>
+  </>;
+}
+
+// Кнопка «Привязать Telegram» на страницах настроек. Окно - в body: у страницы во время
+// анимации есть transform, а он ломает position: fixed.
+export function TelegramButton({ role, disabled = false, onClosed }) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => {
+    setOpen(false);
+    onClosed?.();
+  }, [onClosed]);
+  return <>
+    <button type="button" className="secondary tg-menu-item" disabled={disabled} onClick={() => setOpen(true)}>
+      <TelegramGlyph size={16} />Привязать Telegram
+    </button>
+    {createPortal(<AnimatePresence>{open && <TelegramDialog key="telegram" role={role} onClose={close} />}</AnimatePresence>, document.body)}
   </>;
 }

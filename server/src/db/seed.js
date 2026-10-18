@@ -88,7 +88,7 @@ async function insertCatalog(client) {
 
 // Каталог комбината из базы с аппетитом из demoData (по названию блюда).
 async function loadCatalog(client, kombinatId) {
-  const { rows } = await client.query("SELECT id, name, category FROM dishes WHERE kombinat_id = $1 ORDER BY id", [kombinatId]);
+  const { rows } = await client.query("SELECT id, name, category FROM dishes WHERE kombinat_id = $1 AND archived_at IS NULL ORDER BY id", [kombinatId]);
   const demo = new Map(DISHES.map((d) => [d.name, d]));
   return rows.map((r) => ({ take: DEFAULT_TAKE, eat: DEFAULT_EAT, ...demo.get(r.name), ...r }));
 }

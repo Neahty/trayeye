@@ -59,7 +59,7 @@ async function listDishes(kombinatId) {
             d.portion_price::float AS portion_price, d.supplier_id, s.name AS supplier_name
        FROM dishes d
        LEFT JOIN suppliers s ON s.id = d.supplier_id
-      WHERE d.kombinat_id = $1
+      WHERE d.kombinat_id = $1 AND d.archived_at IS NULL
       ORDER BY d.name`,
     [kombinatId]
   );
@@ -79,4 +79,26 @@ async function schoolsOf(kombinatId) {
   return rows;
 }
 
-module.exports = { dishDays, attendanceDays, studentsBySchool, listDishes, schoolsOf };
+// Настройки комбината в процентах (страница «Настройки»).
+async function kombinatSettings(kombinatId) {
+  const { rows } = await db.query(
+    `SELECT name, forecast_margin_pct::float AS "forecastMarginPct", problem_waste_pct::float AS "problemWastePct",
+            unpopular_take_pct::float AS "unpopularTakePct"
+       FROM kombinats WHERE id = $1`,
+    [kombinatId]
+  );
+  return rows[0] || null;
+}
+
+// Правила прогноза для школ (все школы одного комбината): доли, а не проценты.
+async function forecastRules(schoolIds) {
+  const { rows } = await db.query(
+    `SELECT k.forecast_margin_pct::float AS margin, k.unpopular_take_pct::float AS take
+       FROM schools s JOIN kombinats k ON k.id = s.kombinat_id
+      WHERE s.id = ANY($1) LIMIT 1`,
+    [schoolIds]
+  );
+  return rows[0] ? { margin: rows[0].margin / 100, unpopularTake: rows[0].take / 100 } : {};
+}
+
+module.exports = { dishDays, attendanceDays, studentsBySchool, listDishes, schoolsOf, kombinatSettings, forecastRules };
