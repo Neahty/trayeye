@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { appUrl } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { pct, rub } from "../lib/format";
@@ -103,6 +104,7 @@ export default function Landing() {
               {error && <p className="error" role="alert">{error}</p>}
             </div>
           )}
+          <Link className="button secondary landing-camera" to="/camera">Посмотреть, как работает камера</Link>
           <p className="muted landing-note">Рабочий вход - по личной ссылке, её выдаёт комбинат питания.</p>
         </div>
         {data?.totals && <DemoNumbers totals={data.totals} />}

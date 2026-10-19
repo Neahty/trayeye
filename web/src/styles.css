@@ -491,6 +491,45 @@ tr.flash td { animation: row-flash 2.2s ease; }
   .landing-steps { grid-template-columns: 1fr; }
   .landing-director { flex-direction: column; }
 }
+.landing-camera { margin-top: 14px; }
+
+/* ---------- Демо камеры (/camera) ---------- */
+.camera-page { gap: 28px; }
+.camera-intro h1 { font-size: clamp(28px, 3vw, 40px); font-weight: 600; line-height: 1.15; }
+.camera-intro .landing-lead { max-width: 820px; margin-bottom: 0; }
+.camera-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.camera-screen { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.camera-frame { position: relative; overflow: hidden; background: #1b1b1b; border-radius: 8px; aspect-ratio: 16 / 9; }
+.camera-frame video, .camera-overlay { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.camera-frame video { object-fit: cover; }
+.camera-tag { fill: #1d1d1d; font-size: 15px; font-weight: 700; }
+.camera-hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; align-items: center; gap: 12px; color: white; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-shadow: 0 1px 2px #000a; pointer-events: none; }
+.camera-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
+.camera-rec { padding: 3px 8px 3px 20px; position: relative; background: #0008; border-radius: 6px; }
+.camera-rec::before { content: ""; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; background: var(--red); border-radius: 50%; animation: pulse 1.4s ease infinite; }
+.camera-rec.off::before { background: #bbb; animation: none; }
+.camera-bar { padding: 0 6px 4px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.camera-stats { display: flex; flex-wrap: wrap; gap: 8px 32px; }
+.camera-stat { display: flex; flex-direction: column-reverse; }
+.camera-stat .metric-label { margin: 0; color: #7b8794; font-size: 12px; font-weight: 500; }
+.camera-feed { max-height: 640px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.camera-feed h3 { color: var(--blue); }
+.camera-feed ul { margin: 0 -8px; padding: 0 8px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; list-style: none; }
+.camera-feed-item { padding: 10px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: start; background: #f6f7f6; border-left: 3px solid var(--green); border-radius: 10px; }
+.camera-feed-item.warn { border-left-color: #f0a020; }
+.camera-feed-item img { width: 96px; height: 68px; object-fit: cover; border-radius: 6px; }
+.camera-feed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.camera-chip { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.camera-chip.ok { color: #155a17; background: var(--green-soft); }
+.camera-chip.warn { color: #8a5300; background: #fdefd6; }
+.camera-feed-title { margin-top: 4px; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.camera-feed-note { margin-top: 2px; font-size: 12px; }
+.camera-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.camera-note { margin-top: 14px; max-width: 900px; font-size: 13px; line-height: 1.5; }
+@media (max-width: 1100px) {
+  .camera-grid { grid-template-columns: 1fr; }
+  .camera-feed { max-height: 420px; }
+}
 
 /* ---------- Настройки ---------- */
 .settings-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); gap: 16px; align-items: start; }

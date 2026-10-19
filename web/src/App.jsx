@@ -4,6 +4,7 @@ import Layout from "./components/Layout.jsx";
 import { Loading } from "./components/ui.jsx";
 import LinkLogin from "./pages/LinkLogin.jsx";
 import Landing from "./pages/Landing.jsx";
+import Camera from "./pages/Camera.jsx";
 import DirectorHome from "./pages/director/Home.jsx";
 import DirectorClasses from "./pages/director/Classes.jsx";
 import DirectorStats from "./pages/director/Stats.jsx";
@@ -41,6 +42,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Root />} />
         <Route path="/l/:token" element={<LinkLogin />} />
+        {/* Демо камеры открыто всем, в том числе после входа: QR в презентации ведёт сюда. */}
+        <Route path="/camera" element={<Camera />} />
 
         <Route path="/director" element={<RoleGate role="director" />}>
           <Route index element={<DirectorHome />} />

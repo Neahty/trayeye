@@ -14,6 +14,7 @@
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed-cli.js",
     "link": "node src/db/link-cli.js",
+    "demo-camera": "node src/db/demo-camera-cli.js",
     "bot": "node src/bot/index.js",
     "test": "jest --runInBand",
     "test:ci": "jest --ci --runInBand"
