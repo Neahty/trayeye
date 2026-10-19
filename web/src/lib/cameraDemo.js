@@ -33,11 +33,29 @@ export function traysAt(frames, t) {
   });
 }
 
-// Посуда и еда на ближайшем кадре модели: [{ kind, box }]. Их не ведём плавно - у них нет номера.
+const inside = ([x, y], [x1, y1, x2, y2]) => x >= x1 && x <= x2 && y >= y1 && y <= y2;
+
+// Посуда и еда в момент t: [{ kind, box }]. У них нет номера, поэтому едут вместе со своим
+// подносом: сдвигаем рамку на столько же, на сколько плавно сдвинулся поднос.
 export function detsAt(frames, t) {
   const i = frameIndex(frames, t);
   if (i < 0) return [];
-  return frames[i].dets.map(([kind, ...box]) => ({ kind, box }));
+  const moved = new Map(traysAt(frames, t).map((tr) => [tr.id, tr.box]));
+  const trays = frames[i].trays.map(([id, ...box]) => ({ box, to: moved.get(id) }));
+  return frames[i].dets.map(([kind, ...box]) => {
+    const center = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+    const owner = trays.find((tr) => tr.to && inside(center, tr.box));
+    if (!owner) return { kind, box };
+    const dx = owner.to[0] - owner.box[0];
+    const dy = owner.to[1] - owner.box[1];
+    return { kind, box: [box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy] };
+  });
+}
+
+// Снимок подноса уже сделан (модель выбрала лучший кадр) - над ним можно показать итог.
+export function verdictShown(events, id, t) {
+  const event = events.find((e) => e.id === id);
+  return event && t >= event.best_t ? event : null;
 }
 
 // Подносы, которые к моменту t уже проехали и разобраны, новые сверху.

@@ -523,6 +523,12 @@ tr.flash td { animation: row-flash 2.2s ease; }
 .camera-chip.ok { color: #155a17; background: var(--green-soft); }
 .camera-chip.warn { color: #8a5300; background: #fdefd6; }
 .camera-feed-title { margin-top: 4px; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.camera-dishes { margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; list-style: none; font-size: 12px; }
+.camera-dishes li { display: grid; grid-template-columns: minmax(0, 1fr) 64px 38px; gap: 8px; align-items: center; }
+.camera-dishes li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.camera-dishes b { text-align: right; font-variant-numeric: tabular-nums; }
+.camera-meter { height: 6px; overflow: hidden; background: #e4e6e8; border-radius: 3px; }
+.camera-meter i { height: 100%; display: block; background: #f0a020; border-radius: 3px; transform-origin: left; }
 .camera-feed-note { margin-top: 2px; font-size: 12px; }
 .camera-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .camera-note { margin-top: 14px; max-width: 900px; font-size: 13px; line-height: 1.5; }

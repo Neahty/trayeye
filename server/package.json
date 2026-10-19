@@ -15,6 +15,7 @@
     "seed": "node src/db/seed-cli.js",
     "link": "node src/db/link-cli.js",
     "demo-camera": "node src/db/demo-camera-cli.js",
+    "eval-ai": "node src/db/eval-ai-cli.js",
     "bot": "node src/bot/index.js",
     "test": "jest --runInBand",
     "test:ci": "jest --ci --runInBand"

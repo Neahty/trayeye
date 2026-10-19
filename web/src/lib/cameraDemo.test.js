@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { detsAt, passedBy, summary, traysAt, trayVerdict } from "./cameraDemo";
+import { detsAt, passedBy, summary, traysAt, trayVerdict, verdictShown } from "./cameraDemo";
 
 const frames = [
   { t: 0, trays: [[1, 0, 0, 100, 100]], dets: [["plate", 10, 10, 50, 50]] },
@@ -23,8 +23,15 @@ describe("cameraDemo", () => {
     expect(traysAt(frames, 5)).toEqual([]);
   });
 
-  test("посуда берётся с ближайшего прошлого кадра", () => {
-    expect(detsAt(frames, 0.9)).toEqual([{ kind: "plate", box: [10, 10, 50, 50] }]);
+  test("посуда едет вместе со своим подносом", () => {
+    expect(detsAt(frames, 0.5)).toEqual([{ kind: "plate", box: [60, 10, 100, 50] }]);
+  });
+
+  test("итог над подносом - после его снимка", () => {
+    const events = [{ id: 1, best_t: 2, t: 3 }];
+    expect(verdictShown(events, 1, 1.9)).toBeNull();
+    expect(verdictShown(events, 1, 2)).toBe(events[0]);
+    expect(verdictShown(events, 7, 5)).toBeFalsy();
   });
 
   test("проехавшие подносы и счётчики", () => {

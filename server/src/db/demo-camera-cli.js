@@ -20,17 +20,29 @@ async function main() {
   const menu = VIDEO_DISHES.map((slug, i) => ({ dish_id: i + 1, name: DISHES.find((d) => d.slug === slug).name }));
   const names = new Map(menu.map((m) => [m.dish_id, m.name]));
 
-  const pending = demo.events.filter((e) => !e.empty);
-  for (let k = 0; k < pending.length; k += BATCH) {
-    const chunk = pending.slice(k, k + BATCH);
+  // Пачка - подносы одного обеда с его меню (поле menu у события), как в школе.
+  const groups = new Map();
+  for (const e of demo.events.filter((ev) => !ev.empty)) {
+    const key = (e.menu || VIDEO_DISHES).join(",");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  }
+  const chunks = [];
+  for (const [key, events] of groups) {
+    const dayMenu = menu.filter((m) => key.split(",").includes(VIDEO_DISHES[m.dish_id - 1]));
+    for (let k = 0; k < events.length; k += BATCH) chunks.push({ menu: dayMenu, events: events.slice(k, k + BATCH) });
+  }
+  let done = 0;
+  for (const { menu: dayMenu, events: chunk } of chunks) {
     const images = chunk.map((e) => ({ buffer: fs.readFileSync(path.join(dir, e.crop)), mime: "image/jpeg" }));
-    const { results, model } = await vision.analyzeTrays({ images, menu });
+    const { results, model } = await vision.analyzeTrays({ images, menu: dayMenu });
     chunk.forEach((e, j) => {
       // На кадре один поднос: берём первый, где модель нашла блюда из меню.
       const items = (results[j] || []).find((t) => t.length) || [];
       e.ai = { model, items: items.map((it) => ({ name: names.get(it.dish_id), leftover_pct: it.leftover_pct })) };
     });
-    console.log(`Подносов ${k + chunk.length}/${pending.length}: ${model}`);
+    done += chunk.length;
+    console.log(`Подносов ${done}: ${model}`);
   }
   fs.writeFileSync(file, JSON.stringify(demo));
 }

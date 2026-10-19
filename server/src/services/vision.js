@@ -31,8 +31,9 @@ function geminiKeys() {
   )];
 }
 
-function providerChain() {
-  const geminiModels = (process.env.GEMINI_VISION_MODELS || "gemini-3.1-flash-lite,gemini-3.5-flash-lite")
+// models - явный список моделей Gemini (проверка точности, eval-ai-cli.js); иначе из .env.
+function providerChain(models) {
+  const geminiModels = models || (process.env.GEMINI_VISION_MODELS || "gemini-3.1-flash-lite,gemini-3.5-flash-lite")
     .split(",").map((s) => s.trim()).filter(Boolean);
   const chain = geminiKeys().flatMap((apiKey) =>
     geminiModels.map((model) => ({ name: "gemini", url: GEMINI_URL, apiKey, model }))
@@ -54,12 +55,12 @@ function isConfigured() {
 
 function buildPrompt(menu) {
   const list = menu.map((m) => `${m.dish_id}: ${m.name}`).join("\n");
-  return `Ты смотришь на фото подноса в школьной столовой ПОСЛЕ еды.
+  return `Ты смотришь на фото подноса из школьной столовой, съёмка сверху.
 Меню на сегодня (id: название):
 ${list}
 
-Найди на подносе блюда ТОЛЬКО из этого меню и оцени, какая доля каждой порции осталась несъеденной:
-0 - тарелка пустая, 100 - порцию не трогали. Блюда, которых на подносе нет, не указывай.
+Найди на подносе блюда ТОЛЬКО из этого меню и оцени, сколько осталось.
+${LEFTOVER_RULES}
 Ответь строго JSON без пояснений: {"items":[{"dish_id":0,"leftover_pct":0}]}`;
 }
 
@@ -102,6 +103,10 @@ async function callProvider(provider, prompt, images, maxTokens = MAX_TOKENS, ti
       temperature: 0.1,
       max_tokens: maxTokens,
       response_format: { type: "json_object" },
+      // Модели flash «рассуждают» перед ответом и тратят на это лимит max_tokens - ответ
+      // приходит пустым. AI_REASONING_EFFORT=none это отключает (у моделей lite рассуждений нет).
+      ...(process.env.AI_REASONING_EFFORT && !/lite/.test(provider.model)
+        ? { reasoning_effort: process.env.AI_REASONING_EFFORT } : {}),
       messages: [{
         role: "user",
         content: [
@@ -144,8 +149,8 @@ const RETRY_PASSES = 3;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // attempt(provider) -> результат или null («модель ответила, но пусто»).
-async function runChain(attempt) {
-  const chain = providerChain();
+async function runChain(attempt, models) {
+  const chain = providerChain(models);
   if (!chain.length) throw notConfigured();
   const failures = [];
   for (let pass = 1; pass <= RETRY_PASSES; pass += 1) {
@@ -176,11 +181,34 @@ async function analyzeTray({ buffer, mime, menu }) {
   });
 }
 
+// Как оценивать остаток - общее для запроса по одному фото и по пачке. Без этих правил модель
+// отвечала 50 почти на любой остаток (на тестовой ленте 28 ответов «50» при 12 настоящих половинах),
+// а с подсказкой «после еды» ставила 0% целым порциям. Проверка: npm run eval-ai (src/db/eval-ai-cli.js).
+const LEFTOVER_RULES = `Как оценивать остаток каждой порции в процентах:
+100 - порцию не трогали: второе закрывает почти всё дно тарелки, суп - миска почти до краёв, напиток - стакан почти до краёв.
+0 - посуда пустая, остались только крошки, пятна или разводы.
+Сравнивай, какую площадь ещё занимает еда, с полной порцией: кучка на четверть дна - около 30, маленький остаток - 10-20.
+Отвечай числом с шагом 10 (0, 10, 20 ... 100), не округляй к 50 без причины.
+Пустую посуду тоже указывай (0), если понятно, какое блюдо в ней было. Блюда, которых на подносе нет, не указывай.`;
+
 // Несколько фото в ОДНОМ запросе: у бесплатного Gemini лимит на число запросов, а не на
 // картинки в запросе, поэтому шлём пачкой. На одном фото бывает несколько подносов (повар
 // снял ряд на столе): подносы считает сама модель - YOLOE без дообучения их не различает.
-// «После еды» в промпте не пишем: с такой подсказкой модель ставила 0% целым порциям.
 function buildBatchPrompt(menu, count) {
+  const list = menu.map((m) => `${m.dish_id}: ${m.name}`).join("\n");
+  return `Ниже ${count} фото из школьной столовой, по порядку: фото 1, фото 2 и так далее. Съёмка сверху.
+На каждом фото может быть один или несколько подносов.
+Меню на сегодня (id: название):
+${list}
+
+Для КАЖДОГО подноса на КАЖДОМ фото назови блюда ТОЛЬКО из этого меню и оцени, сколько осталось.
+${LEFTOVER_RULES}
+Ответь строго JSON без пояснений:
+{"photos":[{"photo":1,"trays":[{"items":[{"dish_id":0,"leftover_pct":0}]}]}]}`;
+}
+
+// Прежний запрос - только для сравнения в eval-ai-cli.js (--prompt v1).
+function buildBatchPromptV1(menu, count) {
   const list = menu.map((m) => `${m.dish_id}: ${m.name}`).join("\n");
   return `Ниже ${count} фото из школьной столовой, по порядку: фото 1, фото 2 и так далее.
 На каждом фото может быть один или несколько подносов с едой.
@@ -193,6 +221,8 @@ ${list}
 Ответь строго JSON без пояснений:
 {"photos":[{"photo":1,"trays":[{"items":[{"dish_id":0,"leftover_pct":0}]}]}]}`;
 }
+
+const BATCH_PROMPTS = { v2: buildBatchPrompt, v1: buildBatchPromptV1 };
 
 // Ответ на пачку -> массив длиной count: по каждому фото список подносов, у подноса - список блюд.
 // Поднос без блюд из меню остаётся пустым списком: модель видит еду, но не из сегодняшнего меню.
@@ -211,8 +241,9 @@ function parseBatch(content, menu, count) {
 
 // images: [{ buffer, mime }] -> { results: [[[{ dish_id, leftover_pct }]] | null], model }:
 // по каждому фото - подносы, у каждого подноса - блюда.
-async function analyzeTrays({ images, menu }) {
-  const prompt = buildBatchPrompt(menu, images.length);
+// prompt - вариант текста запроса (BATCH_PROMPTS), models - модели вместо .env: для eval-ai-cli.js.
+async function analyzeTrays({ images, menu, models, prompt: promptName = "v2" }) {
+  const prompt = BATCH_PROMPTS[promptName](menu, images.length);
   // На фото бывает 5-6 подносов по 5 блюд: запас токенов на каждое фото.
   const maxTokens = 400 + 600 * images.length;
   // Пачка думает дольше одиночного фото: 6 подносов у gemini flash-lite через прокси - ~27 с.
@@ -220,7 +251,7 @@ async function analyzeTrays({ images, menu }) {
   return runChain(async (provider) => {
     const results = parseBatch(await callProvider(provider, prompt, images, maxTokens, timeout), menu, images.length);
     return results.some((r) => r && r.length) ? { results, model: provider.model } : null;
-  });
+  }, models);
 }
 
 module.exports = { analyzeTray, analyzeTrays, parseItems, parseBatch, buildPrompt, buildBatchPrompt, isConfigured };

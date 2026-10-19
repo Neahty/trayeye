@@ -46,6 +46,7 @@ describe("пачка подносов", () => {
     expect(prompt).toContain("Ниже 4 фото");
     expect(prompt).toContain("один или несколько подносов");
     expect(prompt).toContain("100 - порцию не трогали");
+    expect(prompt).toContain("не округляй к 50");
     expect(prompt).not.toMatch(/после еды/i);
   });
 });

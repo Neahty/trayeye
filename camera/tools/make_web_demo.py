@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from trayeye_camera.detector import Detector  # noqa: E402
-from trayeye_camera.pipeline import TrayPipeline  # noqa: E402
+from trayeye_camera.pipeline import TrayPipeline, assign_trays  # noqa: E402
 from trayeye_camera.video import frames, jpeg  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,13 +32,15 @@ def box(b):
     return [int(round(v)) for v in b]
 
 
-def encode_video(src, dst, size):
+def encode_video(src, dst):
+    """Видео для браузера: H.264 в исходном размере и частоте кадров (60 у make_demo_video.py).
+    Рамки в camera.json - в пикселях уменьшенного кадра, страница растягивает их по размеру видео."""
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         sys.exit("Нужен ffmpeg: браузеры не играют mp4v, который пишет OpenCV.")
-    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(src), "-an",
-                    "-vf", f"scale={size[0]}:{size[1]}", "-c:v", "libx264", "-preset", "slow", "-crf", "28",
-                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(dst)], check=True)
+    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(src), "-an", "-c:v", "libx264",
+                    "-preset", "slow", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(dst)],
+                   check=True)
 
 
 def main():
@@ -54,7 +56,7 @@ def main():
         shutil.rmtree(out / "trays")
     (out / "trays").mkdir(parents=True)
 
-    pipe = TrayPipeline(Detector(threads=2))
+    pipe = TrayPipeline(Detector(threads=2), belt=True)
     timeline, events, size = [], [], None
 
     def handle(evs):
@@ -66,6 +68,7 @@ def main():
                 # Поднос «проехал», когда модель перестала его видеть: тогда и появляется результат.
                 "t": round(ev.last_ts, 2),
                 "best_t": round(ev.best_ts, 2),
+                "first_t": round(ev.first_ts, 2),
                 "empty": ev.is_empty,
                 "local": [{"kind": it["kind"], "leftover_pct": it["leftover_pct"]} for it in ev.items],
                 "crop": name,
@@ -74,16 +77,29 @@ def main():
     for ts, frame in frames(args.source, fps=args.fps):
         size = frame.shape[1::-1]
         handle(pipe.process(frame, ts))
+        # Посуду рисуем ту же, что конвейер отнёс к подносам: без «тарелки» размером с поднос и повторов.
+        members = assign_trays(pipe.last_dets, [b for _, b in pipe.last_groups])
         timeline.append({
             "t": round(ts, 2),
             "trays": [[tid, *box(b)] for tid, b in pipe.last_groups],
-            "dets": [[d.kind, *box(d.box)] for d in pipe.last_dets if d.kind != "tray"],
+            "dets": [[d.kind, *box(d.box)] for _, group in members for d in group],
         })
     handle(pipe.flush())
 
-    # Рамки посчитаны на уменьшенных кадрах - видео того же размера.
-    encode_video(args.source, out / "camera.mp4", size)
+    encode_video(args.source, out / "camera.mp4")
     events.sort(key=lambda e: e["t"])
+    # Меню обеда из разметки тестовой ленты (make_demo_video.py): его получает ИИ, как в школе.
+    truth_path = Path(args.source).with_suffix(".json")
+    if truth_path.exists():
+        truth = json.loads(truth_path.read_text(encoding="utf-8"))
+        for e in events:
+            mid = (e["first_t"] + e["t"]) / 2
+            near = [t for t in truth if e["first_t"] <= t["center_ts"] <= e["t"]]
+            tr = min(near, key=lambda t: abs(t["center_ts"] - mid), default=None)
+            if tr and tr.get("menu"):
+                e["menu"] = tr["menu"]
+    for e in events:
+        e.pop("first_t", None)
     data = {"width": size[0], "height": size[1], "fps": args.fps, "frames": timeline, "events": events}
     (out / "camera.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     empty = sum(e["empty"] for e in events)

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { appUrl } from "../lib/api";
-import { detsAt, passedBy, summary, traysAt, trayVerdict } from "../lib/cameraDemo";
+import { detsAt, passedBy, summary, traysAt, trayVerdict, verdictShown } from "../lib/cameraDemo";
 
 const DET_COLORS = { plate: "#5bc0ff", bowl: "#3ee0a1", cup: "#c49bff", food: "#ff6b5b" };
 // Часы в углу кадра: запись «идёт» в обед.
@@ -29,22 +29,43 @@ function useVideoTime(videoRef) {
   return t;
 }
 
+// Уголки видоискателя вокруг подноса: читается как «камера следит», не загораживая еду.
+function corners(x1, y1, x2, y2, len) {
+  const l = Math.min(len, (x2 - x1) / 3, (y2 - y1) / 3);
+  return [
+    `M${x1},${y1 + l}V${y1}H${x1 + l}`, `M${x2 - l},${y1}H${x2}V${y1 + l}`,
+    `M${x2},${y2 - l}V${y2}H${x2 - l}`, `M${x1 + l},${y2}H${x1}V${y2 - l}`
+  ].join("");
+}
+
+const TONE_COLORS = { scan: "#ffffff", ok: "#3ddc6e", warn: "#ffb020" };
+
 function Overlay({ demo, t }) {
   const trays = traysAt(demo.frames, t);
   const dets = detsAt(demo.frames, t);
+  // Размеры подписей - в пикселях видео: viewBox масштабирует их вместе с кадром.
+  const s = demo.width / 960;
   return (
     <svg className="camera-overlay" viewBox={`0 0 ${demo.width} ${demo.height}`} aria-hidden="true">
       {dets.map((d, i) => {
         const [x1, y1, x2, y2] = d.box;
-        return <rect key={i} x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx="4" fill="none" stroke={DET_COLORS[d.kind]} strokeWidth="1.5" opacity=".85" />;
+        return <rect key={i} x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx={6 * s} fill="none" stroke={DET_COLORS[d.kind]} strokeWidth={1.4 * s} strokeDasharray={`${5 * s} ${4 * s}`} opacity=".8" />;
       })}
-      {trays.map(({ id, box: [x1, y1, x2, y2] }) => (
-        <g key={id}>
-          <rect x={x1 - 5} y={y1 - 5} width={x2 - x1 + 10} height={y2 - y1 + 10} rx="8" fill="none" stroke="white" strokeWidth="3" />
-          <rect x={x1 - 5} y={y1 - 31} width="104" height="24" rx="6" fill="white" />
-          <text x={x1 + 4} y={y1 - 13} className="camera-tag">Поднос #{id}</text>
-        </g>
-      ))}
+      {trays.map(({ id, box: [x1, y1, x2, y2] }) => {
+        const event = verdictShown(demo.events, id, t);
+        const tone = event ? (event.empty ? "ok" : "warn") : "scan";
+        const label = event ? (event.empty ? `#${id} · всё съедено` : `#${id} · остатки → ИИ`) : `Поднос #${id} · анализ`;
+        const pad = 6 * s;
+        const w = (label.length * 9.6 + 28) * s;
+        return (
+          <g key={id} className={`camera-box ${tone}`}>
+            <rect x={x1 - pad} y={y1 - pad} width={x2 - x1 + 2 * pad} height={y2 - y1 + 2 * pad} rx={10 * s} fill={tone === "scan" ? "none" : TONE_COLORS[tone]} fillOpacity=".08" stroke={TONE_COLORS[tone]} strokeOpacity=".35" strokeWidth={1.5 * s} />
+            <path d={corners(x1 - pad, y1 - pad, x2 + pad, y2 + pad, 28 * s)} fill="none" stroke={TONE_COLORS[tone]} strokeWidth={4 * s} strokeLinecap="round" />
+            <rect x={x1 - pad} y={y1 - pad - 38 * s} width={w} height={31 * s} rx={15.5 * s} fill={TONE_COLORS[tone]} />
+            <text x={x1 - pad + 14 * s} y={y1 - pad - 17 * s} className="camera-tag" style={{ fontSize: 17 * s }}>{label}</text>
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -68,7 +89,19 @@ function FeedItem({ event }) {
           <b>Поднос #{event.id}</b>
           <span className={`camera-chip ${verdict.tone}`}>{event.empty ? "без ИИ" : "в ИИ"}</span>
         </div>
-        <p className="camera-feed-title">{verdict.title}</p>
+        {event.ai?.items?.length ? (
+          <ul className="camera-dishes">
+            {event.ai.items.map((it) => (
+              <li key={it.name}>
+                <span>{it.name}</span>
+                <span className="camera-meter" aria-hidden="true"><i style={{ transform: `scaleX(${it.leftover_pct / 100})` }} /></span>
+                <b>{it.leftover_pct === 0 ? "съели" : `${it.leftover_pct}%`}</b>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="camera-feed-title">{verdict.title}</p>
+        )}
         <p className="muted camera-feed-note">{verdict.note}</p>
       </div>
     </li>

@@ -18,7 +18,9 @@ def open_source(source):
     return cap
 
 
-def frames(source, fps=3.0, max_side=960):
+# 1920: кадр подноса для ИИ режем из полного кадра камеры - на уменьшенном до 960 модель
+# хуже видела остатки. Детектор и модель фона ленты всё равно уменьшают кадр под себя.
+def frames(source, fps=3.0, max_side=1920):
     """Отдаёт (ts, кадр) с частотой fps. ts - секунды от начала видео (для потока - от старта)."""
     cap = open_source(source)
     native = cap.get(cv2.CAP_PROP_FPS) or 0

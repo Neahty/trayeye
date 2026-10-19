@@ -55,7 +55,7 @@ def tray_json(ev):
 
 
 def process_video(path, fps):
-    pipe = TrayPipeline(detector)
+    pipe = TrayPipeline(detector, belt=True)
     trays, n, spent = [], 0, 0.0
     for ts, frame in frames(str(path), fps=fps):
         if ts > MAX_SECONDS:
@@ -151,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
         if img is None:
             return self.reply(400, {"error": "bad_image"})
         forget_idle_cameras()
-        state = live.setdefault(cam, {"pipe": TrayPipeline(detector), "start": time.monotonic()})
+        state = live.setdefault(cam, {"pipe": TrayPipeline(detector, belt=True), "start": time.monotonic()})
         state["seen"] = time.monotonic()
         ts = float(query["ts"]) if "ts" in query else time.monotonic() - state["start"]
         trays = state["pipe"].process(shrink(img, 960), ts)

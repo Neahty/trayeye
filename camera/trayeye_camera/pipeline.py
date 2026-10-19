@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 
 from . import leftovers
+from .belt import BeltSegmenter
 from .classes import CONTAINERS
 
 
@@ -118,6 +119,42 @@ def group_trays(dets):
     return groups
 
 
+def _area(b):
+    return max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+
+
+def _iou(a, b):
+    inter = _area((max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])))
+    return inter / max(1.0, _area(a) + _area(b) - inter)
+
+
+def _dedupe(containers):
+    """Одна тарелка, найденная дважды (как plate и как bowl), - оставляем уверенную находку."""
+    kept = []
+    for c in sorted(containers, key=lambda d: -d.conf):
+        if all(_iou(c.box, k.box) < 0.6 for k in kept):
+            kept.append(c)
+    return kept
+
+
+def assign_trays(dets, boxes):
+    """Подносы от модели фона ленты + тарелки от YOLOE, чей центр внутри подноса."""
+    containers = [d for d in dets if d.kind in CONTAINERS and d.mask is not None]
+    groups = []
+    for box in boxes:
+        tray_area = max(1.0, (box[2] - box[0]) * (box[3] - box[1]))
+        # Сначала убираем повторы одной тарелки, иначе её копии ниже сочтут подносом.
+        members = _dedupe([c for c in containers if _inside(c.center(), box)])
+        # Модель иногда называет «тарелкой» весь поднос: её маска накрывает суп и второе,
+        # и пустой поднос выглядит полным. Такую «тарелку» выкидываем.
+        members = [c for c in members
+                   if _area(c.box) < 0.45 * tray_area
+                   and sum(o is not c and _inside(o.center(), c.box) for o in members) < 2]
+        # Тарелка у края может выступать за пятно подноса: рамка должна вмещать её целиком.
+        groups.append((_union([box] + [c.box for c in members]), members))
+    return groups
+
+
 def _hull_mask(mask):
     """Маски у модели бывают пятнистыми, а тарелки выпуклые: берём выпуклую оболочку."""
     m = mask.astype(np.uint8)
@@ -131,8 +168,12 @@ def _hull_mask(mask):
 
 
 class TrayPipeline:
-    def __init__(self, detector, max_missed=4, min_frames=2, margin=0.06):
+    def __init__(self, detector, max_missed=4, min_frames=2, margin=0.06, belt=False):
         self.detector = detector
+        # belt=True - видео с неподвижной камеры над лентой: подносы ищем по фону ленты (belt.py).
+        self.belt = BeltSegmenter() if belt else None
+        self.passes = []  # сколько кадров длились проезды подносов - отличать обрывки
+        self.counts = []  # сколько посуды находили на подносах - сколько её обычно
         self.max_missed = max_missed    # сколько обработанных кадров поднос может «пропасть»
         self.min_frames = min_frames    # меньше - случайная вспышка, не поднос
         self.margin = margin
@@ -160,7 +201,8 @@ class TrayPipeline:
         """Обрабатывает кадр, возвращает подносы, которые только что уехали из кадра."""
         self.frame_idx += 1
         dets = self.detector.detect(frame)
-        groups = group_trays(dets)
+        boxes = self.belt.boxes(frame) if self.belt else None
+        groups = assign_trays(dets, boxes) if boxes is not None else group_trays(dets)
         self.last_dets = dets
         h, w = frame.shape[:2]
 
@@ -239,6 +281,19 @@ class TrayPipeline:
         track.best_score = score
         track.best = {"crop": crop, "containers": containers, "ts": track.last_ts}
 
+    def _crop_containers(self, crop):
+        """Посуда на вырезанном подносе: [{"kind", "conf", "box", "mask"}] в координатах crop."""
+        h, w = crop.shape[:2]
+        groups = assign_trays(self.detector.detect(crop), [(0, 0, w, h)])
+        out = []
+        for c in groups[0][1] if groups else []:
+            x1, y1, x2, y2 = c.box
+            full = np.zeros((h, w), bool)
+            mh, mw = c.mask.shape
+            full[y1:y1 + mh, x1:x1 + mw] = _hull_mask(c.mask)[:h - y1, :w - x1]
+            out.append({"kind": c.kind, "conf": round(c.conf, 2), "box": c.box, "mask": full})
+        return out
+
     def _finish(self, done):
         events = []
         for tid in [t.id for t in self.tracks.values() if done(t)]:
@@ -246,7 +301,29 @@ class TrayPipeline:
             if t.frames_seen < self.min_frames or not t.best:
                 continue
             crop, containers = t.best["crop"], t.best["containers"]
+            if self.belt:
+                # На целом кадре посуда мелкая и модель теряет стаканы и миски. Рамка подноса
+                # уже точная - смотрим ещё раз только на него, в увеличенном виде.
+                containers = self._crop_containers(crop) or containers
+            # На ленте поднос едет через кадр секунды: мелькнувшее пятно без посуды - не поднос
+            # (край подноса при въезде, рука, тень), его нельзя записывать вторым подносом.
+            if self.belt and not containers and t.frames_seen < 4:
+                continue
+            # Обрывок трека посреди проезда (трекер на миг потерял поднос) короче трети обычного
+            # проезда - это тот же поднос, иначе он запишется дважды.
+            if self.belt:
+                typical = float(np.median(self.passes)) if len(self.passes) >= 3 else None
+                if typical and t.frames_seen < 0.3 * typical:
+                    continue
+                self.passes = (self.passes + [t.frames_seen])[-20:]
             items, is_empty = leftovers.estimate(crop, containers)
+            if self.belt:
+                # «Всё съедено» без ИИ - только если нашли всю посуду, что обычно стоит на подносе:
+                # не нашли миску - не знаем, доеден ли суп, и спрашиваем ИИ.
+                usual = int(np.median(self.counts)) if len(self.counts) >= 3 else 2
+                if len(containers) < max(2, usual):
+                    is_empty = False
+                self.counts = (self.counts + [len(containers)])[-20:]
             events.append(TrayEvent(
                 track_id=t.id,
                 crop=crop,

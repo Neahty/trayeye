@@ -75,7 +75,7 @@ def main():
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pipe = TrayPipeline(Detector(threads=args.threads))
+    pipe = TrayPipeline(Detector(threads=args.threads), belt=True)
     stats = {"trays": 0, "gpt": 0, "skipped": 0, "ms": 0.0}
     events, writer, times = [], None, []
 

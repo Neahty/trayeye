@@ -10,9 +10,17 @@ import cv2
 import numpy as np
 
 # Порог отличия цвета от обода в пространстве Lab (ΔE). Ниже - тарелка, выше - еда.
-FOOD_DELTA_E = 22.0
+# 16 и зернистость 6 подобраны на тестовой ленте (tools/eval_belt.py): 22 пропускал бежевый рис.
+FOOD_DELTA_E = 16.0
 # Доля площади, ниже которой тарелку считаем пустой (крошки, блики, соус по краю).
 EMPTY_SHARE = 0.06
+# Зернистость (СКО яркости в окне 7x7), выше которой это еда, а не гладкое дно тарелки.
+TEXTURE_SD = 6.0
+# Цветное пятно на подносе вне тарелок (компот, чай, пролитый суп): насыщенность и отличие
+# от цвета подноса в плоскости a*b*, и доля площади подноса, с которой это уже «не пусто».
+SPILL_CHROMA = 25.0
+SPILL_DIFF = 18.0
+SPILL_SHARE = 0.003
 # Сколько площади тарелки обычно занимает полная порция: для перевода доли в проценты.
 FULL_SHARE = {"plate": 0.55, "bowl": 0.85, "cup": 0.75}
 
@@ -42,7 +50,12 @@ def food_share(image_bgr, mask):
     lab[..., 0] *= 100.0 / 255.0
     base = np.median(lab[rim], axis=0)
     delta = np.linalg.norm(lab[inner] - base, axis=1)
-    food = delta > FOOD_DELTA_E
+    # Белый рис и пюре на белой тарелке по цвету не отличить - зато они зернистые,
+    # а дно тарелки гладкое (тень и блик меняются плавно).
+    light = lab[..., 0]
+    mean = cv2.blur(light, (7, 7))
+    grain = np.sqrt(np.maximum(cv2.blur(light * light, (7, 7)) - mean * mean, 0))
+    food = (delta > FOOD_DELTA_E) | (grain[inner] > TEXTURE_SD)
     # Убираем одиночные блики/крошки: доля считается по сглаженной карте.
     food_map = np.zeros(mask.shape, np.uint8)
     food_map[inner] = food.astype(np.uint8) * 255
@@ -50,11 +63,35 @@ def food_share(image_bgr, mask):
     return float((food_map[inner] > 0).mean())
 
 
+def spill_share(image_bgr, containers, inset=0.12):
+    """Доля подноса вне тарелок, где лежит что-то цветное: напиток в стакане (стаканы модель
+    сверху находит плохо), пролитый суп. Приборы и салфетка бесцветные - их не считаем.
+    Края кадра подноса не берём: там лента."""
+    h, w = image_bgr.shape[:2]
+    y1, y2, x1, x2 = int(h * inset), int(h * (1 - inset)), int(w * inset), int(w * (1 - inset))
+    region = np.zeros((h, w), bool)
+    region[y1:y2, x1:x2] = True
+    for c in containers:
+        grown = cv2.dilate(c["mask"].astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
+        region &= ~grown
+    if region.sum() < 200:
+        return 0.0
+    lab = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+    ab = lab[..., 1:] - 128.0
+    tray = np.median(ab[region], axis=0)
+    chroma = np.linalg.norm(ab, axis=2)
+    diff = np.linalg.norm(ab - tray, axis=2)
+    spot = ((chroma > SPILL_CHROMA) & (diff > SPILL_DIFF) & region).astype(np.uint8) * 255
+    spot = cv2.morphologyEx(spot, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    return float((spot > 0).sum() / region.sum())
+
+
 def estimate(image_bgr, containers):
     """containers: [{"kind": "plate"|"bowl"|"cup", "mask": bool HxW}] в координатах image_bgr.
 
     Возвращает (items, is_empty): по каждой тарелке доля еды и примерный остаток в %,
-    is_empty = на всех тарелках пусто, ChatGPT можно не звать.
+    is_empty = на всех тарелках пусто и на подносе нет цветных пятен - ИИ можно не звать.
+    Сколько тарелок должно быть на подносе, проверяет вызывающий (pipeline).
     """
     items = []
     for c in containers:
@@ -67,5 +104,6 @@ def estimate(image_bgr, containers):
             "food_share": round(share, 3),
             "leftover_pct": int(round(min(1.0, share / full) * 100)) if share >= EMPTY_SHARE else 0,
         })
-    is_empty = bool(items) and all(it["food_share"] < EMPTY_SHARE for it in items)
+    is_empty = (bool(items) and all(it["food_share"] < EMPTY_SHARE for it in items)
+                and spill_share(image_bgr, containers) < SPILL_SHARE)
     return items, is_empty
