@@ -63,7 +63,7 @@ jobs:
       - name: Переименовать
         run: cp android/app/build/outputs/apk/debug/app-debug.apk Bytwise.apk
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Bytwise-apk
           path: mobile/app/Bytwise.apk
